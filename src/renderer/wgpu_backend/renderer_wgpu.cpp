@@ -174,20 +174,6 @@ void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType t
   if (message.data) LOG("(" << message.data << ")");
 }
 
-void WGPURenderBackend::PrepareShadowInformation(
-  const glm::mat4x4& camView,
-  const glm::mat4x4& camProj,
-  const glm::mat4x4& camCombinedMat,
-  const float camAspect,
-  const float camFov, 
-  const float camNear, 
-  const float camFar, 
-  std::vector<DirLightRenderInfo>& gotDirLightRenderInfo,
-  std::vector<SpotLightRenderInfo>& gotSpotLightRenderInfo,
-  std::vector<PointLightRenderInfo>& gotPointLightRenderInfo) {
-    m_dynamicShadowedDirLights.Update(gotDirLightRenderInfo, &camCombinedMat, camFar);
-  }
-
 bool WGPURenderBackend::InitFrame() {
   #if SKL_ENABLED_EDITOR
   ImGui_ImplWGPU_NewFrame();
@@ -783,8 +769,15 @@ void WGPURenderBackend::InitPipelines()
   };
   bindEntities.push_back( dynamicDirLightShadowMapBind );
 
+  WGPUBindGroupLayoutEntry dynamicDirLightCascadeRatiosBind = DefaultBindLayoutEntry();
+  dynamicDirLightCascadeRatiosBind.binding = 4;
+  dynamicDirLightCascadeRatiosBind.visibility = WGPUShaderStage_Fragment;
+  dynamicDirLightCascadeRatiosBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
+  dynamicDirLightCascadeRatiosBind.buffer.minBindingSize = sizeof(float);
+  bindEntities.push_back( dynamicDirLightCascadeRatiosBind );
+
   WGPUBindGroupLayoutEntry shadowMapSamplerMapBind = DefaultBindLayoutEntry();
-  shadowMapSamplerMapBind.binding = 4;
+  shadowMapSamplerMapBind.binding = 5;
   shadowMapSamplerMapBind.visibility = WGPUShaderStage_Fragment;
   shadowMapSamplerMapBind.sampler = {
     .nextInChain = nullptr,
@@ -842,7 +835,7 @@ void WGPURenderBackend::InitPipelines()
       .topology = WGPUPrimitiveTopology_TriangleList,
       .stripIndexFormat = WGPUIndexFormat_Undefined,
       .frontFace = WGPUFrontFace_CCW,
-      .cullMode = WGPUCullMode_None
+      .cullMode = WGPUCullMode_Back
     },
     .depthStencil = &depthStencilState,
     .multisample {
@@ -898,11 +891,11 @@ void WGPURenderBackend::InitPipelines()
   m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", 2, m_maxDynamicShadowedDirLights);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightBuffer));
 
-  // TODO: Replace placeholder 1024 x 1024 dimensions and limit
+  // TODO: Replace placeholder 1000 x 1000 dimensions and limit
   m_dynamicDirLightShadowMapTexture.Init(
     m_wgpuCore.m_device, 
-    1024, 
-    1024, 
+    1000, 
+    1000, 
     32, 
     DefaultCascade, 
     "Dynamic Direction Light Shadow Maps", 
@@ -910,6 +903,9 @@ void WGPURenderBackend::InitPipelines()
     "Dynamic Direction Light Shadow Maps Layer", 
     3);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicDirLightShadowMapTexture));
+
+  m_dynamicShadowedDirLightCascadeRatios.Init(m_wgpuCore.m_device, "Shadowed Dynamic Directional Light Cascade Ratios", 4, DefaultCascade);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightCascadeRatios));
 
   m_shadowMapSampler.InitOrUpdate(
     m_wgpuCore.m_device, 
@@ -920,10 +916,10 @@ void WGPURenderBackend::InitPipelines()
     WGPUMipmapFilterMode_Nearest, 
     0.0, 
     0.0, 
-    WGPUCompareFunction_LessEqual, 
+    WGPUCompareFunction_Less, 
     1, 
     "Shadow Map Sampler", 
-    4);
+    5);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_shadowMapSampler));
   
   m_bindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
@@ -955,13 +951,6 @@ MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexC
 
 void WGPURenderBackend::DestroyMesh(MeshID meshID) {
   WGPUBackendMeshIdx& gotMesh = m_meshStore[meshID];
-
-  // Wipes out mesh on buffer side
-  WGPUCommandEncoderDescriptor destroyMeshDescriptor {
-    .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr(""),
-  };
-  WGPUCommandEncoder meshDestroyEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &destroyMeshDescriptor);
 
   // Removes mesh gpu side informations
   m_meshVertexBuffer.EraseRange(m_wgpuCore.m_device, m_wgpuQueue, gotMesh.m_baseVertex , gotMesh.m_vertexCount);
@@ -1022,7 +1011,9 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   glm::mat4x4 camSpace = mainCamProj * mainCamView;
     
   // Prepares dynamic shadowed lights to be rendered
-  PrepareShadowInformation(mainCamView, mainCamProj, camSpace, mainCamAspectRatio, state.cameraFov, state.cameraNear, state.cameraFar, state.dirLights, state.spotLights, state.pointLights);
+  // TODO: Make cascade ratios more adjustable
+  std::vector<float> cascadeRatios = {0.25, 0.50, 0.75, 1.00};
+  m_dynamicShadowedDirLights.Update(state.dirLights, mainCamView, cascadeRatios, 0.05, glm::radians(state.cameraFov), mainCamAspectRatio, state.cameraNear, state.cameraFar);
 
   // >>> Actually begins sending off information to be rendered <<<
 
@@ -1042,8 +1033,15 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   }
 
   m_dynamicShadowedDirLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirShadowData.data(), sizeof(WGPUBackendDynamicShadowedDirLightData<DefaultCascade>) * (u32)dirShadowData.size());
+  
+  // Edits cascade ratios to be put in world space
+  float camNearFarDiff = state.cameraFar - state.cameraNear;
+  for (float& ratio : cascadeRatios) {
+    ratio = state.cameraNear + camNearFarDiff * ratio;
+  }
+  m_dynamicShadowedDirLightCascadeRatios.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, cascadeRatios.data(), DefaultCascade);
 
-  // Sets the 
+  // Sets fixed data
   WGPUBackendColorPassFixedData colorPassState {
     .m_combined = camSpace,
     .m_view = mainCamView,

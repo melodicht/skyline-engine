@@ -76,6 +76,7 @@ private:
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<DefaultCascade>> m_dynamicShadowedDirLightBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<float> m_dynamicShadowedDirLightCascadeRatios{ };
     WGPUBackendSampler m_shadowMapSampler{ };
 
     WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
@@ -103,21 +104,6 @@ private:
 
     // What to call on WebGPU error
     static void ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
-
-    // Fills in related directional light
-    // TODO: Implement spot light and point light
-    void PrepareShadowInformation(
-        const glm::mat4x4& camView,
-        const glm::mat4x4& camProj,
-        const glm::mat4x4& camCombinedMat,
-        const float camAspect,
-        const float camFov, 
-        const float camNear, 
-        const float camFar, 
-        std::vector<DirLightRenderInfo>& gotDirLightRenderInfo,
-        std::vector<SpotLightRenderInfo>& gotSpotLightRenderInfo,
-        std::vector<PointLightRenderInfo>& gotPointLightRenderInfo
-    );
 
     // Establishes that the following commands apply to a new frame
     bool InitFrame();

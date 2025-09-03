@@ -20,7 +20,7 @@ struct ObjData {
 
 // All dynamic directional lights must have a set amount of cascades.
 // TODO: Hopefully we can create a way of modifying this at CPU side with some shader metaprogramming
-const dynamicShadowedDirLightCascadeAmount : u32 = 1;
+const dynamicShadowedDirLightCascadeAmount : u32 = 4;
 
 // TODO: Create specified ambient lighting
 
@@ -41,9 +41,11 @@ struct DynamicShadowedDirLight {
 
 @binding(2) @group(0) var<storage, read> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
 
-@binding(3) @group(0) var dynamicShadowedDirLightStoreStore : texture_depth_2d_array;
+@binding(3) @group(0) var dynamicShadowedDirLightMap: texture_depth_2d_array;
 
-@binding(4) @group(0) var shadowMapSampler : sampler_comparison;
+@binding(4) @group(0) var<storage, read> dynamicShadowedDirLightCascadeRatios : array<f32>;
+
+@binding(5) @group(0) var shadowMapSampler : sampler_comparison;
 
 
 struct VertexIn {
@@ -93,27 +95,38 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     var ambientIntensity : f32 = 0.25;
     var ambient : vec3<f32> = in.color * ambientIntensity;
 
-    // Sets diffuse lighting
-    var diffuse : vec3<f32> = vec3<f32>(0, 0, 0);
-
     var viewDir : vec3<f32> = normalize(in.fragToCamPos);
-    var specular : vec3<f32> = vec3<f32>(0, 0, 0);
+    var fragDepth = (fixedData.viewMat * in.worldPos).z;
+    var overallLight : vec3<f32> = vec3<f32>(0, 0, 0);
     for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
-        var lightsUncovered : f32 = 1;
-        for (var lightIter : u32 = 0 ; lightIter < dynamicShadowedDirLightCascadeAmount ; lightIter++) {
-            // Checks if location has been covered by light
-            var lightSpacePosition : vec4<f32> = dynamicShadowedDirLightStore[dirIter].lightSpaces[lightIter] * in.worldPos; 
-            lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
-            var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
-            var bias: f32 = max(0.05 * (1.0 - dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction)), 0.005); 
-            lightsUncovered = lightsUncovered * textureSampleCompare(dynamicShadowedDirLightStoreStore, shadowMapSampler, texturePosition.xy, dirIter, texturePosition.z - bias);
+        var cascadeCheck : u32 = 0;
+        // Checks what cascade it should reference
+        while (cascadeCheck < dynamicShadowedDirLightCascadeAmount) {
+            if (dynamicShadowedDirLightCascadeRatios[cascadeCheck] > fragDepth) {
+                break;
+            }
+            cascadeCheck++;
         }
-        var diffuseIntensity : f32 = lightsUncovered * max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
-        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
 
-        var specularIntensity : f32 = lightsUncovered * pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
-        specular += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular;
+        // Checks if location has been covered by light
+        var lightSpacePosition : vec4<f32> = dynamicShadowedDirLightStore[dirIter].lightSpaces[cascadeCheck] * (in.worldPos + vec4<f32>(in.normal,0)); 
+        lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
+        var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
+        var lightsUncovered : f32  = textureSampleCompare(dynamicShadowedDirLightMap, shadowMapSampler, texturePosition.xy, dirIter + cascadeCheck, texturePosition.z - 0.004);
+        var singleLight : vec3<f32> = vec3<f32>(0, 0, 0);
+
+        // Adds on diffuse lighting to light
+        var diffuseIntensity : f32 = max(dot(in.normal, -dynamicShadowedDirLightStore[dirIter].direction), 0.0);
+        singleLight += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
+
+        // Adds on specular lighting to light
+        var specularIntensity : f32 = lightsUncovered * pow(max(dot(viewDir, reflect(dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
+        singleLight += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular;
+
+        // Checks to make sure that singleLight works 
+        singleLight = singleLight * lightsUncovered;
+        overallLight += singleLight;
     }
 
-    return vec4<f32>(((diffuse + specular) * in.color) + ambient,1);
+    return vec4<f32>(((overallLight) * in.color) + ambient,1);
 }

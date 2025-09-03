@@ -3,6 +3,7 @@
 #include "skl_logger.h"
 #include "math/skl_math_utils.h"
 
+#include <cassert>
 #include <vector>
 #include <utility>
 #include <functional>
@@ -81,13 +82,18 @@ public:
 #include "renderer/render_backend.h"
 
 // TODO: Change to informed amount
-#define DefaultCascade 1
+#define DefaultCascade 4
 
 template <size_t CascadeSize>
 class WGPUBackendDirectionalDynamicShadowMap : public WGPUBackendDynamicShadowVectorMap<
         WGPUBackendDynamicShadowedDirLightData<CascadeSize>,
         DirLightRenderInfo, 
-        const glm::mat4x4*,
+        const glm::mat4x4&,
+        const std::vector<float>&,
+        float,
+        float,
+        float,
+        float,
         float> {
 protected:
     LightID GetCPULightID(const DirLightRenderInfo& cpuType) override final {
@@ -98,7 +104,12 @@ protected:
         std::vector<DirLightRenderInfo>& cpuType,
         std::vector<int>& cpuToGPUIndices,
         std::vector<WGPUBackendDynamicShadowedDirLightData<CascadeSize>>& output,
-        const glm::mat4x4* camSpaceMat,
+        const glm::mat4x4& camViewMat,
+        const std::vector<float>& cascadeRatios,
+        float cascadeBleed,
+        float fov,
+        float aspect,
+        float camNear,
         float camFar) override final {
 
         // Inserts non light space data into GPU data
@@ -114,26 +125,34 @@ protected:
         }
 
         // Inserts light space matrix data into GPU data
+        float camNearFarDiff = camFar - camNear;
+        
+        // The cascade inserted should contain the same amount of ratios as the amount of cascades
+        // TODO: Make non breaking on final build;
+        assert(cascadeRatios.size() == CascadeSize);
 
-        // TODO: Implement custom functionality for cascade ratios
-        glm::mat4x4 invertedCamSpace = glm::inverse(*camSpaceMat);
-        float currentCascadeStart;
-        float currentCascadeEnd;
         for (int cascadeIterator = 0; cascadeIterator < CascadeSize; cascadeIterator++)
         {
-            currentCascadeStart = (cascadeIterator/ CascadeSize);
-            currentCascadeEnd = ((cascadeIterator + 1) / CascadeSize);
+            float startRatio;
+            if (cascadeIterator == 0) {
+                startRatio = 0;
+            }
+            else {
+                startRatio = cascadeRatios[cascadeIterator - 1];
+            }
+            float currentCascadeStart = camNear + (camNearFarDiff * (startRatio - cascadeBleed));
+            float currentCascadeEnd = camNear + camNearFarDiff * (cascadeRatios[cascadeIterator] + cascadeBleed);
+            glm::mat4x4 invertedCamSpace = glm::inverse(glm::perspective(fov, aspect, currentCascadeStart, currentCascadeEnd) * camViewMat);
 
             std::array<glm::vec4, 8> corners;
             u8 cornerIter = 0;
             for (i8 x = -1 ; x <= 1 ; x += 2) {
                 for (i8 y = -1 ; y <= 1 ; y += 2) {
-                    corners[cornerIter] = invertedCamSpace * glm::vec4(x,y,currentCascadeStart,1);
-                    corners[cornerIter] /= corners[cornerIter].w;
-                    cornerIter++;
-                    corners[cornerIter] = (invertedCamSpace * glm::vec4(x,y,currentCascadeEnd,1)) ;
-                    corners[cornerIter] /= corners[cornerIter].w;
-                    cornerIter++;
+                    for (i8 z = 0 ; z <= 1 ; z++) {
+                        corners[cornerIter] = invertedCamSpace * glm::vec4(x,y,z,1);
+                        corners[cornerIter] /= corners[cornerIter].w;
+                        cornerIter++;
+                    }
                 }
             }
 
@@ -146,7 +165,8 @@ protected:
                 f32 maxZ = std::numeric_limits<f32>::lowest();
 
                 for (const glm::vec4& v : corners) {
-                    const glm::vec4 trf = v * lightViews[cpuIter];
+                    glm::vec4 trf = v * lightViews[cpuIter];
+                    trf /= trf.w;
                     minX = std::min(minX, trf.x);
                     maxX = std::max(maxX, trf.x);
                     minY = std::min(minY, trf.y);
@@ -156,7 +176,7 @@ protected:
                 }
 
                 // TODO: Find more specific method for determining distance from frustum (MinZ)
-                glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);  
+                glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ - camFar, maxZ);  
                 
                 // Inserts dir light into gpu vector   
                 output[cpuToGPUIndices[cpuIter]].m_lightSpaces[cascadeIterator] = dirProj * lightViews[cpuIter];
