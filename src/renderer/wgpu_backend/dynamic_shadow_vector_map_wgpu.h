@@ -12,7 +12,7 @@
 // Allows for shadows to be called and updated with lightIds while keeping information in a 
 // array memory layout so that light data can be directly copied into GPU.
 template <typename GPUType, typename CPUType, typename... ConversionArgs >
-class WGPUBackendDynamicShadowVectorMap {
+class WGPUBackendDynamicLightVectorMap {
 private:
     // The lightID at a idx should correspond to a GPUType at the same index.
     // Also lightIds should always be sorted from least to greatest
@@ -27,8 +27,8 @@ protected:
     virtual void Convert(std::vector<CPUType>& cpuType, std::vector<int>& cpuToGPUIndices,std::vector<GPUType>& output, ConversionArgs... args) = 0;
 
 public:
-    WGPUBackendDynamicShadowVectorMap() { }
-    virtual ~WGPUBackendDynamicShadowVectorMap() { }
+    WGPUBackendDynamicLightVectorMap() { }
+    virtual ~WGPUBackendDynamicLightVectorMap() { }
 
     // This makes the assumption that the newest lightId added is the largest so that there does not need to be any process of sorting
     void PushBack(LightID id) {
@@ -85,7 +85,7 @@ public:
 #define DefaultCascade 4
 
 template <size_t CascadeSize>
-class WGPUBackendDirectionalDynamicShadowMap : public WGPUBackendDynamicShadowVectorMap<
+class WGPUBackendDynamicDirectionalLightMap : public WGPUBackendDynamicLightVectorMap<
         WGPUBackendDynamicShadowedDirLightData<CascadeSize>,
         DirLightRenderInfo, 
         const glm::mat4x4&,
@@ -110,12 +110,14 @@ protected:
         std::vector<glm::mat4x4> lightViews;
         lightViews.reserve(cpuType.size());
         for (int cpuIter = 0; cpuIter < cpuType.size() ; cpuIter++) {
-            output[cpuToGPUIndices[cpuIter]].m_diffuse = glm::vec4(cpuType[cpuIter].diffuse, 1);
-            output[cpuToGPUIndices[cpuIter]].m_diffuseIntensity = 1; // TODO: Implement intensity scaling
-            output[cpuToGPUIndices[cpuIter]].m_specular = glm::vec4(cpuType[cpuIter].specular, 1);
-            output[cpuToGPUIndices[cpuIter]].m_specularIntensity = 1;
-            output[cpuToGPUIndices[cpuIter]].m_direction = glm::vec4(GetForwardVector(&cpuType[cpuIter].transform),1);
-            lightViews.push_back(GetViewMatrix(&cpuType[cpuIter].transform));
+            WGPUBackendDynamicShadowedDirLightData<CascadeSize>& outputIter = output[cpuToGPUIndices[cpuIter]];
+            DirLightRenderInfo& inputIter = cpuType[cpuIter];
+
+            outputIter.m_diffuse = inputIter.diffuse;
+            outputIter.m_intensity = 1; // TODO: Implement intensity scaling
+            outputIter.m_specular = inputIter.specular;
+            outputIter.m_direction = GetForwardVector(&inputIter.transform);
+            lightViews.push_back(GetViewMatrix(&inputIter.transform));
         }
 
         glm::mat4x4 invertedCamSpace = glm::inverse(camSpaceMat);
@@ -167,7 +169,6 @@ protected:
                     corners[cornerIter] = nearCorners[wholeCornerIter] + nearToFarCornerVectors[wholeCornerIter] * trueEndRatio;
                     corners[cornerIter].w = 1;
                     cornerIter++;
-
                     wholeCornerIter++;
                 }
             }
@@ -199,4 +200,60 @@ protected:
             }
         }
     }
+};
+
+class WGPUBackendDynamicPointLightMap : public WGPUBackendDynamicLightVectorMap<
+        WGPUBackendDynamicShadowedPointLightData,
+        PointLightRenderInfo> {
+protected:
+    LightID GetCPULightID(const PointLightRenderInfo& cpuType) override final {
+        return cpuType.lightID;
+    }
+
+    void Convert(
+        std::vector<PointLightRenderInfo>& cpuType,
+        std::vector<int>& cpuToGPUIndices,
+        std::vector<WGPUBackendDynamicShadowedPointLightData>& output ) {
+        output.reserve(cpuType.size());
+        for (int cpuIter = 0; cpuIter < cpuType.size() ; cpuIter++) {
+            WGPUBackendDynamicShadowedPointLightData& outputIter = output[cpuToGPUIndices[cpuIter]];
+            PointLightRenderInfo& inputIter = cpuType[cpuIter];
+
+            outputIter.m_diffuse = inputIter.diffuse;
+            outputIter.m_constant = inputIter.constant; 
+            outputIter.m_specular = inputIter.specular;
+            outputIter.m_linear = inputIter.linear;
+            outputIter.m_position = inputIter.transform.position;
+            outputIter.m_quadratic = inputIter.quadratic;
+        }
+    } 
+
+};
+
+class WGPUBackendDynamicSpotLightVectorMap: public WGPUBackendDynamicLightVectorMap<
+        WGPUBackendDynamicShadowedSpotLightData,
+        SpotLightRenderInfo> {
+protected:
+    LightID GetCPULightID(const SpotLightRenderInfo& cpuType) override final {
+        return cpuType.lightID;
+    }
+
+    void Convert(
+        std::vector<SpotLightRenderInfo>& cpuType,
+        std::vector<int>& cpuToGPUIndices,
+        std::vector<WGPUBackendDynamicShadowedSpotLightData>& output ) {
+        output.reserve(cpuType.size());
+        for (int cpuIter = 0; cpuIter < cpuType.size() ; cpuIter++) {
+            WGPUBackendDynamicShadowedSpotLightData& outputIter = output[cpuToGPUIndices[cpuIter]];
+            SpotLightRenderInfo& inputIter = cpuType[cpuIter];
+
+            outputIter.m_diffuse = inputIter.diffuse;
+            outputIter.m_penumbraCutoff = inputIter.innerCone;
+            outputIter.m_specular = inputIter.specular;
+            outputIter.m_outerCutoff = inputIter.outerCone;
+            outputIter.m_direction = GetForwardVector(&inputIter.transform);
+            outputIter.m_position = inputIter.transform.position;
+        }
+    } 
+
 };

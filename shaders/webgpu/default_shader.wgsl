@@ -28,11 +28,33 @@ const dynamicShadowedDirLightCascadeAmount : u32 = 4;
 struct DynamicShadowedDirLight {
     lightSpaces : array<mat4x4<f32>, dynamicShadowedDirLightCascadeAmount>,
     diffuse : vec3<f32>,
-    diffuseIntensity : f32,
-    specular : vec3<f32>,
-    specularIntensity : f32,
-    direction : vec3<f32>,
     padding : f32, // Fill with useful stuff later
+    specular : vec3<f32>,
+    padding2 : f32, // Fill with useful stuff later
+    direction : vec3<f32>,
+    intensity : f32
+}
+
+struct DynamicShadowedPointLight {
+    lightSpaces : array<mat4x4<f32>, 6>,
+    diffuse : vec3<f32>,
+    constant : f32,
+    specular : vec3<f32>,
+    linear : f32,
+    position : vec3<f32>,
+    quadratic : f32
+}
+
+struct DynamicShadowedSpotLight {
+    lightSpace : mat4x4<f32>,
+    diffuse : vec3<f32>,
+    penumbraCutoff : f32,
+    specular : vec3<f32>,
+    outerCutoff : f32,
+    position : vec3<f32>,
+    padding : f32,
+    direction : vec3<f32>,
+    padding2 : f32
 }
 
 @binding(0) @group(0) var<uniform> fixedData : ColorPassFixedData;
@@ -41,11 +63,15 @@ struct DynamicShadowedDirLight {
 
 @binding(2) @group(0) var<storage, read> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
 
-@binding(3) @group(0) var dynamicShadowedDirLightMap: texture_depth_2d_array;
+@binding(3) @group(0) var<storage, read> dynamicShadowedPointLightStore : array<DynamicShadowedPointLight>;
 
-@binding(4) @group(0) var<storage, read> dynamicShadowedDirLightCascadeRatios : array<f32>;
+@binding(4) @group(0) var<storage, read> dynamicShadowedSpotLightStore : array<DynamicShadowedPointLight>;
 
-@binding(5) @group(0) var shadowMapSampler : sampler_comparison;
+@binding(5) @group(0) var dynamicShadowedDirLightMap: texture_depth_2d_array;
+
+@binding(6) @group(0) var<storage, read> dynamicShadowedDirLightCascadeRatios : array<f32>;
+
+@binding(7) @group(0) var shadowMapSampler : sampler_comparison;
 
 
 struct VertexIn {

@@ -81,10 +81,36 @@ template <size_t CascadeAmount>
 struct WGPUBackendDynamicShadowedDirLightData {
     std::array<glm::mat4x4, CascadeAmount> m_lightSpaces;
     glm::vec3 m_diffuse;
-    float m_diffuseIntensity;
-    glm::vec3 m_specular;
-    float m_specularIntensity;
-    glm::vec3 m_direction;
     float m_padding; // Fill with useful stuff later
+    glm::vec3 m_specular;
+    float m_padding2; // Fill with useful stuff later
+    glm::vec3 m_direction;
+    float m_intensity;
 };
+
+// Represents a single shadowed point light
+struct WGPUBackendDynamicShadowedPointLightData {
+    std::array<glm::mat4x4, 4> m_lightSpaces;
+    glm::vec3 m_diffuse;
+    float m_constant;
+    glm::vec3 m_specular;
+    float m_linear;
+    glm::vec3 m_position;
+    float m_quadratic;
+    float m_distanceCutoff;
+};
+
+// Represents a single shadowed spot light
+struct WGPUBackendDynamicShadowedSpotLightData {
+    glm::mat4x4 m_lightSpace;
+    glm::vec3 m_diffuse;
+    float m_penumbraCutoff;
+    glm::vec3 m_specular;
+    float m_outerCutoff;
+    glm::vec3 m_position;
+    float m_padding; // Fill with useful stuff later
+    glm::vec3 m_direction;
+    float m_padding2; // Fill with useful stuff later
+};
+
 #pragma endregion

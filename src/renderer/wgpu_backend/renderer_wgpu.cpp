@@ -758,8 +758,22 @@ void WGPURenderBackend::InitPipelines()
   dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<DefaultCascade>); // Adjusts for padding
   bindEntities.push_back( dynamicShadowedDirLightBind );
 
+  WGPUBindGroupLayoutEntry dynamicShadowedPointLightBind = DefaultBindLayoutEntry();
+  dynamicShadowedPointLightBind.binding = 3;
+  dynamicShadowedPointLightBind.visibility = WGPUShaderStage_Fragment;
+  dynamicShadowedPointLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
+  dynamicShadowedPointLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedPointLightData); // Adjusts for padding
+  bindEntities.push_back( dynamicShadowedPointLightBind );
+
+  WGPUBindGroupLayoutEntry dynamicShadowedSpotLightBind = DefaultBindLayoutEntry();
+  dynamicShadowedSpotLightBind.binding = 4;
+  dynamicShadowedSpotLightBind.visibility = WGPUShaderStage_Fragment;
+  dynamicShadowedSpotLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
+  dynamicShadowedSpotLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedSpotLightData); // Adjusts for padding
+  bindEntities.push_back( dynamicShadowedSpotLightBind );
+
   WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
-  dynamicDirLightShadowMapBind.binding = 3;
+  dynamicDirLightShadowMapBind.binding = 5;
   dynamicDirLightShadowMapBind.visibility = WGPUShaderStage_Fragment;
   dynamicDirLightShadowMapBind.texture = {
     .nextInChain = nullptr,
@@ -770,14 +784,14 @@ void WGPURenderBackend::InitPipelines()
   bindEntities.push_back( dynamicDirLightShadowMapBind );
 
   WGPUBindGroupLayoutEntry dynamicDirLightCascadeRatiosBind = DefaultBindLayoutEntry();
-  dynamicDirLightCascadeRatiosBind.binding = 4;
+  dynamicDirLightCascadeRatiosBind.binding = 6;
   dynamicDirLightCascadeRatiosBind.visibility = WGPUShaderStage_Fragment;
   dynamicDirLightCascadeRatiosBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicDirLightCascadeRatiosBind.buffer.minBindingSize = sizeof(float);
   bindEntities.push_back( dynamicDirLightCascadeRatiosBind );
 
   WGPUBindGroupLayoutEntry shadowMapSamplerMapBind = DefaultBindLayoutEntry();
-  shadowMapSamplerMapBind.binding = 5;
+  shadowMapSamplerMapBind.binding = 7;
   shadowMapSamplerMapBind.visibility = WGPUShaderStage_Fragment;
   shadowMapSamplerMapBind.sampler = {
     .nextInChain = nullptr,
@@ -891,6 +905,12 @@ void WGPURenderBackend::InitPipelines()
   m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", 2, m_maxDynamicShadowedDirLights);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightBuffer));
 
+  m_dynamicShadowedPointLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Point Light Buffer", 3, m_maxDynamicShadowedPointLights);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedPointLightBuffer));
+
+  m_dynamicShadowedSpotgLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Dir Light Buffer", 4, m_maxDynamicShadowedSpotLights);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedSpotLightBuffer));
+
   // TODO: Replace placeholder 1000 x 1000 dimensions and limit
   m_dynamicDirLightShadowMapTexture.Init(
     m_wgpuCore.m_device, 
@@ -901,10 +921,10 @@ void WGPURenderBackend::InitPipelines()
     "Dynamic Direction Light Shadow Maps", 
     "Dynamic Direction Light Shadow Maps Whole", 
     "Dynamic Direction Light Shadow Maps Layer", 
-    3);
+    5);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicDirLightShadowMapTexture));
 
-  m_dynamicShadowedDirLightCascadeRatios.Init(m_wgpuCore.m_device, "Shadowed Dynamic Directional Light Cascade Ratios", 4, DefaultCascade);
+  m_dynamicShadowedDirLightCascadeRatios.Init(m_wgpuCore.m_device, "Shadowed Dynamic Directional Light Cascade Ratios", 6, DefaultCascade);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightCascadeRatios));
 
   m_shadowMapSampler.InitOrUpdate(
@@ -919,7 +939,7 @@ void WGPURenderBackend::InitPipelines()
     WGPUCompareFunction_Less, 
     1, 
     "Shadow Map Sampler", 
-    5);
+    7);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_shadowMapSampler));
   
   m_bindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
@@ -1075,10 +1095,15 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     return lightID;
   }
   LightID WGPURenderBackend::AddSpotLight() {
-    return 0;
+    LightID lightID = m_dynamicShadowedSpotLightNextID;
+    m_dynamicShadowedSpotLightNextID++;
+    return lightID;
   }
   LightID WGPURenderBackend::AddPointLight() {
-    return 0;
+    LightID lightID = m_dynamicShadowedPointLightNextID;
+    m_dynamicShadowedPointLightNextID++;
+    m_dynamicShadowedPointLights.PushBack(lightID);
+    return lightID;
   }
 
   void WGPURenderBackend::DestroyDirLight(LightID lightID) {

@@ -36,6 +36,8 @@ private:
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill the following with number informed by limits
     u32 m_maxLightSpaces{ 4096 };
     u32 m_maxDynamicShadowedDirLights{ 4096 };
+    u32 m_maxDynamicShadowedPointLights{ 4096 };
+    u32 m_maxDynamicShadowedSpotLights{ 4096 };
     u32 m_maxMeshVertSize{ 4096 };
     u32 m_maxMeshIndexSize{ 4096 };
 
@@ -66,16 +68,21 @@ private:
     WGPUBackendBaseDynamicShadowMapArray m_dynamicDirLightShadowMapTexture;
 
     // CPU-> Gathers into these vector maps -> Copied into buffer
-    WGPUBackendDirectionalDynamicShadowMap<DefaultCascade> m_dynamicShadowedDirLights;
+    WGPUBackendDynamicDirectionalLightMap<DefaultCascade> m_dynamicShadowedDirLights;
+    WGPUBackendDynamicPointLightMap m_dynamicShadowedPointLights;
+    WGPUBackendDynamicSpotLightVectorMap m_dynamicShadowedSpotLights;
 
     LightID m_dynamicShadowedDirLightNextID = 0;
-    
+    LightID m_dynamicShadowedPointLightNextID = 0;
+    LightID m_dynamicShadowedSpotLightNextID = 0;
     
     // Stores actual GPU buffers
     WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedData>m_fixedColorPassDatBuffer{ };
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<DefaultCascade>> m_dynamicShadowedDirLightBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedPointLightData> m_dynamicShadowedPointLightBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedSpotLightData> m_dynamicShadowedSpotLightBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<float> m_dynamicShadowedDirLightCascadeRatios{ };
     WGPUBackendSampler m_shadowMapSampler{ };
 
