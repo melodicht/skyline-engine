@@ -91,9 +91,6 @@ class WGPUBackendDirectionalDynamicShadowMap : public WGPUBackendDynamicShadowVe
         const glm::mat4x4&,
         const std::vector<float>&,
         float,
-        float,
-        float,
-        float,
         float> {
 protected:
     LightID GetCPULightID(const DirLightRenderInfo& cpuType) override final {
@@ -104,12 +101,9 @@ protected:
         std::vector<DirLightRenderInfo>& cpuType,
         std::vector<int>& cpuToGPUIndices,
         std::vector<WGPUBackendDynamicShadowedDirLightData<CascadeSize>>& output,
-        const glm::mat4x4& camViewMat,
+        const glm::mat4x4& camSpaceMat,
         const std::vector<float>& cascadeRatios,
         float cascadeBleed,
-        float fov,
-        float aspect,
-        float camNear,
         float camFar) override final {
 
         // Inserts non light space data into GPU data
@@ -124,9 +118,26 @@ protected:
             lightViews.push_back(GetViewMatrix(&cpuType[cpuIter].transform));
         }
 
-        // Inserts light space matrix data into GPU data
-        float camNearFarDiff = camFar - camNear;
+        glm::mat4x4 invertedCamSpace = glm::inverse(camSpaceMat);
+
+        std::array<glm::vec4, 4> nearCorners;
+        std::array<glm::vec4, 4> farCorners;
+        std::array<glm::vec4, 4> nearToFarCornerVectors;
         
+        u8 cornerIter = 0;
+        for (i8 x = -1 ; x <= 1 ; x += 2) {
+            for (i8 y = -1 ; y <= 1 ; y += 2) {
+                nearCorners[cornerIter] = invertedCamSpace * glm::vec4(x,y,0,1);
+                nearCorners[cornerIter] /= nearCorners[cornerIter].w;
+
+                farCorners[cornerIter] = invertedCamSpace * glm::vec4(x,y,1,1);
+                farCorners[cornerIter] /= farCorners[cornerIter].w;
+
+                nearToFarCornerVectors[cornerIter] = farCorners[cornerIter] - nearCorners[cornerIter];
+                cornerIter++;
+            }
+        }
+
         // The cascade inserted should contain the same amount of ratios as the amount of cascades
         // TODO: Make non breaking on final build;
         assert(cascadeRatios.size() == CascadeSize);
@@ -140,19 +151,24 @@ protected:
             else {
                 startRatio = cascadeRatios[cascadeIterator - 1];
             }
-            float currentCascadeStart = camNear + (camNearFarDiff * (startRatio - cascadeBleed));
-            float currentCascadeEnd = camNear + camNearFarDiff * (cascadeRatios[cascadeIterator] + cascadeBleed);
-            glm::mat4x4 invertedCamSpace = glm::inverse(glm::perspective(fov, aspect, currentCascadeStart, currentCascadeEnd) * camViewMat);
 
+            float trueStartRatio = startRatio - cascadeBleed;
+            float trueEndRatio = cascadeRatios[cascadeIterator] + cascadeBleed;
+            
             std::array<glm::vec4, 8> corners;
             u8 cornerIter = 0;
+            u8 wholeCornerIter = 0;
             for (i8 x = -1 ; x <= 1 ; x += 2) {
                 for (i8 y = -1 ; y <= 1 ; y += 2) {
-                    for (i8 z = 0 ; z <= 1 ; z++) {
-                        corners[cornerIter] = invertedCamSpace * glm::vec4(x,y,z,1);
-                        corners[cornerIter] /= corners[cornerIter].w;
-                        cornerIter++;
-                    }
+                    corners[cornerIter] = nearCorners[wholeCornerIter] + nearToFarCornerVectors[wholeCornerIter] * trueStartRatio;
+                    corners[cornerIter].w = 1;
+                    cornerIter++;
+
+                    corners[cornerIter] = nearCorners[wholeCornerIter] + nearToFarCornerVectors[wholeCornerIter] * trueEndRatio;
+                    corners[cornerIter].w = 1;
+                    cornerIter++;
+
+                    wholeCornerIter++;
                 }
             }
 
@@ -165,7 +181,7 @@ protected:
                 f32 maxZ = std::numeric_limits<f32>::lowest();
 
                 for (const glm::vec4& v : corners) {
-                    glm::vec4 trf = v * lightViews[cpuIter];
+                    glm::vec4 trf = lightViews[cpuIter] * v;
                     trf /= trf.w;
                     minX = std::min(minX, trf.x);
                     maxX = std::max(maxX, trf.x);

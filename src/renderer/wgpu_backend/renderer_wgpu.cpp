@@ -1013,7 +1013,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   // Prepares dynamic shadowed lights to be rendered
   // TODO: Make cascade ratios more adjustable
   std::vector<float> cascadeRatios = {0.25, 0.50, 0.75, 1.00};
-  m_dynamicShadowedDirLights.Update(state.dirLights, mainCamView, cascadeRatios, 0.05, glm::radians(state.cameraFov), mainCamAspectRatio, state.cameraNear, state.cameraFar);
+  m_dynamicShadowedDirLights.Update(state.dirLights, camSpace, cascadeRatios, 0.05, state.cameraFar);
 
   // >>> Actually begins sending off information to be rendered <<<
 
