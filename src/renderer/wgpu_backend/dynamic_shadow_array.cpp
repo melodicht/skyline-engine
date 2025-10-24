@@ -42,7 +42,7 @@ void WGPUBackendBaseDynamicShadowMapArray::ResizeTexture(const WGPUDevice& devic
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr(m_wholeViewLabel.data()),
         .format = WGPUTextureFormat_Depth32Float,
-        .dimension = WGPUTextureViewDimension_2DArray,
+        .dimension = m_wholeTextureViewDimension,
         .baseMipLevel = 0,
         .mipLevelCount = 1, 
         .baseArrayLayer = 0,
@@ -108,6 +108,7 @@ m_label("un-inited"),
 m_wholeViewLabel("un-inited"),
 m_layerViewLabel("un-inited"),
 m_currentBindGroupEntry(),
+m_wholeTextureViewDimension(),
 m_arrayLayerWidth(0),
 m_arrayLayerHeight(0),
 m_arraySize(0),
@@ -129,7 +130,8 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     std::string label,
     std::string wholeViewLabel,
     std::string layerViewLabel, 
-    u16 binding) {
+    u16 binding,
+    bool cubeMapView) {
     // TODO: Prevent this from running in final build
     assert( !m_inited );
     m_label = label;
@@ -140,7 +142,8 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     m_arrayMaxAllocatedSize = maxTextureDepth;
     m_depthPerShadow = depthPerShadow;
     m_inited = true;
-
+    m_wholeTextureViewDimension = cubeMapView ? WGPUTextureViewDimension_CubeArray : WGPUTextureViewDimension_2D;
+    m_arrayAllocatedSize = cubeMapView ? 6 : 1;
     // Creates empty shadow map
     WGPUTextureDescriptor textureDesc {
         .nextInChain = nullptr,
@@ -166,18 +169,18 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Texture View"),
         .format = WGPUTextureFormat_Depth32Float,
-        .dimension = WGPUTextureViewDimension_2DArray,
+        .dimension = m_wholeTextureViewDimension,
         .baseMipLevel = 0,
         .mipLevelCount = 1, 
         .baseArrayLayer = 0,
-        .arrayLayerCount = 1,
+        .arrayLayerCount = m_arrayAllocatedSize,
         .aspect = WGPUTextureAspect_DepthOnly,
         .usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_RenderAttachment
     };
 
     m_wholeTextureDataView = wgpuTextureCreateView(m_textureData, &textureViewDesc);
 
-    textureViewDesc.dimension = WGPUTextureViewDimension_2D;
+    textureViewDesc.dimension = m_wholeTextureViewDimension;
     textureViewDesc.label = WGPUBackendUtils::wgpuStr(m_layerViewLabel.data());
 
     m_arrayLayerViews.push_back(wgpuTextureCreateView(m_textureData, &textureViewDesc));
@@ -203,9 +206,10 @@ void WGPUBackendBaseDynamicShadowMapArray::Reset(
     std::string label,
     std::string wholeViewLabel,
     std::string layerViewLabel,
-    u16 binding) {
+    u16 binding,
+    bool cubeMapView) {
     Clear();
-    Init(device, arrayLayerWidth, arrayLayerHeight, maxTextureDepth, depthPerShadow, label, wholeViewLabel, layerViewLabel, binding);
+    Init(device, arrayLayerWidth, arrayLayerHeight, maxTextureDepth, depthPerShadow, label, wholeViewLabel, layerViewLabel, binding, cubeMapView);
 }
 
 void WGPUBackendBaseDynamicShadowMapArray::RegisterShadow(const WGPUDevice& device, const WGPUQueue& queue) {

@@ -21,6 +21,7 @@ private:
     std::string m_label;
     std::string m_wholeViewLabel;
     std::string m_layerViewLabel;
+    WGPUTextureViewDimension m_wholeTextureViewDimension;
     u32 m_arrayLayerWidth;
     u32 m_arrayLayerHeight;
     u16 m_arraySize;
@@ -56,7 +57,8 @@ public:
         std::string label,
         std::string wholeViewLabel,
         std::string layerViewLabel, 
-        u16 binding);
+        u16 binding,
+        bool cubeMapView);
     // Completely clears all previous data and remakes shadow map
     void Reset(
         const WGPUDevice& device, 
@@ -67,7 +69,8 @@ public:
         std::string label,
         std::string wholeViewLabel,
         std::string layerViewLabel,
-        u16 binding);
+        u16 binding,
+        bool cubeMapView);
 
     // Ensures no copy is made to avoid wgpu object reference conflicts
     WGPUBackendBaseDynamicShadowMapArray(const WGPUBackendBaseDynamicShadowMapArray&) = delete;

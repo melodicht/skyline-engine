@@ -14,7 +14,8 @@ if(EMSCRIPTEN)
                 ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp
                 ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
                 ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
-                ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp)
+                ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_light_converter.cpp)
         target_include_directories(wgpu-backend PRIVATE 
                 ${CMAKE_SOURCE_DIR}/include 
                 ${CMAKE_SOURCE_DIR}/src)
@@ -43,7 +44,8 @@ else()
                         ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
                         ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
                         ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
-                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp)
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_light_converter.cpp)
                 target_include_directories(wgpu-backend PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
         else()
                 add_library(wgpu-backend STATIC 
@@ -51,7 +53,8 @@ else()
                         ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp
                         ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
                         ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
-                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp)
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_light_converter.cpp)
                 target_include_directories(wgpu-backend PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
         endif()
 

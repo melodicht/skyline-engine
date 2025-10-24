@@ -67,6 +67,16 @@ struct WGPUBackendColorPassFixedData
 
     // Represents light 
     u32 m_dirLightCount;
+    u32 m_pointLightCount;
+    u32 m_spotLightCount;
+    u32 m_dirLightCascadeCount;
+    u32 m_padding2;
+};
+
+struct WGPUBackendPointDepthPassFixedData
+{
+    glm::vec3 m_lightPos;
+    f32 m_farPlane;
 };
 
 // Represents a instance of a mesh
@@ -77,9 +87,7 @@ struct WGPUBackendObjectData {
 };
 
 // Represents a single shadowed directional light
-template <size_t CascadeAmount>
 struct WGPUBackendDynamicShadowedDirLightData {
-    std::array<glm::mat4x4, CascadeAmount> m_lightSpaces;
     glm::vec3 m_diffuse;
     float m_padding; // Fill with useful stuff later
     glm::vec3 m_specular;
@@ -90,7 +98,6 @@ struct WGPUBackendDynamicShadowedDirLightData {
 
 // Represents a single shadowed point light
 struct WGPUBackendDynamicShadowedPointLightData {
-    std::array<glm::mat4x4, 4> m_lightSpaces;
     glm::vec3 m_diffuse;
     float m_constant;
     glm::vec3 m_specular;
@@ -98,11 +105,13 @@ struct WGPUBackendDynamicShadowedPointLightData {
     glm::vec3 m_position;
     float m_quadratic;
     float m_distanceCutoff;
+    float m_padding1;
+    float m_padding2;
+    float m_padding3;
 };
 
 // Represents a single shadowed spot light
 struct WGPUBackendDynamicShadowedSpotLightData {
-    glm::mat4x4 m_lightSpace;
     glm::vec3 m_diffuse;
     float m_penumbraCutoff;
     glm::vec3 m_specular;

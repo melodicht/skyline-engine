@@ -6,7 +6,6 @@
 #include "renderer/wgpu_backend/bind_group_wgpu.h"
 #include "renderer/wgpu_backend/utils_wgpu.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
-#include "renderer/wgpu_backend/dynamic_shadow_vector_map_wgpu.h"
 #include "renderer/wgpu_backend/dynamic_shadow_array.h"
 
 #include "math/skl_math_consts.h"
@@ -38,6 +37,7 @@ private:
     u32 m_maxDynamicShadowedDirLights{ 4096 };
     u32 m_maxDynamicShadowedPointLights{ 4096 };
     u32 m_maxDynamicShadowedSpotLights{ 4096 };
+    u32 m_maxDynamicShadowLightSpaces{ 4096 };
     u32 m_maxMeshVertSize{ 4096 };
     u32 m_maxMeshIndexSize{ 4096 };
 
@@ -52,38 +52,40 @@ private:
     WGPURenderPassEncoder m_renderPassEncoder{ };
     bool m_renderPassActive{ false };
 
-    // Defines default pipeline
+    // Defines final color pass pipeline
     WGPURenderPipeline m_defaultPipeline{ };
-    WGPUBackendBindGroup m_bindGroup;
+    WGPUBackendBindGroup m_bindGroup{ };
 
     // Defines depth pipeline
     WGPURenderPipeline m_depthPipeline{ };
-    WGPUBackendBindGroup m_depthBindGroup;
+    WGPUBackendBindGroup m_depthBindGroup{ };
+
+    // Defines point depth pipeline
+    WGPURenderPipeline m_pointDepthPipeline{ };
+    WGPUBackendBindGroup m_pointDepthBindGroup{ };
 
     // Defines general light vars
     u32 m_nextLightSpace = 0;
-    WGPUTexture m_shadowAtlas; // Stores depth textures to prevent constant recreation of such textures
+    WGPUTexture m_shadowAtlas{ }; // Stores depth textures to prevent constant recreation of such textures
 
     // Allocates texture space for shadowmapping based on the amount of shadowed lights registered
     WGPUBackendBaseDynamicShadowMapArray m_dynamicDirLightShadowMapTexture;
-
-    // CPU-> Gathers into these vector maps -> Copied into buffer
-    WGPUBackendDynamicDirectionalLightMap<DefaultCascade> m_dynamicShadowedDirLights;
-    WGPUBackendDynamicPointLightMap m_dynamicShadowedPointLights;
-    WGPUBackendDynamicSpotLightVectorMap m_dynamicShadowedSpotLights;
+    WGPUBackendBaseDynamicShadowMapArray m_dynamicPointLightShadowMapTexture;
 
     LightID m_dynamicShadowedDirLightNextID = 0;
     LightID m_dynamicShadowedPointLightNextID = 0;
     LightID m_dynamicShadowedSpotLightNextID = 0;
     
     // Stores actual GPU buffers
-    WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedData>m_fixedColorPassDatBuffer{ };
+    WGPUBackendSingleUniformBuffer<WGPUBackendPointDepthPassFixedData> m_fixedPointDepthPassDatBuffer{ };
+    WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedData> m_fixedColorPassDatBuffer{ };
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
-    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<DefaultCascade>> m_dynamicShadowedDirLightBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLightBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedPointLightData> m_dynamicShadowedPointLightBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedSpotLightData> m_dynamicShadowedSpotLightBuffer{ };
-    WGPUBackendSingleStorageArrayBuffer<float> m_dynamicShadowedDirLightCascadeRatios{ };
+    WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_dynamicShadowLightSpaces{ };
+    WGPUBackendSingleStorageArrayBuffer<float> m_dynamicShadowedDirLightCascadeRatiosBuffer{ };
     WGPUBackendSampler m_shadowMapSampler{ };
 
     WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
@@ -120,6 +122,8 @@ private:
 
     // Populates depth buffer from view of camera buffer
     void BeginDepthPass(WGPUTextureView depthTexture);
+
+    // Populates depth buffer with 
     
     // Stops the current pass
     void EndPass();

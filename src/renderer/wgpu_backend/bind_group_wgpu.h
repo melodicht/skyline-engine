@@ -204,6 +204,7 @@ public:
 
     // Directly writes to the uniform buffer using the given data
     // Will double buffer size until data fits.
+    // Does nothing on 0 buffer length set.
     // If the data entered is smaller than previous allocated size, remaining data after inserted data should be ignored.
     void WriteBuffer(const WGPUDevice& device, const WGPUQueue& queue, const std::vector<BufferStruct>& data) {
         WriteBuffer(queue, device, data.data(), data.size());
@@ -243,7 +244,7 @@ public:
     }
 };
 
-// Encapsulates a buffer that holding a array/vector of structs(with constant sizeof) to be put into a single 
+// Encapsulates a buffer that holding a array/vector of structs to be put into a single 
 // binded storage entry and dynamically changes buffer size based inputted data.
 template <typename StorageStruct>
 class WGPUBackendSingleStorageArrayBuffer : public WGPUBackendArrayBuffer<StorageStruct>, public WGPUBackendBindGroup::IWGPUBackendUniformEntry {
@@ -279,7 +280,11 @@ public:
     }
 
     // Will resize existing buffer if too small to the size of the data written and will update bind groups accordingly
+    // Will simply do nothing on zero buffer size
     void WriteBuffer(const WGPUDevice& device, const WGPUQueue& queue, const StorageStruct* data, u32 datLength) override {
+        if (datLength == 0) {
+            return;
+        }
         WGPUBackendArrayBuffer<StorageStruct>::WriteBuffer(device, queue, data, datLength);
         UpdateRegisteredBindGroups(device, queue);
     }
@@ -306,7 +311,7 @@ public:
     WGPUBackendSingleStorageArrayBuffer& operator=(WGPUBackendSingleStorageArrayBuffer&&) = delete;
 };
 
-// Represents a buffer holding a single struct(with constant sizeof)
+// Represents a buffer holding a single struct
 // to be put into a single binded uniform entry
 // Does not ever update bind groups
 template <typename UniformStruct>
