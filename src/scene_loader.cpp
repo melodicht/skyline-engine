@@ -1,12 +1,11 @@
 #include <toml++/toml.hpp>
 #include <iostream>
 
-#include "component_def.h"
 
 struct FieldInfo
 {
     const char *name;
-    size_t size;
+    size_t offset;
     void (*loadFunc)(char*, toml::node*);
 };
 
@@ -75,6 +74,14 @@ void LoadValue<glm::vec3>(char* dest, toml::node* data)
     LoadValue<float>(dest + (2 * sizeof(float)), array->get(2));
 }
 
+void LoadIfPresent(char* dest, const char* name, toml::table* data, void (*loadFunc)(char*, toml::node*))
+{
+    if (data->contains(name))
+    {
+        loadFunc(dest, data->get(name));
+    }
+}
+
 template <typename T>
 void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
 {
@@ -84,51 +91,8 @@ void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int com
     {
         if (compData->contains(field.name))
         {
-            field.loadFunc(comp, compData->get(field.name));
+            field.loadFunc(comp + field.offset, compData->get(field.name));
         }
-
-        comp += field.size;
-    }
-}
-
-template <>
-void LoadComponent<MeshComponent>(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
-{
-    MeshComponent* comp = scene.Assign<MeshComponent>(entity);
-
-    if (!compData->contains("mesh"))
-    {
-        std::cout << "Must specify a mesh\n";
-    }
-
-    toml::node* meshData = compData->get("mesh");
-
-    if (!meshData->is_string())
-    {
-        std::cout << "This field must be a string\n";
-    }
-
-    std::string meshPath = meshData->as_string()->get();
-
-    comp->mesh = globalPlatformAPI.platformLoadMeshAsset(meshPath);
-
-    if (compData->contains("texture"))
-    {
-        toml::node* texData = compData->get("texture");
-
-        if (!texData->is_string())
-        {
-            std::cout << "This field must be a string\n";
-        }
-
-        std::string texPath = texData->as_string()->get();
-
-        comp->texture = globalPlatformAPI.platformLoadTextureAsset(texPath);
-    }
-
-    if (compData->contains("color"))
-    {
-        LoadValue<glm::vec3>(((char*)comp) + sizeof(MeshID) + sizeof(TextureID), compData->get("color"));
     }
 }
 
@@ -155,25 +119,10 @@ void AddLocalField(const char *name)
     compInfo.fields.push_back({name, sizeof(T)});
 }
 
-#define COMP(name) AddComponent<name>(scene, #name);
-#define FIELD(type, name, start) AddField<type>(#name)
-#define LOCAL_FIELD(type, name, start) AddLocalField<type>(#name)
-#define LOCAL_DEF(def)
-
 void RegisterComponents(Scene &scene)
 {
-    AddComponent<Transform3D>(scene, "Transform3D");
-    AddField<glm::vec3>("position");
-    AddField<glm::vec3>("rotation");
-    AddField<glm::vec3>("scale");
 
-    #include "components.h"
 }
-
-#undef COMP
-#undef FIELD
-#undef LOCAL_FIELD
-#undef LOCAL_DEF
 
 void LoadScene(Scene& scene, const char* filename)
 {

@@ -34,4 +34,3 @@
 
 #include "renderer/render_types.h"
 
-#include "component_def.h"

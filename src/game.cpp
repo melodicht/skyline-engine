@@ -17,6 +17,7 @@
 global_variable PlatformAPI globalPlatformAPI;
 
 #include "scene_loader.cpp"
+#include "components.cpp"
 
 #include "physics.cpp"
 #include "systems.cpp"
