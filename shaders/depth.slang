@@ -27,8 +27,8 @@ struct Vertex
 struct PushConstants
 {
     CameraData *camera;
-    ObjectData *objects;
     Vertex *vertices;
+    ObjectData *objects;
 };
 
 [vk::push_constant]

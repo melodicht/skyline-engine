@@ -36,8 +36,8 @@ struct Texture
 // Represents the GPU memory locations of the camera, object, and vertex buffers (CPU->GPU)
 struct VertPushConstants
 {
-    VkDeviceAddress objectAddress;
     VkDeviceAddress vertexAddress;
+    VkDeviceAddress objectAddress;
 };
 
 struct VkDirLightData

@@ -45,8 +45,8 @@ layout (buffer_reference, scalar) readonly buffer VertexBuffer
 layout (push_constant, scalar) uniform PushConstants
 {
     CameraBuffer cameraBuffer;
-    ObjectBuffer objectBuffer;
     VertexBuffer vertexBuffer;
+    ObjectBuffer objectBuffer;
 } pcs;
 
 void main()
