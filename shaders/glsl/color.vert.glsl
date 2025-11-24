@@ -49,7 +49,7 @@ layout (push_constant, scalar) uniform PushConstants
     VertexBuffer vertexBuffer;
 } pcs;
 
-layout(location = 0) out vec3 outWorldPos;
+layout(location = 0) out vec4 worldPos;
 layout(location = 1) out vec3 normal;
 layout(location = 2) out float uvX;
 layout(location = 3) out vec3 eyeRelPos;
@@ -73,7 +73,7 @@ void main()
     CameraData camera = pcs.cameraBuffer.camera;
 
     gl_Position = camera.proj * camera.view * worldPos;
-    outWorldPos = worldPos.xyz;
+    outWorldPos = worldPos;
     normal = normalize(normMat * vert.normal);
     uvX = vert.uvX;
     uvY = vert.uvY;
