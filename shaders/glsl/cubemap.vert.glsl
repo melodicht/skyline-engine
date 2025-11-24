@@ -42,13 +42,11 @@ layout (buffer_reference, scalar) readonly buffer VertexBuffer
     Vertex vertices[];
 };
 
-layout (push_constant) uniform PushConstants
+layout (push_constant, scalar) uniform PushConstants
 {
     CameraBuffer cameraBuffer;
     ObjectBuffer objectBuffer;
     VertexBuffer vertexBuffer;
-    vec3 lightPos;
-    float farPlane;
 } pcs;
 
 layout(location = 0) out vec3 outWorldPos;
