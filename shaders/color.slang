@@ -72,8 +72,8 @@ struct Vertex
 struct PushConstants
 {
     CameraData *camera;
-    Vertex *vertices;
     ObjectData *objects;
+    Vertex *vertices;
     DirLightData *dirLights;
     LightCascade *dirCascades;
     SpotLightData *spotLights;
