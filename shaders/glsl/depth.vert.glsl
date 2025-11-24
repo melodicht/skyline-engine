@@ -58,11 +58,6 @@ void main()
     vec4 pos = vec4(vert.pos, 1.0);
     vec4 worldPos = model * pos;
 
-    mat3 normMat = mat3(
-        cross(model[1].xyz, model[2].xyz),
-        cross(model[2].xyz, model[0].xyz),
-        cross(model[0].xyz, model[1].xyz));
-
     CameraData camera = pcs.cameraBuffer.cameras[gl_ViewIndex];
 
     gl_Position = camera.proj * camera.view * worldPos;
