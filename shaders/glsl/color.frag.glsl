@@ -152,7 +152,7 @@ void main()
 
     if (object.texID != -1)
     {
-        color *= texture(sampler2D(textures[object.texID], textureSampler), vec2(uvX, uvY));
+        color *= texture(sampler2D(textures[nonuniformEXT(object.texID)], textureSampler), vec2(uvX, uvY));
     }
 
     for (uint i = 0; i < pcs.dirLightCount; i++)
@@ -185,7 +185,7 @@ void main()
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += texture(sampler2DArrayShadow(arrayTextures[dirLight.shadowID], shadowSampler),
+                unshadowed += texture(sampler2DArrayShadow(arrayTextures[nonuniformEXT(dirLight.shadowID)], shadowSampler),
                     vec4(lightPosScaled.xy + ivec2(x, y), cascade, lightPosScaled.z)) / 9;
             }
         }
@@ -213,7 +213,7 @@ void main()
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += texture(sampler2DShadow(textures[spotLight.shadowID], shadowSampler),
+                unshadowed += texture(sampler2DShadow(textures[nonuniformEXT(spotLight.shadowID)], shadowSampler),
                     lightPosScaled + ivec3(x, y, 0)) / 9;
             }
         }
@@ -242,7 +242,7 @@ void main()
 
         float sampleDepth = length(offsetPos) / pointLight.maxRange;
 
-        float unshadowed = texture(samplerCubeShadow(cubemaps[pointLight.shadowID], shadowSampler), vec4(offsetLightDir, sampleDepth));
+        float unshadowed = texture(samplerCubeShadow(cubemaps[nonuniformEXT(pointLight.shadowID)], shadowSampler), vec4(offsetLightDir, sampleDepth));
 
         float distance = length(lightVec);
         float attenuation = 1.0 / (pointLight.constant + (pointLight.linear * distance) + (pointLight.quadratic * distance * distance));
