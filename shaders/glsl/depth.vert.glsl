@@ -1,6 +1,6 @@
 #version 460
 
-#extension GL_EXT_scalar_block_layout: require
+#extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_multiview : require
 
@@ -21,7 +21,7 @@ struct ObjectData
 {
     mat4 model;
     int texID;
-    mat4 color;
+    vec4 color;
 };
 
 layout (buffer_reference, scalar) readonly buffer ObjectBuffer
@@ -51,7 +51,7 @@ layout (push_constant, scalar) uniform PushConstants
 
 void main()
 {
-    ObjectData object = pcs.objectBuffer.objects[gl_BaseInstance + gl_InstanceIndex];
+    ObjectData object = pcs.objectBuffer.objects[gl_InstanceIndex];
 
     mat4 model = object.model;
     Vertex vert = pcs.vertexBuffer.vertices[gl_VertexIndex];

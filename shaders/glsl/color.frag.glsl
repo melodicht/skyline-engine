@@ -1,6 +1,8 @@
 #version 460
 
-#extension GL_EXT_scalar_block_layout: require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_nonuniform_qualifier : require
 
 struct CameraData
 {
@@ -13,7 +15,7 @@ struct ObjectData
 {
     mat4 model;
     int texID;
-    mat4 color;
+    vec4 color;
 };
 
 struct Vertex
@@ -87,17 +89,17 @@ layout (buffer_reference, scalar) readonly buffer VertexBuffer
 
 layout (buffer_reference, scalar) readonly buffer DirLightBuffer
 {
-    DirLightData dirLights[];
+    DirLightData lights[];
 };
 
 layout (buffer_reference, scalar) readonly buffer SpotLightBuffer
 {
-    SpotLightData spotLights[];
+    SpotLightData lights[];
 };
 
 layout (buffer_reference, scalar) readonly buffer PointLightBuffer
 {
-    PointLightData pointLights[];
+    PointLightData lights[];
 };
 
 layout (buffer_reference, scalar) readonly buffer LightCascadeBuffer
@@ -126,7 +128,9 @@ layout(location = 1) in vec3 normal;
 layout(location = 2) in float uvX;
 layout(location = 3) in vec3 eyeRelPos;
 layout(location = 4) in float uvY;
-layout(location = 5) in int instance;
+layout(location = 5) flat in int instance;
+
+layout(location = 0) out vec4 outFragColor;
 
 layout(set = 0, binding = 0) uniform texture2D textures[];
 layout(set = 0, binding = 0) uniform texture2DArray arrayTextures[];
@@ -144,7 +148,7 @@ void main()
 
     ObjectData object = pcs.objectBuffer.objects[instance];
 
-    mat4 color = object.color;
+    vec4 color = object.color;
 
     if (object.texID != -1)
     {
@@ -153,7 +157,7 @@ void main()
 
     for (uint i = 0; i < pcs.dirLightCount; i++)
     {
-        DirLightData dirLight = pcs.dirLightBuffer.dirLights[i];
+        DirLightData dirLight = pcs.dirLightBuffer.lights[i];
 
         uint cascadeCount = pcs.dirCascadeCount;
         uint firstCascade = i * cascadeCount;
@@ -181,8 +185,8 @@ void main()
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += texture(sampler2DArrayShadow(textures[dirLight.shadowID], shadowSampler),
-                    vec3(lightPosScaled.xy, cascade), lightPosScaled.z, vec2(x, y)) / 9;
+                unshadowed += texture(sampler2DArrayShadow(arrayTextures[dirLight.shadowID], shadowSampler),
+                    vec4(lightPosScaled.xy + ivec2(x, y), cascade, lightPosScaled.z)) / 9;
             }
         }
 
@@ -196,16 +200,12 @@ void main()
 
     for (uint i = 0; i < pcs.spotLightCount; i++)
     {
-        SpotLightData spotLight = pcs.spotLights[i];
+        SpotLightData spotLight = pcs.spotLightBuffer.lights[i];
 
-        float4 lightRelPos = mul(vertData.worldPos + float4(vertData.normal * 8, 0.0), spotLight.lightSpace);
+        vec4 lightRelPos = spotLight.lightSpace * (worldPos + vec4(normal * 8, 0.0));
 
-        float3 normal = vertData.normal;
-
-        float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
-        float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
-
-        Texture2D map = textures[spotLight.shadowID];
+        vec3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
+        vec3 lightPosScaled = vec3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
         float unshadowed = 0;
 
@@ -213,51 +213,49 @@ void main()
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += map.SampleCmp(shadowSampler, lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 9;
+                unshadowed += texture(sampler2DShadow(textures[spotLight.shadowID], shadowSampler),
+                    lightPosScaled + ivec3(x, y, 0)) / 9;
             }
         }
 
-        float3 lightDir = normalize(vertData.worldPos.xyz - spotLight.position);
+        vec3 lightDir = normalize(worldPos.xyz - spotLight.position);
         float lightAngle = dot(lightDir, spotLight.direction);
 
         float fadeSize = spotLight.innerCutoff - spotLight.outerCutoff;
         float intensity = clamp((lightAngle - spotLight.outerCutoff) / fadeSize, 0.0, 1.0);
 
-        float3 diffuse = max(dot(normal, -lightDir), 0.0) * spotLight.diffuse;
-        float3 viewDir = normalize(-vertData.eyeRelPos);
-        float3 halfDir = normalize(viewDir - lightDir);
-        float3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * spotLight.specular;
+        vec3 diffuse = max(dot(normal, -lightDir), 0.0) * spotLight.diffuse;
+        vec3 viewDir = normalize(-eyeRelPos);
+        vec3 halfDir = normalize(viewDir - lightDir);
+        vec3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * spotLight.specular;
 
         light += unshadowed * intensity * (diffuse + specular);
     }
 
     for (uint i = 0; i < pcs.pointLightCount; i++)
     {
-        PointLightData pointLight = pcs.pointLights[i];
+        PointLightData pointLight = pcs.pointLightBuffer.lights[i];
 
-        float3 normal = vertData.normal;
-        float3 lightVec = vertData.worldPos.xyz - pointLight.position;
-        float3 offsetPos = vertData.worldPos.xyz + (vertData.normal * 8) - pointLight.position;
-        float3 offsetLightDir = normalize(offsetPos);
+        vec3 lightVec = worldPos.xyz - pointLight.position;
+        vec3 offsetPos = worldPos.xyz + (normal * 8) - pointLight.position;
+        vec3 offsetLightDir = normalize(offsetPos);
 
         float sampleDepth = length(offsetPos) / pointLight.maxRange;
 
-        TextureCube cubemap = textures[pointLight.shadowID];
-
-        float unshadowed = cubemap.SampleCmp(shadowSampler, offsetLightDir, sampleDepth);
+        float unshadowed = texture(samplerCubeShadow(cubemaps[pointLight.shadowID], shadowSampler), vec4(offsetLightDir, sampleDepth));
 
         float distance = length(lightVec);
         float attenuation = 1.0 / (pointLight.constant + (pointLight.linear * distance) + (pointLight.quadratic * distance * distance));
 
-        float3 lightDir = normalize(lightVec);
+        vec3 lightDir = normalize(lightVec);
 
-        float3 diffuse = max(dot(normal, -lightDir), 0.0) * pointLight.diffuse;
-        float3 viewDir = normalize(-vertData.eyeRelPos);
-        float3 halfDir = normalize(viewDir - lightDir);
-        float3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * pointLight.specular;
+        vec3 diffuse = max(dot(normal, -lightDir), 0.0) * pointLight.diffuse;
+        vec3 viewDir = normalize(-eyeRelPos);
+        vec3 halfDir = normalize(viewDir - lightDir);
+        vec3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * pointLight.specular;
 
         light += unshadowed * attenuation * (diffuse + specular);
     }
 
-    return color * float4(light, 1.0);
+    outFragColor = color * vec4(light, 1.0);
 }
