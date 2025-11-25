@@ -623,6 +623,7 @@ void InitRenderer(RenderInitInfo& info)
     feat12.descriptorIndexing = true;
     feat12.descriptorBindingPartiallyBound = true;
     feat12.descriptorBindingSampledImageUpdateAfterBind = true;
+    feat12.shaderSampledImageArrayNonUniformIndexing = true;
     feat12.runtimeDescriptorArray = true;
     feat12.scalarBlockLayout = true;
 
