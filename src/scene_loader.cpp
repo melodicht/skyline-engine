@@ -1,25 +1,18 @@
 #include <toml++/toml.hpp>
 #include <iostream>
 
-#include "component_def.h"
-
-struct FieldInfo
-{
-    const char *name;
-    size_t size;
-    void (*loadFunc)(char* dest, toml::node*);
-};
 
 struct ComponentInfo
 {
     void (*loadFunc)(Scene&, EntityID, toml::table*, int);
-    std::vector<FieldInfo> fields;
+    size_t size;
 };
 
 std::vector<ComponentInfo> compInfos;
+std::unordered_map<std::string, EntityID> entityNames;
 
 template <typename T>
-void LoadValue(char* dest, toml::node* data) = delete;
+void LoadValue(char* dest, toml::node* data) {}
 
 template <>
 void LoadValue<int>(char* dest, toml::node* data)
@@ -74,105 +67,58 @@ void LoadValue<glm::vec3>(char* dest, toml::node* data)
     LoadValue<float>(dest + (2 * sizeof(float)), array->get(2));
 }
 
+template <>
+void LoadValue<MeshAsset*>(char* dest, toml::node* data)
+{
+    if (!data->is_string())
+    {
+        std::cout << "This field must be an string\n";
+    }
+
+    *(MeshAsset**)dest = globalPlatformAPI.platformLoadMeshAsset(data->as_string()->get());
+}
+
+template <>
+void LoadValue<TextureAsset*>(char* dest, toml::node* data)
+{
+    if (!data->is_string())
+    {
+        std::cout << "This field must be an string\n";
+    }
+
+    *(TextureAsset**)dest = globalPlatformAPI.platformLoadTextureAsset(data->as_string()->get());
+}
+
+void LoadIfPresent(char* dest, const char* name, toml::table* data, void (*loadFunc)(char*, toml::node*))
+{
+    if (data->contains(name))
+    {
+        loadFunc(dest, data->get(name));
+    }
+}
+
 template <typename T>
 void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
 {
     char* comp = (char*)scene.Assign<T>(entity);
-    ComponentInfo& compInfo = compInfos[compIndex];
-    for (FieldInfo& field : compInfo.fields)
-    {
-        if (compData->contains(field.name))
-        {
-            field.loadFunc(comp, compData->get(field.name));
-        }
-
-        comp += field.size;
-    }
-}
-
-template <>
-void LoadComponent<MeshComponent>(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
-{
-    MeshComponent* comp = scene.Assign<MeshComponent>(entity);
-
-    if (!compData->contains("mesh"))
-    {
-        std::cout << "Must specify a mesh\n";
-    }
-
-    toml::node* meshData = compData->get("mesh");
-
-    if (!meshData->is_string())
-    {
-        std::cout << "This field must be a string\n";
-    }
-
-    std::string meshPath = meshData->as_string()->get();
-
-    comp->mesh = LoadMeshAsset(meshPath);
-
-    if (compData->contains("texture"))
-    {
-        toml::node* texData = compData->get("texture");
-
-        if (!texData->is_string())
-        {
-            std::cout << "This field must be a string\n";
-        }
-
-        std::string texPath = texData->as_string()->get();
-
-        comp->texture = LoadTextureAsset(texPath);
-    }
-
-    if (compData->contains("color"))
-    {
-        LoadValue<glm::vec3>(((char*)comp) + sizeof(MeshID) + sizeof(TextureID), compData->get("color"));
-    }
+    LoadValue<T>(comp, compData);
 }
 
 template <typename T>
-void AddComponent(Scene &scene, const char *name)
+void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    scene.AddComponentPool(sizeof(T));
-    compInfos.push_back({LoadComponent<T>});
+    compInfos.push_back({LoadComponent<T>, sizeof(T)});
 }
 
-template <typename T>
-void AddField(const char *name)
+void RegisterComponents(Scene& scene)
 {
-    ComponentInfo& compInfo = compInfos[numComponents - 1];
-    compInfo.fields.push_back({name, sizeof(T), LoadValue<T>});
+    for (ComponentInfo& compInfo : compInfos)
+    {
+        scene.AddComponentPool(compInfo.size);
+    }
 }
-
-template <typename T>
-void AddLocalField(const char *name)
-{
-    ComponentInfo& compInfo = compInfos[numComponents - 1];
-    compInfo.fields.push_back({name, sizeof(T)});
-}
-
-#define COMP(name) AddComponent<name>(scene, #name);
-#define FIELD(type, name, start) AddField<type>(#name)
-#define LOCAL_FIELD(type, name, start) AddLocalField<type>(#name)
-#define LOCAL_DEF(def)
-
-void RegisterComponents(Scene &scene)
-{
-    AddComponent<Transform3D>(scene, "Transform3D");
-    AddField<glm::vec3>("position");
-    AddField<glm::vec3>("rotation");
-    AddField<glm::vec3>("scale");
-
-    #include "components.h"
-}
-
-#undef COMP
-#undef FIELD
-#undef LOCAL_FIELD
-#undef LOCAL_DEF
 
 void LoadScene(Scene& scene, const char* filename)
 {
@@ -180,12 +126,12 @@ void LoadScene(Scene& scene, const char* filename)
     try
     {
         tbl = toml::parse_file(filename);
-        toml::array* entities = tbl["entity"].as_array();
 
-        for (toml::node& entity : *entities)
+        for (auto entity : tbl)
         {
-            toml::table* table = entity.as_table();
+            toml::table* table = entity.second.as_table();
             EntityID id = scene.NewEntity();
+            entityNames[entity.first.data()] = id;
 
             for (auto val : *table)
             {
@@ -200,6 +146,7 @@ void LoadScene(Scene& scene, const char* filename)
                 compInfo.loadFunc(scene, id, val.second.as_table(), compIndex);
             }
         }
+
 
     }
     catch (const toml::parse_error& error)

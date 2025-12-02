@@ -1,18 +1,15 @@
-[[entity]]
-[entity.Transform3D]
-[entity.CameraComponent]
-[entity.FlyingMovement]
+[camera.Transform3D]
+[camera.CameraComponent]
+[camera.FlyingMovement]
 
-[[entity]]
-[entity.Transform3D]
+[cube.Transform3D]
 position = [5.0, 0.0, 0.0]
-[entity.MeshComponent]
+[cube.MeshComponent]
 mesh = "cube"
 texture = "diamond_ore"
 
-[[entity]]
-[entity.Transform3D]
+[mainLight.Transform3D]
 rotation = [0.0, 30.0, 30.0]
-[entity.DirLight]
+[mainLight.DirLight]
 diffuse = [1.0, 1.0, 1.0]
 specular = [1.0, 1.0, 1.0]

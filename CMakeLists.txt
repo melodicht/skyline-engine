@@ -54,6 +54,8 @@ add_library(RENDERING_BACKEND INTERFACE)
 # COMPILATION OPTIONS
 #==============================================================================
 
+add_compile_definitions(NOMINMAX)
+
 # option_if_not_defined vs option
 # https://github.com/google/marl/issues/223
 
@@ -195,7 +197,6 @@ target_compile_definitions(game-module PRIVATE
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
-        fastgltf::fastgltf
         Jolt)
 target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -215,7 +216,8 @@ target_include_directories(platform PUBLIC
         $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
-        RENDERING_BACKEND)
+        RENDERING_BACKEND
+        fastgltf::fastgltf)
 
 add_dependencies(platform game-module)
 

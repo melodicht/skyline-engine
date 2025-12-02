@@ -6,9 +6,7 @@
 
 struct MeshAsset
 {
-    std::vector<Vertex> vertices;
-    std::vector<u32> indices;
-
+    MeshID id;
     AABB aabb;
 };
 
@@ -17,5 +15,5 @@ struct TextureAsset
     u32 width;
     u32 height;
 
-    std::vector<u32> pixels;
+    TextureID id;
 };

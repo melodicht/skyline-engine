@@ -10,14 +10,14 @@ struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec
 template <>
 struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec2, f32> {};
 
-std::unordered_map<std::string, MeshID> meshIDs;
-std::unordered_map<std::string, TextureID> texIDs;
+std::unordered_map<std::string, MeshAsset> meshAssets;
+std::unordered_map<std::string, TextureAsset> texAssets;
 
-MeshID LoadMeshAsset(std::string name)
+PLATFORM_LOAD_MESH_ASSET(LoadMeshAsset)
 {
-    if (meshIDs.contains(name))
+    if (meshAssets.contains(name))
     {
-        return meshIDs[name];
+        return &meshAssets[name];
     }
 
     std::filesystem::path path = "models/" + name + ".glb";
@@ -29,7 +29,7 @@ MeshID LoadMeshAsset(std::string name)
     }
     else
     {
-        return -1;
+        return nullptr;
     }
 
     constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers;
@@ -44,25 +44,26 @@ MeshID LoadMeshAsset(std::string name)
     }
     else
     {
-        return -1;
+        return nullptr;
     }
 
     fastgltf::Mesh mesh = gltf.meshes[0];
-    MeshAsset asset;
+    std::vector<Vertex> vertices;
+    std::vector<u32> indices;
 
     for (fastgltf::Primitive &p : mesh.primitives)
     {
         fastgltf::Accessor& indexAccessor = gltf.accessors[p.indicesAccessor.value()];
-        asset.indices.reserve(asset.indices.size() + indexAccessor.count);
+        indices.reserve(indices.size() + indexAccessor.count);
         fastgltf::iterateAccessor<u32>(gltf, indexAccessor, [&](u32 index)
         {
-            asset.indices.push_back(index);
+            indices.push_back(index);
         });
 
         fastgltf::Accessor& posAccessor = gltf.accessors[p.findAttribute("POSITION")->accessorIndex];
         fastgltf::Accessor& normAccessor = gltf.accessors[p.findAttribute("NORMAL")->accessorIndex];
         fastgltf::Accessor& uvAccessor = gltf.accessors[p.findAttribute("TEXCOORD_0")->accessorIndex];
-        asset.vertices.reserve(asset.vertices.size() + posAccessor.count);
+        vertices.reserve(vertices.size() + posAccessor.count);
         fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor, [&](glm::vec3 pos, u32 index)
         {
             glm::vec3 norm = fastgltf::getAccessorElement<glm::vec3>(gltf, normAccessor, index);
@@ -74,27 +75,28 @@ MeshID LoadMeshAsset(std::string name)
             vert.uvX = uv.x;
             vert.uvY = uv.y;
 
-            asset.vertices.push_back(vert);
+            vertices.push_back(vert);
         });
     }
 
     RenderUploadMeshInfo info{};
-    info.vertData = asset.vertices.data();
-    info.vertSize = asset.vertices.size();
-    info.idxData = asset.indices.data();
-    info.idxSize = asset.indices.size();
+    info.vertData = vertices.data();
+    info.vertSize = vertices.size();
+    info.idxData = indices.data();
+    info.idxSize = indices.size();
 
-    MeshID id = UploadMesh(info);
-    meshIDs[name] = id;
+    MeshAsset asset;
+    asset.id = UploadMesh(info);
+    meshAssets[name] = asset;
 
-    return id;
+    return &meshAssets[name];
 }
 
-TextureID LoadTextureAsset(std::string name)
+PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
 {
-    if (texIDs.contains(name))
+    if (texAssets.contains(name))
     {
-        return meshIDs[name];
+        return &texAssets[name];
     }
 
     std::filesystem::path path = "textures/" + name + ".png";
@@ -102,21 +104,23 @@ TextureID LoadTextureAsset(std::string name)
     int width, height, channels;
 
     stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
-    TextureAsset asset{};
-    asset.width = width;
-    asset.height = height;
-    asset.pixels = std::vector<u32>((width * height * 4) / sizeof(u32));
+    std::vector<u32> pixels;
 
-    memcpy(asset.pixels.data(), imageData, asset.pixels.size() * sizeof(u32));
+    pixels = std::vector<u32>((width * height * 4) / sizeof(u32));
+
+    memcpy(pixels.data(), imageData, pixels.size() * sizeof(u32));
     stbi_image_free(imageData);
 
     RenderUploadTextureInfo info{};
-    info.width = asset.width;
-    info.height = asset.height;
-    info.pixelData = asset.pixels.data();
+    info.width = width;
+    info.height = height;
+    info.pixelData = pixels.data();
 
-    TextureID id = UploadTexture(info);
-    texIDs[name] = id;
+    TextureAsset asset;
+    asset.width = width;
+    asset.height = height;
+    asset.id = UploadTexture(info);
+    texAssets[name] = asset;
 
-    return id;
+    return &texAssets[name];
 }

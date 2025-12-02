@@ -20,6 +20,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#include "renderer/render_backend.h"
 #include "game_platform.h"
 
 #if SKL_ENABLED_EDITOR
@@ -28,7 +31,7 @@
 #endif
 
 #include "asset_types.h"
-#include "renderer/render_backend.h"
+#include "asset_utils.cpp"
 #include "math/skl_math_utils.h"
 
 #include "main.h"
@@ -250,11 +253,13 @@ int main()
     InitRenderer(initDesc);
 
     SDLGameCode gameCode = SDLLoadGameCode();
-
     GameMemory gameMemory = {};
+    PlatformAPI platformAPI = {};
+    platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
+    platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
 
     Scene scene;
-    gameCode.gameInitialize(scene, gameMemory);
+    gameCode.gameInitialize(scene, gameMemory, platformAPI);
 
     SDL_Event e;
     bool playing = true;

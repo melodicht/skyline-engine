@@ -52,6 +52,8 @@ When there are several translation units in a project, and some of them referenc
     - The platform only needs to know the signatures.
     - The game module actually needs to implement it.
   - math (our math, not the stdlib one)
+  - asset_utils.cpp
+
 
 
 - Game.cpp is the entry point for the game module.
@@ -64,7 +66,6 @@ When there are several translation units in a project, and some of them referenc
     - renderer
   - stb_image.h
   - asset_types.h
-  - asset_utils.cpp
   - renderer
   - ecs (form)
   - physics

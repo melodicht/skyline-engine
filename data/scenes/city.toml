@@ -1,29 +1,25 @@
-[[entity]]
-[entity.Transform3D]
+[camera.Transform3D]
 position = [-2560.0, 30.0, 1536.0]
-[entity.CameraComponent]
+[camera.CameraComponent]
 fov = 90.0
 farPlane = 5000.0
 nearPlane = 0.2
-[entity.FlyingMovement]
+[camera.FlyingMovement]
 moveSpeed = 200.0
 
-[[entity]]
-[entity.Transform3D]
-[entity.Plane]
+[startPlane.Transform3D]
+[startPlane.Plane]
 width = 4096.0
 length = 4096.0
 
-[[entity]]
-[entity.Transform3D]
+[startFloor.Transform3D]
 position = [0.0, 0.0, -8.0]
 scale = [4096.0, 4096.0, 16.0]
-[entity.MeshComponent]
+[startFloor.MeshComponent]
 mesh = "cube"
 
-[[entity]]
-[entity.Transform3D]
+[moonLight.Transform3D]
 rotation = [0.0, 30.0, 120.0]
-[entity.DirLight]
+[moonLight.DirLight]
 diffuse = [0.2, 0.2, 0.6]
 specular = [0.4, 0.4, 0.5]

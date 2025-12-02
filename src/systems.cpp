@@ -92,7 +92,9 @@ class RenderSystem : public System
             Transform3D *t = scene->Get<Transform3D>(ent);
             glm::mat4 model = t->GetWorldTransform();
             MeshComponent *m = scene->Get<MeshComponent>(ent);
-            meshInstances.push_back({model, m->color, m->mesh, m->texture});
+            MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
+            TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
+            meshInstances.push_back({model, m->color, meshID, texID});
         }
 
         RenderFrameInfo sendState{
@@ -327,7 +329,7 @@ public:
                 {
                     // Build antenna
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-                    BuildPart(scene, ent, t, LoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
                     t->AddLocalPosition({0, 0, -antennaWidth / 2});
 
                     if (pointLightCount < 64)
@@ -387,7 +389,7 @@ public:
                     }
 
                     f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
-                    BuildPart(scene, ent, t, LoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -409,7 +411,7 @@ public:
                     }
 
                     f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, LoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -423,7 +425,7 @@ public:
                     }
 
                     f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, LoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -435,7 +437,7 @@ public:
                 {
                     // Build Cuboid
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
-                    BuildPart(scene, ent, t, LoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -487,7 +489,7 @@ public:
         }
     }
 
-    void BuildPart(Scene *scene, EntityID ent, Transform3D *t, uint32_t mesh, glm::vec3 scale)
+    void BuildPart(Scene *scene, EntityID ent, Transform3D *t, MeshAsset *mesh, glm::vec3 scale)
     {
         t->AddLocalPosition({0, 0, scale.z / 2});
         t->SetLocalScale(scale);
