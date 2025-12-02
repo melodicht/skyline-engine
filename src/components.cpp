@@ -39,7 +39,7 @@
 
 // Define the game's components here
 
-SERIALIZE(Transform3D, position, rotation, scale)
+SERIALIZE(Transform3D, position, rotation, scale, parent)
 COMPONENT(Transform3D)
 
 

@@ -19,18 +19,12 @@ typedef double f64;
 
 class Transform3D
 {
-private:
+public:
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale = glm::vec3(1);
     Transform3D *parent;
-    std::unordered_set<Transform3D *> children;
-    glm::mat4 worldTransform;
-    bool dirty = true;
 
-    void MarkDirty();
-
-public:
     glm::vec3 GetLocalPosition();
     void SetLocalPosition(glm::vec3 newPos);
     void AddLocalPosition(glm::vec3 offset);
@@ -48,4 +42,11 @@ public:
     void SetParent(Transform3D *newParent);
 
     ~Transform3D();
+
+private:
+    std::unordered_set<Transform3D *> children;
+    glm::mat4 worldTransform;
+    bool dirty = true;
+
+    void MarkDirty();
 };
