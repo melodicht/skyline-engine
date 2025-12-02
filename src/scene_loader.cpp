@@ -4,7 +4,7 @@
 
 struct ComponentInfo
 {
-    void (*loadFunc)(Scene&, EntityID, toml::table*, int);
+    void (*loadFunc)(Scene&, EntityID, toml::table*);
     size_t size;
 };
 
@@ -99,7 +99,7 @@ void LoadIfPresent(T* dest, const char* name, toml::table* data)
 }
 
 template <typename T>
-void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
+void LoadComponent(Scene &scene, EntityID entity, toml::table* compData)
 {
     T* comp = scene.Assign<T>(entity);
     LoadValue<T>(comp, compData);
@@ -144,7 +144,7 @@ void LoadScene(Scene& scene, const char* filename)
 
                 int compIndex = stringToId[val.first.data()];
                 ComponentInfo& compInfo = compInfos[compIndex];
-                compInfo.loadFunc(scene, id, val.second.as_table(), compIndex);
+                compInfo.loadFunc(scene, id, val.second.as_table());
             }
         }
 
