@@ -12,43 +12,43 @@ std::vector<ComponentInfo> compInfos;
 std::unordered_map<std::string, EntityID> entityNames;
 
 template <typename T>
-void LoadValue(char* dest, toml::node* data) {}
+void LoadValue(T* dest, toml::node* data) {}
 
 template <>
-void LoadValue<int>(char* dest, toml::node* data)
+void LoadValue<int>(int* dest, toml::node* data)
 {
     if (!data->is_integer())
     {
         std::cout << "This field must be an integer\n";
     }
 
-    *(int*)dest = data->as_integer()->get();
+    *dest = data->as_integer()->get();
 }
 
 template <>
-void LoadValue<float>(char* dest, toml::node* data)
+void LoadValue<float>(float* dest, toml::node* data)
 {
     if (!data->is_floating_point())
     {
         std::cout << "This field must be a floating point number\n";
     }
 
-    *(float*)dest = data->as_floating_point()->get();
+    *dest = data->as_floating_point()->get();
 }
 
 template <>
-void LoadValue<bool>(char* dest, toml::node* data)
+void LoadValue<bool>(bool* dest, toml::node* data)
 {
     if (!data->is_boolean())
     {
         std::cout << "This field must be a boolean\n";
     }
 
-    *(bool*)dest = data->as_boolean()->get();
+    *dest = data->as_boolean()->get();
 }
 
 template <>
-void LoadValue<glm::vec3>(char* dest, toml::node* data)
+void LoadValue<glm::vec3>(glm::vec3* dest, toml::node* data)
 {
     if (!data->is_array())
     {
@@ -62,45 +62,46 @@ void LoadValue<glm::vec3>(char* dest, toml::node* data)
         std::cout << "This field must have a length of 3\n";
     }
 
-    LoadValue<float>(dest, array->get(0));
-    LoadValue<float>(dest + sizeof(float), array->get(1));
-    LoadValue<float>(dest + (2 * sizeof(float)), array->get(2));
+    LoadValue<float>(&dest->x, array->get(0));
+    LoadValue<float>(&dest->y, array->get(1));
+    LoadValue<float>(&dest->z, array->get(2));
 }
 
 template <>
-void LoadValue<MeshAsset*>(char* dest, toml::node* data)
+void LoadValue<MeshAsset*>(MeshAsset** dest, toml::node* data)
 {
     if (!data->is_string())
     {
         std::cout << "This field must be an string\n";
     }
 
-    *(MeshAsset**)dest = globalPlatformAPI.platformLoadMeshAsset(data->as_string()->get());
+    *dest = globalPlatformAPI.platformLoadMeshAsset(data->as_string()->get());
 }
 
 template <>
-void LoadValue<TextureAsset*>(char* dest, toml::node* data)
+void LoadValue<TextureAsset*>(TextureAsset** dest, toml::node* data)
 {
     if (!data->is_string())
     {
         std::cout << "This field must be an string\n";
     }
 
-    *(TextureAsset**)dest = globalPlatformAPI.platformLoadTextureAsset(data->as_string()->get());
+    *dest = globalPlatformAPI.platformLoadTextureAsset(data->as_string()->get());
 }
 
-void LoadIfPresent(char* dest, const char* name, toml::table* data, void (*loadFunc)(char*, toml::node*))
+template <typename T>
+void LoadIfPresent(T* dest, const char* name, toml::table* data)
 {
     if (data->contains(name))
     {
-        loadFunc(dest, data->get(name));
+        LoadValue<T>(dest, data->get(name));
     }
 }
 
 template <typename T>
 void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
 {
-    char* comp = (char*)scene.Assign<T>(entity);
+    T* comp = scene.Assign<T>(entity);
     LoadValue<T>(comp, compData);
 }
 

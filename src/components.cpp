@@ -4,7 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "renderer/render_types.h"
-#include "math/skl_math_consts.h"
+#include "math/skl_math_utils.h"
 
 #include <Jolt/Jolt.h>
 
@@ -25,11 +25,11 @@
 
 
 #define ADD_FIELD(type, field) \
-    LoadIfPresent(dest + offsetof(type, field), #field, table, LoadValue<decltype(type::field)>);
+    LoadIfPresent<decltype(type::field)>(&dest->field, #field, table);
 
 #define SERIALIZE(name, ...) \
     template<> \
-    void LoadValue<name>(char* dest, toml::node* data) \
+    void LoadValue<name>(name* dest, toml::node* data) \
     { \
          toml::table* table = data->as_table(); \
          FOR_FIELDS(ADD_FIELD, name, __VA_ARGS__) \
