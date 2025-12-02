@@ -93,7 +93,9 @@ class RenderSystem : public System
             glm::mat4 model = GetTransformMatrix(t);
             MeshComponent *m = scene->Get<MeshComponent>(ent);
             m->dirty = false;
-            meshInstances.push_back({model, m->color, m->mesh, m->texture});
+            MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
+            TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
+            meshInstances.push_back({model, m->color, meshID, texID});
         }
 
         RenderFrameInfo sendState{
@@ -488,7 +490,7 @@ public:
         }
     }
 
-    void BuildPart(Scene *scene, EntityID ent, Transform3D *t, uint32_t mesh, glm::vec3 scale)
+    void BuildPart(Scene *scene, EntityID ent, Transform3D *t, MeshAsset *mesh, glm::vec3 scale)
     {
         t->position.z += scale.z / 2;
         t->scale = scale;

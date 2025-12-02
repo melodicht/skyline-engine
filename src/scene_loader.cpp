@@ -67,6 +67,28 @@ void LoadValue<glm::vec3>(char* dest, toml::node* data)
     LoadValue<float>(dest + (2 * sizeof(float)), array->get(2));
 }
 
+template <>
+void LoadValue<MeshAsset*>(char* dest, toml::node* data)
+{
+    if (!data->is_string())
+    {
+        std::cout << "This field must be an string\n";
+    }
+
+    *(MeshAsset**)dest = globalPlatformAPI.platformLoadMeshAsset(data->as_string()->get());
+}
+
+template <>
+void LoadValue<TextureAsset*>(char* dest, toml::node* data)
+{
+    if (!data->is_string())
+    {
+        std::cout << "This field must be an string\n";
+    }
+
+    *(TextureAsset**)dest = globalPlatformAPI.platformLoadTextureAsset(data->as_string()->get());
+}
+
 void LoadIfPresent(char* dest, const char* name, toml::table* data, void (*loadFunc)(char*, toml::node*))
 {
     if (data->contains(name))

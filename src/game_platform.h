@@ -2,6 +2,7 @@
 
 #include "meta_definitions.h"
 #include "renderer/render_types.h"
+#include "asset_types.h"
 
 #if SKL_INTERNAL
 #include "platform_metrics.cpp"
@@ -28,10 +29,10 @@ struct GameMemory
     
 };
 
-#define PLATFORM_LOAD_MESH_ASSET(proc) MeshID proc(std::string name)
+#define PLATFORM_LOAD_MESH_ASSET(proc) MeshAsset* proc(std::string name)
 typedef PLATFORM_LOAD_MESH_ASSET(platform_load_mesh_asset_t);
 
-#define PLATFORM_LOAD_TEXTURE_ASSET(proc) TextureID proc(std::string name)
+#define PLATFORM_LOAD_TEXTURE_ASSET(proc) TextureAsset* proc(std::string name)
 typedef PLATFORM_LOAD_TEXTURE_ASSET(platform_load_texture_asset_t);
 
 struct PlatformAPI

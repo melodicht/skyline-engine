@@ -45,8 +45,8 @@ COMPONENT(Transform3D)
 
 struct MeshComponent
 {
-    MeshID mesh = -1;
-    TextureID texture = -1;
+    MeshAsset* mesh;
+    TextureAsset* texture;
     glm::vec3 color = glm::vec3{1.0f};
     bool dirty = true;
 };
