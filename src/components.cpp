@@ -16,28 +16,32 @@
 #define EXPAND2(...) EXPAND1(EXPAND1(EXPAND1(EXPAND1(__VA_ARGS__))))
 #define EXPAND1(...) __VA_ARGS__
 
-#define ADD_FIELDS(type, ...) \
-    __VA_OPT__(EXPAND(_ADD_FIELDS(type, __VA_ARGS__)))
-#define _ADD_FIELDS(type, a1, ...) \
-    LoadIfPresent(dest + offsetof(type, a1), #a1, table, LoadValue<decltype(type::a1)>); \
-    __VA_OPT__(__ADD_FIELDS PARENS (type, __VA_ARGS__))
-#define __ADD_FIELDS() _ADD_FIELDS
+#define FOR_FIELDS(f, type, ...) \
+    __VA_OPT__(EXPAND(_FOR_FIELDS(f, type, __VA_ARGS__)))
+#define _FOR_FIELDS(f, type, a1, ...) \
+    f(type, a1) \
+    __VA_OPT__(__FOR_FIELDS PARENS (f, type, __VA_ARGS__))
+#define __FOR_FIELDS() _FOR_FIELDS
 
 
-#define ADD_FIELD(type, a1, ...) \
-    LoadIfPresent(dest + offsetof(type, a1), #a1, table, LoadValue<decltype(type::a1)>);
+#define ADD_FIELD(type, field) \
+    LoadIfPresent(dest + offsetof(type, field), #field, table, LoadValue<decltype(type::field)>);
 
 #define SERIALIZE(name, ...) \
     template<> \
     void LoadValue<name>(char* dest, toml::node* data) \
     { \
          toml::table* table = data->as_table(); \
-         ADD_FIELDS(name, __VA_ARGS__) \
+         FOR_FIELDS(ADD_FIELD, name, __VA_ARGS__) \
     } \
+
+#define COMPONENT(type) [[maybe_unused]] static int add##type = (AddComponent<type>(#type), 0);
 
 // Define the game's components here
 
 SERIALIZE(Transform3D, position, rotation, scale)
+COMPONENT(Transform3D)
+
 
 struct MeshComponent
 {
@@ -47,11 +51,15 @@ struct MeshComponent
     bool dirty = true;
 };
 SERIALIZE(MeshComponent, mesh, texture, color)
+COMPONENT(MeshComponent)
+
 
 struct PlayerCharacter
 {
     JPH::CharacterVirtual* characterVirtual = nullptr;
 };
+COMPONENT(PlayerCharacter)
+
 
 struct CameraComponent
 {
@@ -60,6 +68,8 @@ struct CameraComponent
     float farPlane = 1000;
 };
 SERIALIZE(CameraComponent, fov, nearPlane, farPlane)
+COMPONENT(CameraComponent)
+
 
 struct FlyingMovement
 {
@@ -67,6 +77,8 @@ struct FlyingMovement
     float turnSpeed = 0.1;
 };
 SERIALIZE(FlyingMovement, moveSpeed, turnSpeed)
+COMPONENT(FlyingMovement)
+
 
 struct Plane
 {
@@ -74,6 +86,8 @@ struct Plane
     float length = 1;
 };
 SERIALIZE(Plane, width, length)
+COMPONENT(Plane)
+
 
 struct DirLight
 {
@@ -82,6 +96,8 @@ struct DirLight
     LightID lightID = -1;
 };
 SERIALIZE(DirLight, diffuse, specular)
+COMPONENT(DirLight)
+
 
 struct SpotLight
 {
@@ -94,6 +110,8 @@ struct SpotLight
     float range = 100;
 };
 SERIALIZE(SpotLight, diffuse, specular, innerCone, outerCone, range)
+COMPONENT(SpotLight)
+
 
 struct PointLight
 {
@@ -108,3 +126,4 @@ struct PointLight
     float maxRange = 20;
 };
 SERIALIZE(PointLight, diffuse, specular, constant, linear, quadratic, maxRange)
+COMPONENT(PointLight)

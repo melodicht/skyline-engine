@@ -2,24 +2,17 @@
 #include <iostream>
 
 
-struct FieldInfo
-{
-    const char *name;
-    size_t offset;
-    void (*loadFunc)(char*, toml::node*);
-};
-
 struct ComponentInfo
 {
     void (*loadFunc)(Scene&, EntityID, toml::table*, int);
-    std::vector<FieldInfo> fields;
+    size_t size;
 };
 
 std::vector<ComponentInfo> compInfos;
 std::unordered_map<std::string, EntityID> entityNames;
 
 template <typename T>
-void LoadValue(char* dest, toml::node* data) = delete;
+void LoadValue(char* dest, toml::node* data) {}
 
 template <>
 void LoadValue<int>(char* dest, toml::node* data)
@@ -86,42 +79,23 @@ template <typename T>
 void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
 {
     char* comp = (char*)scene.Assign<T>(entity);
-    ComponentInfo& compInfo = compInfos[compIndex];
-    for (FieldInfo& field : compInfo.fields)
-    {
-        if (compData->contains(field.name))
-        {
-            field.loadFunc(comp + field.offset, compData->get(field.name));
-        }
-    }
+    LoadValue<T>(comp, compData);
 }
 
 template <typename T>
-void AddComponent(Scene &scene, const char *name)
+void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    scene.AddComponentPool(sizeof(T));
-    compInfos.push_back({LoadComponent<T>});
+    compInfos.push_back({LoadComponent<T>, sizeof(T)});
 }
 
-template <typename T>
-void AddField(const char *name)
+void RegisterComponents(Scene& scene)
 {
-    ComponentInfo& compInfo = compInfos[numComponents - 1];
-    compInfo.fields.push_back({name, sizeof(T), LoadValue<T>});
-}
-
-template <typename T>
-void AddLocalField(const char *name)
-{
-    ComponentInfo& compInfo = compInfos[numComponents - 1];
-    compInfo.fields.push_back({name, sizeof(T)});
-}
-
-void RegisterComponents(Scene &scene)
-{
-
+    for (ComponentInfo& compInfo : compInfos)
+    {
+        scene.AddComponentPool(compInfo.size);
+    }
 }
 
 void LoadScene(Scene& scene, const char* filename)

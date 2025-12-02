@@ -16,7 +16,7 @@ length = 4096.0
 position = [0.0, 0.0, -8.0]
 scale = [4096.0, 4096.0, 16.0]
 [startFloor.MeshComponent]
-mesh = "cube"
+mesh = 1
 
 [moonLight.Transform3D]
 rotation = [0.0, 30.0, 120.0]
