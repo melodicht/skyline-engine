@@ -12,8 +12,7 @@
 
 #define PARENS ()
 
-#define EXPAND(...) EXPAND3(EXPAND3(EXPAND3(EXPAND3(__VA_ARGS__))))
-#define EXPAND3(...) EXPAND2(EXPAND2(EXPAND2(EXPAND2(__VA_ARGS__))))
+#define EXPAND(...) EXPAND2(EXPAND2(EXPAND2(EXPAND2(__VA_ARGS__))))
 #define EXPAND2(...) EXPAND1(EXPAND1(EXPAND1(EXPAND1(__VA_ARGS__))))
 #define EXPAND1(...) __VA_ARGS__
 
@@ -24,6 +23,10 @@
     __VA_OPT__(__ADD_FIELDS PARENS (type, __VA_ARGS__))
 #define __ADD_FIELDS() _ADD_FIELDS
 
+
+#define ADD_FIELD(type, a1, ...) \
+    LoadIfPresent(dest + offsetof(type, a1), #a1, table, LoadValue<decltype(type::a1)>);
+
 #define SERIALIZE(name, ...) \
     template<> \
     void LoadValue<name>(char* dest, toml::node* data) \
@@ -33,6 +36,8 @@
     } \
 
 // Define the game's components here
+
+SERIALIZE(Transform3D, position, rotation, scale)
 
 struct MeshComponent
 {
