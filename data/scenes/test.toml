@@ -8,6 +8,13 @@ position = [5.0, 0.0, 0.0]
 mesh = "cube"
 texture = "diamond_ore"
 
+[prism.Transform3D]
+position = [2.5, 1.0, 0.0]
+parent = "camera"
+[prism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+
 [mainLight.Transform3D]
 rotation = [0.0, 30.0, 30.0]
 [mainLight.DirLight]

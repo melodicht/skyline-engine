@@ -53,7 +53,7 @@ class RenderSystem : public System
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
-            dirLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular});
+            dirLights.push_back({l->lightID, lTransform, l->diffuse, l->specular});
         }
 
         std::vector<SpotLightRenderInfo> spotLights;
@@ -67,7 +67,7 @@ class RenderSystem : public System
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
-            spotLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
+            spotLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
                                   l->innerCone, l->outerCone, l->range, true});
         }
 
@@ -82,7 +82,7 @@ class RenderSystem : public System
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
-            pointLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
+            pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
                                    l->constant, l->linear, l->quadratic, l->maxRange, true});
         }
 
@@ -98,7 +98,7 @@ class RenderSystem : public System
         }
 
         RenderFrameInfo sendState{
-                .cameraTransform = *cameraTransform,
+                .cameraTransform = cameraTransform,
                 .meshes = meshInstances,
                 .dirLights = dirLights,
                 .spotLights = spotLights,

@@ -1,6 +1,7 @@
 #include "skl_math_utils.h"
 
 #include <random>
+#include <iostream>
 
 glm::vec3 Transform3D::GetLocalPosition()
 {
@@ -63,8 +64,6 @@ glm::mat4 Transform3D::GetWorldTransform()
         glm::mat4 rotationMat = glm::mat4_cast(aroundZ * aroundY * aroundX);
 
         this->dirty = false;
-
-        glm::mat4 parentSpace = glm::identity<glm::mat4>();
 
         this->worldTransform = glm::scale(glm::translate(glm::mat4(1.0f), this->position) * rotationMat, this->scale);
 
@@ -137,6 +136,8 @@ void Transform3D::SetParent(Transform3D *newParent)
     }
 
     this->parent = newParent;
+    newParent->children.insert(this);
+    MarkDirty();
 }
 
 Transform3D::~Transform3D()

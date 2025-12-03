@@ -95,7 +95,7 @@ struct MeshRenderInfo {
 struct DirLightRenderInfo {
     // Shared
     LightID lightID;
-    Transform3D transform;
+    Transform3D* transform;
 
     glm::vec3 diffuse;
     glm::vec3 specular;
@@ -107,7 +107,7 @@ struct DirLightRenderInfo {
 
 struct SpotLightRenderInfo {
     LightID lightID;
-    Transform3D transform;
+    Transform3D* transform;
 
     glm::vec3 diffuse;
     glm::vec3 specular;
@@ -121,7 +121,7 @@ struct SpotLightRenderInfo {
 
 struct PointLightRenderInfo {
     LightID lightID;
-    Transform3D transform;
+    Transform3D* transform;
 
     glm::vec3 diffuse;
     glm::vec3 specular;
@@ -138,7 +138,7 @@ struct PointLightRenderInfo {
 // Represents the information needed to render a single frame on any renderer
 struct RenderFrameInfo {
     // Shared
-    Transform3D cameraTransform;
+    Transform3D* cameraTransform;
     std::vector<MeshRenderInfo> &meshes;
 
     std::vector<DirLightRenderInfo>& dirLights;

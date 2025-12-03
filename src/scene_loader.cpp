@@ -4,6 +4,7 @@
 
 struct ComponentInfo
 {
+    void (*assignFunc)(Scene&, EntityID);
     void (*loadFunc)(Scene&, EntityID, toml::table*);
     size_t size;
 };
@@ -99,9 +100,15 @@ void LoadIfPresent(T* dest, const char* name, toml::table* data)
 }
 
 template <typename T>
+void AssignComponent(Scene &scene, EntityID entity)
+{
+    scene.Assign<T>(entity);
+}
+
+template <typename T>
 void LoadComponent(Scene &scene, EntityID entity, toml::table* compData)
 {
-    T* comp = scene.Assign<T>(entity);
+    T* comp = scene.Get<T>(entity);
     LoadValue<T>(comp, compData);
 }
 
@@ -110,7 +117,7 @@ void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    compInfos.push_back({LoadComponent<T>, sizeof(T)});
+    compInfos.push_back({AssignComponent<T>, LoadComponent<T>, sizeof(T)});
 }
 
 void RegisterComponents(Scene& scene)
@@ -144,11 +151,22 @@ void LoadScene(Scene& scene, const char* filename)
 
                 int compIndex = stringToId[val.first.data()];
                 ComponentInfo& compInfo = compInfos[compIndex];
-                compInfo.loadFunc(scene, id, val.second.as_table());
+                compInfo.assignFunc(scene, id);
             }
         }
 
+        for (auto entity : tbl)
+        {
+            toml::table* table = entity.second.as_table();
+            EntityID id = entityNames[entity.first.data()];
 
+            for (auto val : *table)
+            {
+                int compIndex = stringToId[val.first.data()];
+                ComponentInfo& compInfo = compInfos[compIndex];
+                compInfo.loadFunc(scene, id, val.second.as_table());
+            }
+        }
     }
     catch (const toml::parse_error& error)
     {

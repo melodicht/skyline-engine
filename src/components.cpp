@@ -39,8 +39,35 @@
 
 // Define the game's components here
 
-SERIALIZE(Transform3D, position, rotation, scale, parent)
+SERIALIZE(Transform3D, position, rotation, scale)
 COMPONENT(Transform3D)
+template <>
+void LoadComponent<Transform3D>(Scene &scene, EntityID entity, toml::table* compData)
+{
+    Transform3D* comp = scene.Get<Transform3D>(entity);
+    LoadValue<Transform3D>(comp, compData);
+
+    if (compData->contains("parent"))
+    {
+        toml::node* parentData = compData->get("parent");
+        if (!parentData->is_string())
+        {
+            std::cout << "This field must be an string\n";
+        }
+        std::string parentName = parentData->as_string()->get();
+        if (!entityNames.contains(parentName))
+        {
+            std::cout << "This field must be the name of an entity";
+        }
+        EntityID parent = entityNames[parentName];
+        Transform3D* parentTransform = scene.Get<Transform3D>(parent);
+        if (parentTransform == nullptr)
+        {
+            std::cout << "The parent must have a Transform3D";
+        }
+        comp->SetParent(parentTransform);
+    }
+}
 
 
 struct MeshComponent
