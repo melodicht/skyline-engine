@@ -924,17 +924,11 @@ void InitPipelines(RenderPipelineInitInfo& info)
     pushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(FragPushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkPushConstantRange cubeVertPushConstants;
-    cubeVertPushConstants.offset = 0;
-    cubeVertPushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(CubemapPushConstants);
-    cubeVertPushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    VkPushConstantRange cubePushConstants;
+    cubePushConstants.offset = 0;
+    cubePushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(CubemapPushConstants);
+    cubePushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkPushConstantRange cubeFragPushConstants;
-    cubeFragPushConstants.offset = sizeof(VkDeviceAddress) + sizeof(VertPushConstants);
-    cubeFragPushConstants.size =  sizeof(CubemapPushConstants);
-    cubeFragPushConstants.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkPushConstantRange cubePushConstants[2] = {cubeVertPushConstants, cubeFragPushConstants};
 
     VkPipelineLayoutCreateInfo depthLayoutInfo{};
     depthLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -949,8 +943,8 @@ void InitPipelines(RenderPipelineInitInfo& info)
     cubemapLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     cubemapLayoutInfo.setLayoutCount = 0;
     cubemapLayoutInfo.pSetLayouts = nullptr;
-    cubemapLayoutInfo.pushConstantRangeCount = 2;
-    cubemapLayoutInfo.pPushConstantRanges = cubePushConstants;
+    cubemapLayoutInfo.pushConstantRangeCount = 1;
+    cubemapLayoutInfo.pPushConstantRanges = &cubePushConstants;
 
     VK_CHECK(vkCreatePipelineLayout(device, &cubemapLayoutInfo, nullptr, &cubemapPipelineLayout));
 
@@ -1479,7 +1473,7 @@ void SetCubemapInfo(glm::vec3 lightPos, f32 farPlane)
 {
     CubemapPushConstants pushConstants = {lightPos, farPlane};
     vkCmdPushConstants(frames[frameNum].commandBuffer, cubemapPipelineLayout,
-                       VK_SHADER_STAGE_FRAGMENT_BIT,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(CubemapPushConstants),
                        &pushConstants);
 }
