@@ -268,6 +268,21 @@ if(NOT EMSCRIPTEN)
                         VERBATIM)
                 endforeach()
 
+                file(GLOB_RECURSE GLSL_SHADERS "${SHADERS_IN_DIR}/glsl/*.glsl")
+
+                set(GLSLANG "glslangValidator")
+
+                foreach(SHADER ${GLSL_SHADERS})
+                    get_filename_component(SHADER_NAME ${SHADER} NAME_WLE)
+                    set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
+                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
+                    add_custom_command(
+                            MAIN_DEPENDENCY ${SHADER}
+                            OUTPUT ${SHADER_OUT_NAME}
+                            COMMAND ${GLSLANG} ${SHADER} -o ${SHADER_OUT_NAME} --target-env vulkan1.3
+                            VERBATIM)
+                endforeach()
+
                 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 
                 add_dependencies(platform build_shaders)
