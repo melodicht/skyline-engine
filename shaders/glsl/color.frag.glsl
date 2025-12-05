@@ -180,13 +180,15 @@ void main()
         SpotLightData spotLight = pcs.spotLightBuffer.lights[i];
 
         vec4 lightRelPos = spotLight.lightSpace * worldPos;
+        vec3 offsetPos = worldPos.xyz - spotLight.position;
 
         vec3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
-        vec3 lightPosScaled = vec3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
+        float sampleDepth = length(offsetPos) / spotLight.range;
+        vec3 lightPosScaled = vec3(lightPosNorm.xy * 0.5 + 0.5, sampleDepth);
 
         float unshadowed = texture(sampler2DShadow(textures[nonuniformEXT(spotLight.shadowID)], shadowSampler), lightPosScaled);
 
-        vec3 lightDir = normalize(worldPos.xyz - spotLight.position);
+        vec3 lightDir = normalize(offsetPos);
         float lightAngle = dot(lightDir, spotLight.direction);
 
         float fadeSize = spotLight.innerCutoff - spotLight.outerCutoff;

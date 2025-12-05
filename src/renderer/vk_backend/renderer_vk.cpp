@@ -74,7 +74,7 @@ VkCommandPool mainCommandPool;
 FrameData frames[NUM_FRAMES];
 
 VkPipelineLayout depthPipelineLayout;
-VkPipelineLayout cubemapPipelineLayout;
+VkPipelineLayout shadowPipelineLayout;
 VkPipelineLayout colorPipelineLayout;
 VkPipeline shadowPipeline;
 VkPipeline cascadedPipeline;
@@ -806,13 +806,13 @@ void InitPipelines(RenderPipelineInitInfo& info)
 #else
     VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
     
-    VkShaderModule cubemapVertShader = CreateShaderModuleFromFile("shaders/cubemap.vert.spv");
-    VkShaderModule cubemapFragShader = CreateShaderModuleFromFile("shaders/cubemap.frag.spv");
+    VkShaderModule shadowVertShader = CreateShaderModuleFromFile("shaders/shadow.vert.spv");
+    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.frag.spv");
     
     VkShaderModule colorVertShader = CreateShaderModuleFromFile("shaders/color.vert.spv");
     VkShaderModule colorFragShader = CreateShaderModuleFromFile("shaders/color.frag.spv");
 
-    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.frag.spv");
+    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile("shaders/dirshadow.frag.spv");
 #endif
 
 #if DEFAULT_SLANG
@@ -825,14 +825,14 @@ void InitPipelines(RenderPipelineInitInfo& info)
     
     VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader, vertEntryPointName);
     VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo cubemapVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, cubemapVertShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo shadowVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, shadowVertShader, vertEntryPointName);
     VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
-    VkPipelineShaderStageCreateInfo cubemapFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, cubemapFragShader, fragEntryPointName);
     VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo dirShadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, dirShadowFragShader, fragEntryPointName);
     
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
-    VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
-    VkPipelineShaderStageCreateInfo shadowShaderStages[] = {depthVertStageInfo, shadowFragStageInfo};
+    VkPipelineShaderStageCreateInfo shadowShaderStages[] = {shadowVertStageInfo, shadowFragStageInfo};
+    VkPipelineShaderStageCreateInfo dirShadowShaderStages[] = {depthVertStageInfo, dirShadowFragStageInfo};
 
     // Set up descriptor pool and set for textures
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
@@ -932,10 +932,10 @@ void InitPipelines(RenderPipelineInitInfo& info)
     pushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(FragPushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkPushConstantRange cubePushConstants;
-    cubePushConstants.offset = 0;
-    cubePushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(CubemapPushConstants);
-    cubePushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkPushConstantRange shadowPushConstants;
+    shadowPushConstants.offset = 0;
+    shadowPushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(ShadowPushConstants);
+    shadowPushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
 
     VkPipelineLayoutCreateInfo depthLayoutInfo{};
@@ -947,14 +947,14 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VK_CHECK(vkCreatePipelineLayout(device, &depthLayoutInfo, nullptr, &depthPipelineLayout));
 
-    VkPipelineLayoutCreateInfo cubemapLayoutInfo{};
-    cubemapLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    cubemapLayoutInfo.setLayoutCount = 0;
-    cubemapLayoutInfo.pSetLayouts = nullptr;
-    cubemapLayoutInfo.pushConstantRangeCount = 1;
-    cubemapLayoutInfo.pPushConstantRanges = &cubePushConstants;
+    VkPipelineLayoutCreateInfo shadowLayoutInfo{};
+    shadowLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    shadowLayoutInfo.setLayoutCount = 0;
+    shadowLayoutInfo.pSetLayouts = nullptr;
+    shadowLayoutInfo.pushConstantRangeCount = 1;
+    shadowLayoutInfo.pPushConstantRanges = &shadowPushConstants;
 
-    VK_CHECK(vkCreatePipelineLayout(device, &cubemapLayoutInfo, nullptr, &cubemapPipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(device, &shadowLayoutInfo, nullptr, &shadowPipelineLayout));
 
     VkPipelineLayoutCreateInfo colorLayoutInfo{};
     colorLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1109,15 +1109,16 @@ void InitPipelines(RenderPipelineInitInfo& info)
     shadowPipelineInfo.stageCount = 2;
     shadowPipelineInfo.pStages = shadowShaderStages;
     shadowPipelineInfo.pRasterizationState = &shadowRasterizer;
+    shadowPipelineInfo.layout = shadowPipelineLayout;
     shadowPipelineInfo.pNext = &shadowRenderInfo;
 
     VkGraphicsPipelineCreateInfo cascadedPipelineInfo = shadowPipelineInfo;
     cascadedPipelineInfo.pNext = &cascadedRenderInfo;
+    cascadedPipelineInfo.pStages = dirShadowShaderStages;
 
     VkGraphicsPipelineCreateInfo cubemapPipelineInfo = shadowPipelineInfo;
-    cubemapPipelineInfo.stageCount = 2;
-    cubemapPipelineInfo.pStages = cubemapShaderStages;
     cubemapPipelineInfo.pRasterizationState = &cubemapRasterizer;
+    cubemapPipelineInfo.layout = shadowPipelineLayout;
     cubemapPipelineInfo.pNext = &cubemapRenderInfo;
 
     VkGraphicsPipelineCreateInfo colorPipelineInfo{};
@@ -1144,14 +1145,15 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &colorPipelineInfo, nullptr, &colorPipeline));
 
     vkDestroyShaderModule(device, depthShader, nullptr);
+    vkDestroyShaderModule(device, dirShadowFragShader, nullptr);
 #if DEFAULT_SLANG
     vkDestroyShaderModule(device, colorShader, nullptr);
     vkDestroyShaderModule(device, cubemapShader, nullptr);
 #else
     vkDestroyShaderModule(device, colorVertShader, nullptr);
     vkDestroyShaderModule(device, colorFragShader, nullptr);
-    vkDestroyShaderModule(device, cubemapVertShader, nullptr);
-    vkDestroyShaderModule(device, cubemapFragShader, nullptr);
+    vkDestroyShaderModule(device, shadowVertShader, nullptr);
+    vkDestroyShaderModule(device, shadowFragShader, nullptr);
 #endif
 
 #if SKL_ENABLED_EDITOR
@@ -1379,7 +1381,7 @@ void BeginCubemapShadowPass(Texture target, CullMode cullMode)
     BeginDepthPass(target.imageView, extent, cullMode, 6);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubemapPipeline);
-    currentLayout = &cubemapPipelineLayout;
+    currentLayout = &shadowPipelineLayout;
 
     imageBarriers.push_back(ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
 }
@@ -1483,12 +1485,12 @@ void UpdateCamera(u32 viewCount, CameraData* views)
     memcpy(cameraData, views, sizeof(CameraData) * viewCount);
 }
 
-void SetCubemapInfo(glm::vec3 lightPos, f32 farPlane)
+void SetShadowInfo(glm::vec3 lightPos, f32 farPlane)
 {
-    CubemapPushConstants pushConstants = {lightPos, farPlane};
-    vkCmdPushConstants(frames[frameNum].commandBuffer, cubemapPipelineLayout,
+    ShadowPushConstants pushConstants = {lightPos, farPlane};
+    vkCmdPushConstants(frames[frameNum].commandBuffer, shadowPipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(CubemapPushConstants),
+                       sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(ShadowPushConstants),
                        &pushConstants);
 }
 
@@ -1757,16 +1759,19 @@ void RenderUpdate(RenderFrameInfo& info)
         Transform3D* spotTransform = spotInfo.transform;
         glm::mat4 spotView = spotTransform->GetViewMatrix();
         glm::mat4 spotProj = glm::perspective(glm::radians(spotInfo.outerCone * 2), 1.0f, 0.01f, spotInfo.range);
+        glm::vec3 spotPos = spotTransform->GetWorldTransform() * glm::vec4(0, 0, 0, 1);
         LightEntry lightEntry = lights[spotInfo.lightID];
 
         if (spotInfo.needsUpdate)
         {
-            CameraData spotCamData = {spotView, spotProj, spotTransform->GetLocalPosition()};
+            CameraData spotCamData = {spotView, spotProj, spotPos};
 
             BeginShadowPass(lightEntry.shadowMap, CullMode::BACK);
 
             SetCamera(lightEntry.cameraIndex);
             UpdateCamera(1, &spotCamData);
+
+            SetShadowInfo(spotPos, spotInfo.range);
 
             startIndex = 0;
             for (std::pair<MeshID, u32> pair: meshCounts)
@@ -1779,7 +1784,7 @@ void RenderUpdate(RenderFrameInfo& info)
         }
 
 
-        spotLightData.push_back({spotProj * spotView, spotTransform->GetLocalPosition(), spotTransform->GetForwardVector(),
+        spotLightData.push_back({spotProj * spotView, spotPos, spotTransform->GetForwardVector(),
                                  lightEntry.shadowMap.descriptorIndex, spotInfo.diffuse, spotInfo.specular,
                                  cosf(glm::radians(spotInfo.innerCone)), cosf(glm::radians(spotInfo.outerCone)),
                                  spotInfo.range});
@@ -1790,14 +1795,14 @@ void RenderUpdate(RenderFrameInfo& info)
     for (PointLightRenderInfo pointInfo : info.pointLights)
     {
         Transform3D* pointTransform = pointInfo.transform;
-        glm::vec3 pointPos = pointTransform->GetLocalPosition();
+        glm::vec3 pointPos = pointTransform->GetWorldTransform() * glm::vec4(0, 0, 0, 1);
         LightEntry lightEntry = lights[pointInfo.lightID];
 
         if (pointInfo.needsUpdate)
         {
             CameraData pointCamData[6];
 
-            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointInfo.maxRange);
+            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, pointInfo.maxRange);
             glm::mat4 pointViews[6];
 
             pointTransform->GetPointViews(pointViews);
@@ -1812,7 +1817,7 @@ void RenderUpdate(RenderFrameInfo& info)
             SetCamera(lightEntry.cameraIndex);
             UpdateCamera(6, pointCamData);
 
-            SetCubemapInfo(pointPos, pointInfo.maxRange);
+            SetShadowInfo(pointPos, pointInfo.maxRange);
 
             startIndex = 0;
             for (std::pair<MeshID, u32> pair: meshCounts)

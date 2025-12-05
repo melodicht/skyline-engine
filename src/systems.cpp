@@ -337,7 +337,8 @@ public:
                         EntityID pointLight = scene->NewEntity();
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;
-                        pointTransform->AddLocalPosition({0, 0, antennaWidth / 2});
+                        pointTransform->AddLocalPosition({0, 0, antennaHeight / 2});
+                        pointTransform->SetLocalScale({16, 16, 16});
                         PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
                         f32 red = RandInBetween(0.8, 1.0);
                         pointLightComponent->diffuse = {red, 0.6, 0.25};

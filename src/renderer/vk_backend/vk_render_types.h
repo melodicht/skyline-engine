@@ -94,7 +94,7 @@ struct FragPushConstants
     glm::vec3 ambientLight;
 };
 
-struct CubemapPushConstants
+struct ShadowPushConstants
 {
     glm::vec3 lightPos;
     float farPlane;

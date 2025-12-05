@@ -111,7 +111,7 @@ glm::mat4 Transform3D::GetViewMatrix()
     glm::vec3 right = GetRightVector();
     glm::vec3 up = GetUpVector();
 
-    return MakeViewMatrix(forward, right, up, this->position);
+    return MakeViewMatrix(forward, right, up, GetWorldTransform() * glm::vec4(0, 0, 0, 1));
 }
 
 void Transform3D::GetPointViews(glm::mat4 *views)
@@ -120,12 +120,14 @@ void Transform3D::GetPointViews(glm::mat4 *views)
     glm::vec3 right = {0, 1, 0};
     glm::vec3 up = {0, 0, 1};
 
-    views[0] = MakeViewMatrix(forward, -up, right, this->position);
-    views[1] = MakeViewMatrix(-forward, up, right, this->position);
-    views[2] = MakeViewMatrix(right, forward, -up, this->position);
-    views[3] = MakeViewMatrix(-right, forward, up, this->position);
-    views[4] = MakeViewMatrix(up, forward, right, this->position);
-    views[5] = MakeViewMatrix(-up, -forward, right, this->position);
+    glm::vec3 worldPosition = GetWorldTransform() * glm::vec4(0, 0, 0, 1);
+
+    views[0] = MakeViewMatrix(forward, -up, right, worldPosition);
+    views[1] = MakeViewMatrix(-forward, up, right, worldPosition);
+    views[2] = MakeViewMatrix(right, forward, -up, worldPosition);
+    views[3] = MakeViewMatrix(-right, forward, up, worldPosition);
+    views[4] = MakeViewMatrix(up, forward, right, worldPosition);
+    views[5] = MakeViewMatrix(-up, -forward, right, worldPosition);
 }
 
 void Transform3D::SetParent(Transform3D *newParent)
