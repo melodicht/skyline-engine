@@ -12,5 +12,6 @@ layout(location = 0) in vec3 worldPos;
 
 void main()
 {
-    gl_FragDepth = length(worldPos - pcs.lightPos) / pcs.farPlane;
+    float distance = length(worldPos - pcs.lightPos) / pcs.farPlane;
+    gl_FragDepth = distance + fwidth(distance);
 }

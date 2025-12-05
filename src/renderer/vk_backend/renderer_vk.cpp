@@ -82,6 +82,8 @@ VkPipeline cubemapPipeline;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
 
+VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
+
 VkDescriptorPool descriptorPool;
 VkDescriptorSetLayout texDescriptorLayout;
 VkDescriptorSet texDescriptorSet;
@@ -200,7 +202,7 @@ Texture CreateDepthTexture(u32 width, u32 height)
     Texture texture;
 
     AllocatedImage depthTexture = CreateImage(allocator,
-                             depthFormat, 0,
+                             shadowFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                              VK_IMAGE_USAGE_SAMPLED_BIT,
                              {width, height, 1}, 1,
@@ -212,7 +214,7 @@ Texture CreateDepthTexture(u32 width, u32 height)
     VkImageViewCreateInfo depthViewInfo{};
     depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    depthViewInfo.format = depthFormat;
+    depthViewInfo.format = shadowFormat;
     depthViewInfo.image = depthTexture.image;
     depthViewInfo.subresourceRange.baseMipLevel = 0;
     depthViewInfo.subresourceRange.levelCount = 1;
@@ -252,7 +254,7 @@ Texture CreateDepthArray(u32 width, u32 height, u32 layers)
     Texture texture;
 
     AllocatedImage depthTexture = CreateImage(allocator,
-                                              depthFormat, 0,
+                                              shadowFormat, 0,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                               VK_IMAGE_USAGE_SAMPLED_BIT,
                                               {width, height, 1}, layers,
@@ -264,7 +266,7 @@ Texture CreateDepthArray(u32 width, u32 height, u32 layers)
     VkImageViewCreateInfo depthViewInfo{};
     depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    depthViewInfo.format = depthFormat;
+    depthViewInfo.format = shadowFormat;
     depthViewInfo.image = depthTexture.image;
     depthViewInfo.subresourceRange.baseMipLevel = 0;
     depthViewInfo.subresourceRange.levelCount = 1;
@@ -304,7 +306,7 @@ Texture CreateDepthCubemap(u32 width, u32 height)
     Texture texture;
 
     AllocatedImage depthTexture = CreateImage(allocator,
-                                              depthFormat,
+                                              shadowFormat,
                                               VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                               VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -317,7 +319,7 @@ Texture CreateDepthCubemap(u32 width, u32 height)
     VkImageViewCreateInfo depthViewInfo{};
     depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-    depthViewInfo.format = depthFormat;
+    depthViewInfo.format = shadowFormat;
     depthViewInfo.image = depthTexture.image;
     depthViewInfo.subresourceRange.baseMipLevel = 0;
     depthViewInfo.subresourceRange.levelCount = 1;
@@ -799,6 +801,8 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkShaderModule colorShader = CreateShaderModuleFromFile("shaders/color.spv");
     VkShaderModule colorVertShader = colorShader;
     VkShaderModule colorFragShader = colorShader;
+
+    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.spv");
 #else
     VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
     
@@ -807,6 +811,8 @@ void InitPipelines(RenderPipelineInitInfo& info)
     
     VkShaderModule colorVertShader = CreateShaderModuleFromFile("shaders/color.vert.spv");
     VkShaderModule colorFragShader = CreateShaderModuleFromFile("shaders/color.frag.spv");
+
+    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.frag.spv");
 #endif
 
 #if DEFAULT_SLANG
@@ -822,9 +828,11 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkPipelineShaderStageCreateInfo cubemapVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, cubemapVertShader, vertEntryPointName);
     VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
     VkPipelineShaderStageCreateInfo cubemapFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, cubemapFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader, fragEntryPointName);
     
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
     VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
+    VkPipelineShaderStageCreateInfo shadowShaderStages[] = {depthVertStageInfo, shadowFragStageInfo};
 
     // Set up descriptor pool and set for textures
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
@@ -1064,10 +1072,13 @@ void InitPipelines(RenderPipelineInitInfo& info)
     depthRenderInfo.colorAttachmentCount = 0;
     depthRenderInfo.depthAttachmentFormat = depthFormat;
 
-    VkPipelineRenderingCreateInfo cascadedRenderInfo = depthRenderInfo;
+    VkPipelineRenderingCreateInfo shadowRenderInfo = depthRenderInfo;
+    shadowRenderInfo.depthAttachmentFormat = shadowFormat;
+
+    VkPipelineRenderingCreateInfo cascadedRenderInfo = shadowRenderInfo;
     cascadedRenderInfo.viewMask = (1 << NUM_CASCADES) - 1;
 
-    VkPipelineRenderingCreateInfo cubemapRenderInfo = depthRenderInfo;
+    VkPipelineRenderingCreateInfo cubemapRenderInfo = shadowRenderInfo;
     cubemapRenderInfo.viewMask = 0x3F;
 
     // For color pass
@@ -1095,7 +1106,10 @@ void InitPipelines(RenderPipelineInitInfo& info)
     depthPipelineInfo.pNext = &depthRenderInfo;
 
     VkGraphicsPipelineCreateInfo shadowPipelineInfo = depthPipelineInfo;
+    shadowPipelineInfo.stageCount = 2;
+    shadowPipelineInfo.pStages = shadowShaderStages;
     shadowPipelineInfo.pRasterizationState = &shadowRasterizer;
+    shadowPipelineInfo.pNext = &shadowRenderInfo;
 
     VkGraphicsPipelineCreateInfo cascadedPipelineInfo = shadowPipelineInfo;
     cascadedPipelineInfo.pNext = &cascadedRenderInfo;
@@ -1696,7 +1710,16 @@ void RenderUpdate(RenderFrameInfo& info)
                 maxZ = std::max(maxZ, trf.z);
             }
 
-            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+            f32 width = abs(maxX - minX);
+            f32 height = abs(maxY - minY);
+            f32 pixelWidth = width / 2048;
+            f32 pixelHeight = height / 2048;
+            f32 snappedMinX = minX - fmod(minX, pixelWidth);
+            f32 snappedMaxX = maxX - fmod(maxX, pixelWidth);
+            f32 snappedMinY = minY - fmod(minY, pixelHeight);
+            f32 snappedMaxY = maxY - fmod(maxY, pixelHeight);
+
+            glm::mat4 dirProj = glm::ortho(snappedMinX, snappedMaxX, snappedMinY, snappedMaxY, minZ, maxZ);
 
             dirViews[i] = {dirView, dirProj, {}};
 

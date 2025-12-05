@@ -18,14 +18,6 @@ struct ObjectData
     vec4 color;
 };
 
-struct Vertex
-{
-    vec3 pos;
-    float uvX;
-    vec3 normal;
-    float uvY;
-};
-
 struct DirLightData
 {
     vec3 direction;
@@ -82,11 +74,6 @@ layout (buffer_reference, scalar) readonly buffer ObjectBuffer
     ObjectData objects[];
 };
 
-layout (buffer_reference, scalar) readonly buffer VertexBuffer
-{
-    Vertex vertices[];
-};
-
 layout (buffer_reference, scalar) readonly buffer DirLightBuffer
 {
     DirLightData lights[];
@@ -111,8 +98,7 @@ layout (push_constant, scalar) uniform PushConstants
 {
     CameraBuffer cameraBuffer;
     ObjectBuffer objectBuffer;
-    VertexBuffer vertexBuffer;
-    DirLightBuffer dirLightBuffer;
+    layout (offset = 24) DirLightBuffer dirLightBuffer;
     LightCascadeBuffer dirCascadeBuffer;
     SpotLightBuffer spotLightBuffer;
     PointLightBuffer pointLightBuffer;
@@ -173,22 +159,13 @@ void main()
             }
         }
 
-        vec4 lightRelPos = pcs.dirCascadeBuffer.cascades[cascade].lightSpace *
-            (worldPos + vec4(normal * 8, 0.0));
+        vec4 lightRelPos = pcs.dirCascadeBuffer.cascades[cascade].lightSpace * worldPos;
 
         vec3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
         vec3 lightPosScaled = vec3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
-        float unshadowed = 0;
-
-        for (int x = -1; x <= 1; x++)
-        {
-            for (int y = -1; y <= 1; y++)
-            {
-                unshadowed += texture(sampler2DArrayShadow(arrayTextures[nonuniformEXT(dirLight.shadowID)], shadowSampler),
-                    vec4(lightPosScaled.xy + ivec2(x, y), cascade, lightPosScaled.z)) / 9;
-            }
-        }
+        float unshadowed = texture(sampler2DArrayShadow(arrayTextures[nonuniformEXT(dirLight.shadowID)], shadowSampler),
+            vec4(lightPosScaled.xy, cascade, lightPosScaled.z));
 
         vec3 diffuse = max(dot(normal, -dirLight.direction), 0.0) * dirLight.diffuse;
         vec3 viewDir = normalize(-eyeRelPos);
@@ -202,21 +179,12 @@ void main()
     {
         SpotLightData spotLight = pcs.spotLightBuffer.lights[i];
 
-        vec4 lightRelPos = spotLight.lightSpace * (worldPos + vec4(normal * 8, 0.0));
+        vec4 lightRelPos = spotLight.lightSpace * worldPos;
 
         vec3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
         vec3 lightPosScaled = vec3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
-        float unshadowed = 0;
-
-        for (int x = -1; x <= 1; x++)
-        {
-            for (int y = -1; y <= 1; y++)
-            {
-                unshadowed += texture(sampler2DShadow(textures[nonuniformEXT(spotLight.shadowID)], shadowSampler),
-                    lightPosScaled + ivec3(x, y, 0)) / 9;
-            }
-        }
+        float unshadowed = texture(sampler2DShadow(textures[nonuniformEXT(spotLight.shadowID)], shadowSampler), lightPosScaled);
 
         vec3 lightDir = normalize(worldPos.xyz - spotLight.position);
         float lightAngle = dot(lightDir, spotLight.direction);
@@ -237,7 +205,7 @@ void main()
         PointLightData pointLight = pcs.pointLightBuffer.lights[i];
 
         vec3 lightVec = worldPos.xyz - pointLight.position;
-        vec3 offsetPos = worldPos.xyz + (normal * 8) - pointLight.position;
+        vec3 offsetPos = worldPos.xyz - pointLight.position;
         vec3 offsetLightDir = normalize(offsetPos);
 
         float sampleDepth = length(offsetPos) / pointLight.maxRange;
