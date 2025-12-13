@@ -146,17 +146,21 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
 
     VkCommandBuffer cmd = BeginImmediateCommands(device, mainCommandPool);
 
-    VkBufferCopy indexCopy{0};
-    indexCopy.dstOffset = 0;
-    indexCopy.srcOffset = 0;
-    indexCopy.size = indexSize;
+    VkBufferCopy indexCopy
+    {
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = indexSize
+    };
 
     vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1, &indexCopy);
 
-    VkBufferCopy vertCopy{0};
-    vertCopy.dstOffset = 0;
-    vertCopy.srcOffset = indexSize;
-    vertCopy.size = vertSize;
+    VkBufferCopy vertCopy
+    {
+        .srcOffset = indexSize,
+        .dstOffset = 0,
+        .size = vertSize
+    };
 
     vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertBuffer.buffer, 1, &vertCopy);
 
@@ -199,50 +203,56 @@ u32 CreateCameraBuffer(u32 viewCount)
 
 Texture CreateDepthTexture(u32 width, u32 height)
 {
-    Texture texture;
-
     AllocatedImage depthTexture = CreateImage(allocator,
                              shadowFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                              VK_IMAGE_USAGE_SAMPLED_BIT,
                              {width, height, 1}, 1,
                              VMA_MEMORY_USAGE_GPU_ONLY,
-                             VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VkImageView depthTexView;
 
-    VkImageViewCreateInfo depthViewInfo{};
-    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    depthViewInfo.format = shadowFormat;
-    depthViewInfo.image = depthTexture.image;
-    depthViewInfo.subresourceRange.baseMipLevel = 0;
-    depthViewInfo.subresourceRange.levelCount = 1;
-    depthViewInfo.subresourceRange.baseArrayLayer = 0;
-    depthViewInfo.subresourceRange.layerCount = 1;
-    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    VkImageViewCreateInfo depthViewInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = depthTexture.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = shadowFormat,
+        .subresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageView = depthTexView;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo imageInfo{.imageView = depthTexView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    descriptorWrite.dstSet = texDescriptorSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.pImageInfo = &imageInfo;
+    VkWriteDescriptorSet descriptorWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = texDescriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = (u32)currentTexID,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .pImageInfo = &imageInfo
+    };
 
     vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
 
-    texture.texture = depthTexture;
-    texture.imageView = depthTexView;
-    texture.extent = {width, height};
-    texture.descriptorIndex = currentTexID;
+    Texture texture
+    {
+        .texture = depthTexture,
+        .imageView = depthTexView,
+        .extent = {width, height},
+        .descriptorIndex = (u32)currentTexID
+    };
 
     currentTexID++;
 
@@ -251,50 +261,56 @@ Texture CreateDepthTexture(u32 width, u32 height)
 
 Texture CreateDepthArray(u32 width, u32 height, u32 layers)
 {
-    Texture texture;
-
     AllocatedImage depthTexture = CreateImage(allocator,
                                               shadowFormat, 0,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                               VK_IMAGE_USAGE_SAMPLED_BIT,
                                               {width, height, 1}, layers,
                                               VMA_MEMORY_USAGE_GPU_ONLY,
-                                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+                                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VkImageView depthTexView;
 
-    VkImageViewCreateInfo depthViewInfo{};
-    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    depthViewInfo.format = shadowFormat;
-    depthViewInfo.image = depthTexture.image;
-    depthViewInfo.subresourceRange.baseMipLevel = 0;
-    depthViewInfo.subresourceRange.levelCount = 1;
-    depthViewInfo.subresourceRange.baseArrayLayer = 0;
-    depthViewInfo.subresourceRange.layerCount = layers;
-    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    VkImageViewCreateInfo depthViewInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = depthTexture.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+        .format = shadowFormat,
+        .subresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = layers
+        }
+    };
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageView = depthTexView;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo imageInfo{.imageView = depthTexView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    descriptorWrite.dstSet = texDescriptorSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.pImageInfo = &imageInfo;
+    VkWriteDescriptorSet descriptorWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = texDescriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = (u32)currentTexID,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .pImageInfo = &imageInfo
+    };
 
     vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
 
-    texture.texture = depthTexture;
-    texture.imageView = depthTexView;
-    texture.extent = {width, height};
-    texture.descriptorIndex = currentTexID;
+    Texture texture
+    {
+        .texture = depthTexture,
+        .imageView = depthTexView,
+        .extent = {width, height},
+        .descriptorIndex = (u32)currentTexID
+    };
 
     currentTexID++;
 
@@ -303,8 +319,6 @@ Texture CreateDepthArray(u32 width, u32 height, u32 layers)
 
 Texture CreateDepthCubemap(u32 width, u32 height)
 {
-    Texture texture;
-
     AllocatedImage depthTexture = CreateImage(allocator,
                                               shadowFormat,
                                               VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
@@ -312,42 +326,50 @@ Texture CreateDepthCubemap(u32 width, u32 height)
                                               VK_IMAGE_USAGE_SAMPLED_BIT,
                                               {width, height, 1}, 6,
                                               VMA_MEMORY_USAGE_GPU_ONLY,
-                                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+                                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VkImageView depthTexView;
 
-    VkImageViewCreateInfo depthViewInfo{};
-    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-    depthViewInfo.format = shadowFormat;
-    depthViewInfo.image = depthTexture.image;
-    depthViewInfo.subresourceRange.baseMipLevel = 0;
-    depthViewInfo.subresourceRange.levelCount = 1;
-    depthViewInfo.subresourceRange.baseArrayLayer = 0;
-    depthViewInfo.subresourceRange.layerCount = 6;
-    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    VkImageViewCreateInfo depthViewInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = depthTexture.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_CUBE,
+        .format = shadowFormat,
+        .subresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 6
+        }
+    };
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageView = depthTexView;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo imageInfo{.imageView = depthTexView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    descriptorWrite.dstSet = texDescriptorSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.pImageInfo = &imageInfo;
+    VkWriteDescriptorSet descriptorWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = texDescriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = (u32)currentTexID,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .pImageInfo = &imageInfo
+    };
 
     vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
 
-    texture.texture = depthTexture;
-    texture.imageView = depthTexView;
-    texture.extent = {width, height};
-    texture.descriptorIndex = currentTexID;
+    Texture texture
+    {
+        .texture = depthTexture,
+        .imageView = depthTexView,
+        .extent = {width, height},
+        .descriptorIndex = (u32)currentTexID
+    };
 
     currentTexID++;
 
@@ -362,35 +384,40 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
                                           | VK_IMAGE_USAGE_SAMPLED_BIT,
                                           {info.width, info.height, 1}, 1,
                                           VMA_MEMORY_USAGE_GPU_ONLY,
-                                          VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VkImageView texView;
 
-    VkImageViewCreateInfo texViewInfo{};
-    texViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    texViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    texViewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-    texViewInfo.image = texImage.image;
-    texViewInfo.subresourceRange.baseMipLevel = 0;
-    texViewInfo.subresourceRange.levelCount = 1;
-    texViewInfo.subresourceRange.baseArrayLayer = 0;
-    texViewInfo.subresourceRange.layerCount = 1;
-    texViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageViewCreateInfo texViewInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = texImage.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .subresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
 
     VK_CHECK(vkCreateImageView(device, &texViewInfo, nullptr, &texView));
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageView = texView;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo imageInfo{.imageView = texView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    descriptorWrite.dstSet = texDescriptorSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.pImageInfo = &imageInfo;
+    VkWriteDescriptorSet descriptorWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = texDescriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = (u32)currentTexID,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .pImageInfo = &imageInfo
+    };
 
     vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
 
@@ -406,25 +433,29 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
     VkCommandBuffer commandBuffer = BeginImmediateCommands(device, mainCommandPool);
 
     VkImageMemoryBarrier2 imageBarrier = ImageBarrier(texImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
-
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &imageBarrier;
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier
+    };
 
     vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 
-    VkBufferImageCopy copyRegion = {};
-    copyRegion.bufferOffset = 0;
-    copyRegion.bufferRowLength = 0;
-    copyRegion.bufferImageHeight = 0;
-
-    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.imageSubresource.mipLevel = 0;
-    copyRegion.imageSubresource.baseArrayLayer = 0;
-    copyRegion.imageSubresource.layerCount = 1;
-    copyRegion.imageExtent = {info.width, info.height, 1};
+    VkBufferImageCopy copyRegion
+    {
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+        .imageExtent{info.width, info.height, 1}
+    };
 
     vkCmdCopyBufferToImage(commandBuffer, uploadBuffer.buffer, texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
     imageBarrier = ImageBarrier(texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -435,10 +466,13 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
     auto iter = textures.emplace(currentTexID, Texture());
     Texture& texture = iter.first->second;
 
-    texture.texture = texImage;
-    texture.imageView = texView;
-    texture.extent = {info.width, info.height};
-    texture.descriptorIndex = currentTexID;
+    texture =
+    {
+        .texture = texImage,
+        .imageView = texView,
+        .extent = {info.width, info.height},
+        .descriptorIndex = (u32)currentTexID
+    };
 
     return currentTexID++;
 }
@@ -457,7 +491,7 @@ LightID AddDirLight()
     auto iter = lights.emplace(currentLightID, LightEntry());
     LightEntry& light = iter.first->second;
     light.cameraIndex = CreateCameraBuffer(NUM_CASCADES);
-    light.shadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
+    light.shadowMap = CreateDepthArray(4096, 4096, NUM_CASCADES);
 
     return currentLightID;
 }
@@ -523,12 +557,12 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 
     // Create the depth buffer
 
-    VkExtent3D depthImageExtent =
-            {
-                    swapExtent.width,
-                    swapExtent.height,
-                    1
-            };
+    VkExtent3D depthImageExtent
+    {
+        swapExtent.width,
+        swapExtent.height,
+        1
+    };
 
     depthImage = CreateImage(allocator,
                              depthFormat, 0,
@@ -537,16 +571,21 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
                              VMA_MEMORY_USAGE_GPU_ONLY,
                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
 
-    VkImageViewCreateInfo depthViewInfo{};
-    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    depthViewInfo.format = depthFormat;
-    depthViewInfo.image = depthImage.image;
-    depthViewInfo.subresourceRange.baseMipLevel = 0;
-    depthViewInfo.subresourceRange.levelCount = 1;
-    depthViewInfo.subresourceRange.baseArrayLayer = 0;
-    depthViewInfo.subresourceRange.layerCount = 1;
-    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    VkImageViewCreateInfo depthViewInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = depthImage.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = depthFormat,
+        .subresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImageView));
 }
@@ -612,27 +651,22 @@ void InitRenderer(RenderInitInfo& info)
     // Create window surface
     SDL_Vulkan_CreateSurface(info.window, instance, vkbInstance.allocation_callbacks, &surface);
 
-    VkPhysicalDeviceFeatures feat10{};
-    feat10.depthClamp = true;
-    feat10.shaderInt64 = true;
+    VkPhysicalDeviceFeatures feat10{.depthClamp = true, .shaderInt64 = true};
 
-    VkPhysicalDeviceVulkan11Features feat11{};
-    feat11.shaderDrawParameters = true;
-    feat11.multiview = true;
+    VkPhysicalDeviceVulkan11Features feat11{.multiview = true, .shaderDrawParameters = true};
 
-    VkPhysicalDeviceVulkan12Features feat12{};
-    feat12.bufferDeviceAddress = true;
-    feat12.descriptorIndexing = true;
-    feat12.descriptorBindingPartiallyBound = true;
-    feat12.descriptorBindingSampledImageUpdateAfterBind = true;
-    feat12.shaderSampledImageArrayNonUniformIndexing = true;
-    feat12.runtimeDescriptorArray = true;
-    feat12.scalarBlockLayout = true;
+    VkPhysicalDeviceVulkan12Features feat12
+    {
+        .descriptorIndexing = true,
+        .shaderSampledImageArrayNonUniformIndexing = true,
+        .descriptorBindingSampledImageUpdateAfterBind = true,
+        .descriptorBindingPartiallyBound = true,
+        .runtimeDescriptorArray = true,
+        .scalarBlockLayout = true,
+        .bufferDeviceAddress = true
+    };
 
-    VkPhysicalDeviceVulkan13Features feat13{};
-    feat13.dynamicRendering = true;
-    feat13.synchronization2 = true;
-
+    VkPhysicalDeviceVulkan13Features feat13{.synchronization2 = true, .dynamicRendering = true};
 
     // Select which GPU to use
     vkb::PhysicalDeviceSelector selector{vkbInstance};
@@ -658,16 +692,20 @@ void InitRenderer(RenderInitInfo& info)
 
 
     // Create the VMA allocator
-    VmaVulkanFunctions vmaFuncs{};
-    vmaFuncs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
-    vmaFuncs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+    VmaVulkanFunctions vmaFuncs
+    {
+        .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
+        .vkGetDeviceProcAddr = vkGetDeviceProcAddr
+    };
 
-    VmaAllocatorCreateInfo allocInfo = {};
-    allocInfo.physicalDevice = physDevice;
-    allocInfo.device = device;
-    allocInfo.instance = instance;
-    allocInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    allocInfo.pVulkanFunctions = &vmaFuncs;
+    VmaAllocatorCreateInfo allocInfo
+    {
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+        .physicalDevice = physDevice,
+        .device = device,
+        .pVulkanFunctions = &vmaFuncs,
+        .instance = instance
+    };
 
     VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
 
@@ -675,19 +713,21 @@ void InitRenderer(RenderInitInfo& info)
     CreateSwapchain(info.startWidth, info.startHeight, nullptr);
 
     // Create the command pools and command buffers
-    VkCommandPoolCreateInfo commandPoolInfo = {};
-    commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    commandPoolInfo.pNext = nullptr;
-    commandPoolInfo.queueFamilyIndex = graphicsQueueFamily;
-    commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    VkCommandPoolCreateInfo commandPoolInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = graphicsQueueFamily
+    };
 
     VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &mainCommandPool));
 
-    VkCommandBufferAllocateInfo cmdAllocInfo = {};
-    cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    cmdAllocInfo.pNext = nullptr;
-    cmdAllocInfo.commandBufferCount = 1;
-    cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    VkCommandBufferAllocateInfo cmdAllocInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
 
     for (int i = 0; i < NUM_FRAMES; i++)
     {
@@ -698,15 +738,17 @@ void InitRenderer(RenderInitInfo& info)
     }
 
     // Create the sync structures
-    VkFenceCreateInfo fenceInfo = {};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.pNext = nullptr;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    VkFenceCreateInfo fenceInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT
+    };
 
-    VkSemaphoreCreateInfo semaphoreInfo = {};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    semaphoreInfo.pNext = nullptr;
-    semaphoreInfo.flags = 0;
+    VkSemaphoreCreateInfo semaphoreInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .flags = 0
+    };
 
     for (int i = 0; i < NUM_FRAMES; i++)
     {
@@ -726,8 +768,7 @@ void InitRenderer(RenderInitInfo& info)
 // Also checks that the creation of the shader module is good.
 VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
 {
-    VkShaderModuleCreateInfo shaderInfo{};
-    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    VkShaderModuleCreateInfo shaderInfo{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
     void *shaderFile = SDL_LoadFile(FilePath, &shaderInfo.codeSize);
     if (!shaderFile)
     {
@@ -742,11 +783,13 @@ VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
 
 VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule, const char *entryPointName)
 {
-    VkPipelineShaderStageCreateInfo stageInfo{};
-    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageInfo.stage = shaderStage;
-    stageInfo.module = shaderModule;
-    stageInfo.pName = entryPointName;
+    VkPipelineShaderStageCreateInfo stageInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = shaderStage,
+        .module = shaderModule,
+        .pName = entryPointName
+    };
     return stageInfo;
 }
 
@@ -837,85 +880,105 @@ void InitPipelines(RenderPipelineInitInfo& info)
     // Set up descriptor pool and set for textures
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
 
-    VkDescriptorPoolCreateInfo descriptorPoolInfo{};
-    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
-                               | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
-    descriptorPoolInfo.maxSets = 1;
-    descriptorPoolInfo.poolSizeCount = 2;
-    descriptorPoolInfo.pPoolSizes = poolSizes;
+    VkDescriptorPoolCreateInfo descriptorPoolInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+            | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+        .maxSets = 1,
+        .poolSizeCount = 2,
+        .pPoolSizes = poolSizes
+    };
 
     VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 
     VkDescriptorBindingFlags bindlessFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
     VkDescriptorBindingFlags bindingFlags[3] = {bindlessFlags, 0, 0};
-    VkDescriptorSetLayoutBinding texBinding{};
-    texBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    texBinding.descriptorCount = 512;
-    texBinding.binding = 0;
-    texBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    texBinding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding texBinding
+    {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+        .descriptorCount = 512,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
 
-    VkDescriptorSetLayoutBinding shadowSamplerBinding{};
-    shadowSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    shadowSamplerBinding.descriptorCount = 1;
-    shadowSamplerBinding.binding = 1;
-    shadowSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shadowSamplerBinding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding shadowSamplerBinding
+    {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
 
     VkDescriptorSetLayoutBinding textureSamplerBinding = shadowSamplerBinding;
     textureSamplerBinding.binding = 2;
 
     VkDescriptorSetLayoutBinding bindings[3] = {texBinding, shadowSamplerBinding, textureSamplerBinding};
 
-    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
-    bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    bindingFlagsInfo.bindingCount = 3;
-    bindingFlagsInfo.pBindingFlags = bindingFlags;
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+        .bindingCount = 3,
+        .pBindingFlags = bindingFlags
+    };
 
-    VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo{};
-    descriptorLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorLayoutInfo.bindingCount = 3;
-    descriptorLayoutInfo.pBindings = bindings;
-    descriptorLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
-    descriptorLayoutInfo.pNext = &bindingFlagsInfo;
+    VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = &bindingFlagsInfo,
+        .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+        .bindingCount = 3,
+        .pBindings = bindings
+    };
 
     VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorLayoutInfo, nullptr, &texDescriptorLayout));
 
-    VkDescriptorSetAllocateInfo descriptorAllocInfo{};
-    descriptorAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    descriptorAllocInfo.descriptorPool = descriptorPool;
-    descriptorAllocInfo.descriptorSetCount = 1;
-    descriptorAllocInfo.pSetLayouts = &texDescriptorLayout;
+    VkDescriptorSetAllocateInfo descriptorAllocInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &texDescriptorLayout
+    };
 
     VK_CHECK(vkAllocateDescriptorSets(device, &descriptorAllocInfo, &texDescriptorSet));
 
-    VkSamplerCreateInfo shadowSamplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    shadowSamplerInfo.magFilter = VK_FILTER_LINEAR;
-    shadowSamplerInfo.minFilter = VK_FILTER_LINEAR;
-    shadowSamplerInfo.compareEnable = VK_TRUE;
-    shadowSamplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    VkSamplerCreateInfo shadowSamplerInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .compareEnable = VK_TRUE,
+        .compareOp = VK_COMPARE_OP_LESS_OR_EQUAL
+    };
+
     vkCreateSampler(device, &shadowSamplerInfo, nullptr, &shadowSampler);
 
-    VkDescriptorImageInfo shadowSamplerDescInfo{};
-    shadowSamplerDescInfo.sampler = shadowSampler;
+    VkDescriptorImageInfo shadowSamplerDescInfo{.sampler = shadowSampler};
 
-    VkWriteDescriptorSet shadowSamplerWrite{};
-    shadowSamplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    shadowSamplerWrite.descriptorCount = 1;
-    shadowSamplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    shadowSamplerWrite.dstSet = texDescriptorSet;
-    shadowSamplerWrite.dstBinding = 1;
-    shadowSamplerWrite.pImageInfo = &shadowSamplerDescInfo;
+    VkWriteDescriptorSet shadowSamplerWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = texDescriptorSet,
+        .dstBinding = 1,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+        .pImageInfo = &shadowSamplerDescInfo
+    };
 
-    VkSamplerCreateInfo textureSamplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    textureSamplerInfo.magFilter = VK_FILTER_NEAREST;
-    textureSamplerInfo.minFilter = VK_FILTER_NEAREST;
-    textureSamplerInfo.compareEnable = VK_FALSE;
+    VkSamplerCreateInfo textureSamplerInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = VK_FILTER_NEAREST,
+        .minFilter = VK_FILTER_NEAREST,
+        .compareEnable = VK_FALSE
+    };
+
     vkCreateSampler(device, &textureSamplerInfo, nullptr, &textureSampler);
 
-    VkDescriptorImageInfo textureSamplerDescInfo{};
-    textureSamplerDescInfo.sampler = textureSampler;
+    VkDescriptorImageInfo textureSamplerDescInfo{.sampler = textureSampler};
 
     VkWriteDescriptorSet textureSamplerWrite = shadowSamplerWrite;
     textureSamplerWrite.dstBinding = 2;
@@ -927,81 +990,99 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     // Create render pipeline layouts
 
-    VkPushConstantRange pushConstants;
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(FragPushConstants);
-    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkPushConstantRange pushConstants
+    {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = 0,
+        .size = 3 * sizeof(VkDeviceAddress) + sizeof(FragPushConstants)
+    };
 
-    VkPushConstantRange shadowPushConstants;
-    shadowPushConstants.offset = 0;
-    shadowPushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(ShadowPushConstants);
-    shadowPushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkPushConstantRange shadowPushConstants
+    {
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = 0,
+        .size = 3 * sizeof(VkDeviceAddress) + sizeof(ShadowPushConstants)
+    };
 
 
-    VkPipelineLayoutCreateInfo depthLayoutInfo{};
-    depthLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    depthLayoutInfo.setLayoutCount = 0;
-    depthLayoutInfo.pSetLayouts = nullptr;
-    depthLayoutInfo.pushConstantRangeCount = 1;
-    depthLayoutInfo.pPushConstantRanges = &pushConstants;
+    VkPipelineLayoutCreateInfo depthLayoutInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 0,
+        .pSetLayouts = nullptr,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstants
+    };
 
     VK_CHECK(vkCreatePipelineLayout(device, &depthLayoutInfo, nullptr, &depthPipelineLayout));
 
-    VkPipelineLayoutCreateInfo shadowLayoutInfo{};
-    shadowLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    shadowLayoutInfo.setLayoutCount = 0;
-    shadowLayoutInfo.pSetLayouts = nullptr;
-    shadowLayoutInfo.pushConstantRangeCount = 1;
-    shadowLayoutInfo.pPushConstantRanges = &shadowPushConstants;
+    VkPipelineLayoutCreateInfo shadowLayoutInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 0,
+        .pSetLayouts = nullptr,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &shadowPushConstants
+    };
 
     VK_CHECK(vkCreatePipelineLayout(device, &shadowLayoutInfo, nullptr, &shadowPipelineLayout));
 
-    VkPipelineLayoutCreateInfo colorLayoutInfo{};
-    colorLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    colorLayoutInfo.setLayoutCount = 1;
-    colorLayoutInfo.pSetLayouts = &texDescriptorLayout;
-    colorLayoutInfo.pushConstantRangeCount = 1;
-    colorLayoutInfo.pPushConstantRanges = &pushConstants;
+    VkPipelineLayoutCreateInfo colorLayoutInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &texDescriptorLayout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstants
+    };
 
     VK_CHECK(vkCreatePipelineLayout(device, &colorLayoutInfo, nullptr, &colorPipelineLayout));
 
 
     // Create render pipelines (AKA fill in 20000 info structs)
     VkDynamicState dynamicStates[] =
-            {
-                    VK_DYNAMIC_STATE_VIEWPORT,
-                    VK_DYNAMIC_STATE_SCISSOR,
-                    VK_DYNAMIC_STATE_CULL_MODE
-            };
+    {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_CULL_MODE
+    };
 
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = 3;
-    dynamicState.pDynamicStates = dynamicStates;
+    VkPipelineDynamicStateCreateInfo dynamicState
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = 3,
+        .pDynamicStates = dynamicStates
+    };
 
-    VkPipelineVertexInputStateCreateInfo vertexInfo{};  // We are using vertex pulling so no need for vertex input description
-    vertexInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    // We are using vertex pulling so no need for vertex input description
+    VkPipelineVertexInputStateCreateInfo vertexInfo{.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE
+    };
 
-    VkPipelineViewportStateCreateInfo viewportState{};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = nullptr;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = nullptr;
+    VkPipelineViewportStateCreateInfo viewportState
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .pViewports = nullptr,
+        .scissorCount = 1,
+        .pScissors = nullptr
+    };
 
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
+    VkPipelineRasterizationStateCreateInfo rasterizer
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .lineWidth = 1.0f
+    };
 
     VkPipelineRasterizationStateCreateInfo cubemapRasterizer = rasterizer;
     cubemapRasterizer.depthClampEnable = VK_TRUE;
@@ -1009,68 +1090,78 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkPipelineRasterizationStateCreateInfo shadowRasterizer = cubemapRasterizer;
     shadowRasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f;
-    multisampling.pSampleMask = nullptr;
-    multisampling.alphaToCoverageEnable = VK_FALSE;
-    multisampling.alphaToOneEnable = VK_FALSE;
+    VkPipelineMultisampleStateCreateInfo multisampling
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .minSampleShading = 1.0f,
+        .pSampleMask = nullptr,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE
+    };
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask =
+    VkPipelineColorBlendAttachmentState colorBlendAttachment
+    {
+        .blendEnable = VK_FALSE,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask =
             VK_COLOR_COMPONENT_R_BIT
             | VK_COLOR_COMPONENT_G_BIT
             | VK_COLOR_COMPONENT_B_BIT
-            | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+            | VK_COLOR_COMPONENT_A_BIT,
+    };
 
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f;
-    colorBlending.blendConstants[1] = 0.0f;
-    colorBlending.blendConstants[2] = 0.0f;
-    colorBlending.blendConstants[3] = 0.0f;
+    VkPipelineColorBlendStateCreateInfo colorBlending
+    {
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment,
+        .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}
+    };
 
     // For pre-depth pass
-    VkPipelineDepthStencilStateCreateInfo preDepthStencil{};
-    preDepthStencil.depthTestEnable = VK_TRUE;
-    preDepthStencil.depthWriteEnable = VK_TRUE;
-    preDepthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-    preDepthStencil.depthBoundsTestEnable = VK_FALSE;
-    preDepthStencil.minDepthBounds = 0.0f;
-    preDepthStencil.maxDepthBounds = 1.0f;
-    preDepthStencil.stencilTestEnable = VK_FALSE;
-    preDepthStencil.front = {};
-    preDepthStencil.back = {};
+    VkPipelineDepthStencilStateCreateInfo preDepthStencil
+    {
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f
+    };
 
     // For color pass
-    VkPipelineDepthStencilStateCreateInfo colorDepthStencil{};
-    colorDepthStencil.depthTestEnable = VK_TRUE;
-    colorDepthStencil.depthWriteEnable = VK_FALSE;
-    colorDepthStencil.depthCompareOp = VK_COMPARE_OP_EQUAL;
-    colorDepthStencil.depthBoundsTestEnable = VK_FALSE;
-    colorDepthStencil.minDepthBounds = 0.0f;
-    colorDepthStencil.maxDepthBounds = 1.0f;
-    colorDepthStencil.stencilTestEnable = VK_FALSE;
-    colorDepthStencil.front = {};
-    colorDepthStencil.back = {};
+    VkPipelineDepthStencilStateCreateInfo colorDepthStencil
+    {
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_FALSE,
+        .depthCompareOp = VK_COMPARE_OP_EQUAL,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+
+    };
 
     // For pre-depth pass
-    VkPipelineRenderingCreateInfo depthRenderInfo{};
-    depthRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    depthRenderInfo.colorAttachmentCount = 0;
-    depthRenderInfo.depthAttachmentFormat = depthFormat;
+    VkPipelineRenderingCreateInfo depthRenderInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .colorAttachmentCount = 0,
+        .depthAttachmentFormat = depthFormat
+    };
 
     VkPipelineRenderingCreateInfo shadowRenderInfo = depthRenderInfo;
     shadowRenderInfo.depthAttachmentFormat = shadowFormat;
@@ -1082,28 +1173,32 @@ void InitPipelines(RenderPipelineInitInfo& info)
     cubemapRenderInfo.viewMask = 0x3F;
 
     // For color pass
-    VkPipelineRenderingCreateInfo colorRenderInfo{};
-    colorRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    colorRenderInfo.colorAttachmentCount = 1;
-    colorRenderInfo.pColorAttachmentFormats = &swapchainFormat;
-    colorRenderInfo.depthAttachmentFormat = depthFormat;
+    VkPipelineRenderingCreateInfo colorRenderInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &swapchainFormat,
+        .depthAttachmentFormat = depthFormat
+    };
 
-    VkGraphicsPipelineCreateInfo depthPipelineInfo{};
-    depthPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    depthPipelineInfo.stageCount = 1;
-    depthPipelineInfo.pStages = &depthVertStageInfo;
-    depthPipelineInfo.pVertexInputState = &vertexInfo;
-    depthPipelineInfo.pInputAssemblyState = &inputAssembly;
-    depthPipelineInfo.pViewportState = &viewportState;
-    depthPipelineInfo.pRasterizationState = &rasterizer;
-    depthPipelineInfo.pMultisampleState = &multisampling;
-    depthPipelineInfo.pDepthStencilState = &preDepthStencil;
-    depthPipelineInfo.pColorBlendState = &colorBlending;
-    depthPipelineInfo.pDynamicState = &dynamicState;
-    depthPipelineInfo.layout = depthPipelineLayout;
-    depthPipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
-    depthPipelineInfo.subpass = 0;
-    depthPipelineInfo.pNext = &depthRenderInfo;
+    VkGraphicsPipelineCreateInfo depthPipelineInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = &depthRenderInfo,
+        .stageCount = 1,
+        .pStages = &depthVertStageInfo,
+        .pVertexInputState = &vertexInfo,
+        .pInputAssemblyState = &inputAssembly,
+        .pViewportState = &viewportState,
+        .pRasterizationState = &rasterizer,
+        .pMultisampleState = &multisampling,
+        .pDepthStencilState = &preDepthStencil,
+        .pColorBlendState = &colorBlending,
+        .pDynamicState = &dynamicState,
+        .layout = depthPipelineLayout,
+        .renderPass = nullptr, // No renderpass necessary because we are using dynamic rendering
+        .subpass = 0
+    };
 
     VkGraphicsPipelineCreateInfo shadowPipelineInfo = depthPipelineInfo;
     shadowPipelineInfo.stageCount = 2;
@@ -1121,22 +1216,12 @@ void InitPipelines(RenderPipelineInitInfo& info)
     cubemapPipelineInfo.layout = shadowPipelineLayout;
     cubemapPipelineInfo.pNext = &cubemapRenderInfo;
 
-    VkGraphicsPipelineCreateInfo colorPipelineInfo{};
-    colorPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    VkGraphicsPipelineCreateInfo colorPipelineInfo = depthPipelineInfo;
+    colorPipelineInfo.pNext = &colorRenderInfo;
     colorPipelineInfo.stageCount = 2;
     colorPipelineInfo.pStages = colorShaderStages;
-    colorPipelineInfo.pVertexInputState = &vertexInfo;
-    colorPipelineInfo.pInputAssemblyState = &inputAssembly;
-    colorPipelineInfo.pViewportState = &viewportState;
-    colorPipelineInfo.pRasterizationState = &rasterizer;
-    colorPipelineInfo.pMultisampleState = &multisampling;
     colorPipelineInfo.pDepthStencilState = &colorDepthStencil;
-    colorPipelineInfo.pColorBlendState = &colorBlending;
-    colorPipelineInfo.pDynamicState = &dynamicState;
     colorPipelineInfo.layout = colorPipelineLayout;
-    colorPipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
-    colorPipelineInfo.subpass = 0;
-    colorPipelineInfo.pNext = &colorRenderInfo;
 
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &cascadedPipelineInfo, nullptr, &cascadedPipeline));
@@ -1158,19 +1243,21 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
 #if SKL_ENABLED_EDITOR
     // Initialize ImGui
-    ImGui_ImplVulkan_InitInfo imGuiInfo{};
-    imGuiInfo.ApiVersion = VK_API_VERSION_1_3;
-    imGuiInfo.Instance = instance;
-    imGuiInfo.PhysicalDevice = physDevice;
-    imGuiInfo.Device = device;
-    imGuiInfo.QueueFamily = graphicsQueueFamily;
-    imGuiInfo.Queue = graphicsQueue;
-    imGuiInfo.MinImageCount = 2;
-    imGuiInfo.ImageCount = swapImages.size();
-    imGuiInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    imGuiInfo.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 1;
-    imGuiInfo.UseDynamicRendering = true;
-    imGuiInfo.PipelineRenderingCreateInfo = colorRenderInfo;
+    ImGui_ImplVulkan_InitInfo imGuiInfo
+    {
+        .ApiVersion = VK_API_VERSION_1_3,
+        .Instance = instance,
+        .PhysicalDevice = physDevice,
+        .Device = device,
+        .QueueFamily = graphicsQueueFamily,
+        .Queue = graphicsQueue,
+        .MinImageCount = 2,
+        .ImageCount = (u32)swapImages.size(),
+        .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+        .DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 1,
+        .UseDynamicRendering = true,
+        .PipelineRenderingCreateInfo = colorRenderInfo
+    };
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
@@ -1208,11 +1295,12 @@ bool InitFrame()
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
 
     //Begin commands and rendering
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0;
-    beginInfo.pInheritanceInfo = nullptr;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkCommandBufferBeginInfo beginInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = nullptr,
+    };
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 
@@ -1223,34 +1311,41 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode,
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = extent.width;
-    scissor.extent.height = extent.height;
+    VkRect2D scissor
+    {
+        .offset = {0, 0},
+        .extent = {extent.width, extent.height}
+    };
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
 
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = depthView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil.depth = 1.0f;
+    VkRenderingAttachmentInfo depthAttachment
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = depthView,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue{.depthStencil{.depth = 1.0f}}
+    };
 
-    VkRenderingInfo renderInfo{};
-    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderInfo.renderArea.offset = {0, 0};
-    renderInfo.renderArea.extent = extent;
-    renderInfo.viewMask = layerCount > 1 ? (1 << layerCount) - 1 : 0;
-    renderInfo.layerCount = layerCount;
-    renderInfo.colorAttachmentCount = 0;
-    renderInfo.pColorAttachments = nullptr;
-    renderInfo.pDepthAttachment = &depthAttachment;
-    renderInfo.pStencilAttachment = nullptr;
+    VkRenderingInfo renderInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea
+        {
+            .offset = {0, 0},
+            .extent = extent
+        },
+        .layerCount = layerCount,
+        .viewMask = (u32)(layerCount > 1 ? (1 << layerCount) - 1 : 0),
+        .colorAttachmentCount = 0,
+        .pColorAttachments = nullptr,
+        .pDepthAttachment = &depthAttachment,
+        .pStencilAttachment = nullptr
+    };
 
     vkCmdBeginRendering(cmd, &renderInfo);
 }
@@ -1260,13 +1355,15 @@ void BeginDepthPass(CullMode cullMode)
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     //set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = swapExtent.height;
-    viewport.width = (float)swapExtent.width;
-    viewport.height = -(float)swapExtent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
+    VkViewport viewport
+    {
+        .x = 0,
+        .y = (f32)swapExtent.height,
+        .width = (f32)swapExtent.width,
+        .height = -(f32)swapExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
@@ -1284,25 +1381,27 @@ void BeginShadowPass(Texture target, CullMode cullMode)
 
     VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
-
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &imageBarrier;
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier
+    };
 
     vkCmdPipelineBarrier2(cmd, &depInfo);
 
     VkExtent2D extent = target.extent;
 
     //set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = (float)extent.width;
-    viewport.height = (float)extent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
+    VkViewport viewport
+    {
+        .x = 0,
+        .y = 0,
+        .width = (f32)swapExtent.width,
+        .height = (f32)swapExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
@@ -1320,25 +1419,27 @@ void BeginCascadedPass(Texture target, CullMode cullMode)
 
     VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
-
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &imageBarrier;
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier
+    };
 
     vkCmdPipelineBarrier2(cmd, &depInfo);
 
     VkExtent2D extent = target.extent;
 
     //set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = (float)extent.width;
-    viewport.height = (float)extent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
+    VkViewport viewport
+    {
+        .x = 0,
+        .y = 0,
+        .width = (f32)swapExtent.width,
+        .height = (f32)swapExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
@@ -1356,25 +1457,27 @@ void BeginCubemapShadowPass(Texture target, CullMode cullMode)
 
     VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
-
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &imageBarrier;
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier
+    };
 
     vkCmdPipelineBarrier2(cmd, &depInfo);
 
     VkExtent2D extent = target.extent;
 
     //set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = extent.height;
-    viewport.width = (float)extent.width;
-    viewport.height = -(float)extent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
+    VkViewport viewport
+    {
+        .x = 0,
+        .y = (f32)swapExtent.height,
+        .width = (f32)swapExtent.width,
+        .height = -(f32)swapExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
@@ -1392,31 +1495,33 @@ void BeginColorPass(CullMode cullMode)
 
     imageBarriers.push_back(ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
 
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
-
-    depInfo.imageMemoryBarrierCount = imageBarriers.size();
-    depInfo.pImageMemoryBarriers = imageBarriers.data();
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = (u32)imageBarriers.size(),
+        .pImageMemoryBarriers = imageBarriers.data()
+    };
 
     vkCmdPipelineBarrier2(cmd, &depInfo);
 
     //set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = swapExtent.height;
-    viewport.width = (float)swapExtent.width;
-    viewport.height = -(float)swapExtent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
+    VkViewport viewport
+    {
+        .x = 0,
+        .y = (f32)swapExtent.height,
+        .width = (f32)swapExtent.width,
+        .height = -(f32)swapExtent.height,
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = swapExtent.width;
-    scissor.extent.height = swapExtent.height;
+    VkRect2D scissor
+    {
+        .offset = {0, 0},
+        .extent = {swapExtent.width, swapExtent.height}
+    };
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
@@ -1424,33 +1529,41 @@ void BeginColorPass(CullMode cullMode)
     vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
     vkCmdSetDepthBiasEnable(cmd, false);
 
-    VkClearValue clearValue;
-    clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    VkClearValue clearValue{.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
 
-    VkRenderingAttachmentInfo colorAttachment{};
-    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = swapImageViews[swapIndex];
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue = clearValue;
+    VkRenderingAttachmentInfo colorAttachment
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = swapImageViews[swapIndex],
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = clearValue
+    };
 
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = depthImageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+    VkRenderingAttachmentInfo depthAttachment
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = depthImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        .storeOp = VK_ATTACHMENT_STORE_OP_NONE,
+    };
 
-    VkRenderingInfo renderInfo{};
-    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderInfo.renderArea.offset = {0, 0};
-    renderInfo.renderArea.extent = swapExtent;
-    renderInfo.layerCount = 1;
-    renderInfo.colorAttachmentCount = 1;
-    renderInfo.pColorAttachments = &colorAttachment;
-    renderInfo.pDepthAttachment = &depthAttachment;
-    renderInfo.pStencilAttachment = nullptr;
+    VkRenderingInfo renderInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea
+        {
+            .offset = {0, 0},
+            .extent = swapExtent
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment,
+        .pDepthAttachment = &depthAttachment,
+        .pStencilAttachment = nullptr
+    };
 
     vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -1490,7 +1603,7 @@ void SetShadowInfo(glm::vec3 lightPos, f32 farPlane)
     ShadowPushConstants pushConstants = {lightPos, farPlane};
     vkCmdPushConstants(frames[frameNum].commandBuffer, shadowPipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(ShadowPushConstants),
+                       3 * sizeof(VkDeviceAddress), sizeof(ShadowPushConstants),
                        &pushConstants);
 }
 
@@ -1529,14 +1642,19 @@ void SetLights(glm::vec3 ambientLight,
                                        ambientLight};
 
     vkCmdPushConstants(cmd, colorPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(FragPushConstants), &pushConstants);
+                       3 * sizeof(VkDeviceAddress), sizeof(FragPushConstants), &pushConstants);
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
-void SendObjectData(std::vector<ObjectData>& objects)
+void SetObjectData(std::vector<ObjectData>& objects)
 {
-    void* objectData = frames[frameNum].objectBuffer.allocation->GetMappedData();
+    AllocatedBuffer& objectBuffer = frames[frameNum].objectBuffer;
+    void* objectData = objectBuffer.allocation->GetMappedData();
     memcpy(objectData, objects.data(), sizeof(ObjectData) * objects.size());
+    // Send addresses to instance buffer as a push constant
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+    vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       sizeof(VkDeviceAddress), sizeof(VkDeviceAddress), &objectBuffer.address);
 }
 
 // Set the mesh currently being rendered (Must be called between InitFrame and EndFrame)
@@ -1544,11 +1662,10 @@ void SetMesh(MeshID meshIndex)
 {
     Mesh* mesh = &meshes[meshIndex];
 
-    // Send addresses to camera, object, and vertex buffers as push constants
+    // Send addresses to vertex buffer as a push constant
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-    VertPushConstants pushConstants = {frames[frameNum].objectBuffer.address, mesh->vertBuffer.address};
     vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       sizeof(VkDeviceAddress), sizeof(VertPushConstants), &pushConstants);
+                       2 * sizeof(VkDeviceAddress), sizeof(VkDeviceAddress), &mesh->vertBuffer.address);
     // Bind the index buffer
     vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -1580,35 +1697,33 @@ void EndFrame()
 
     VK_CHECK(vkEndCommandBuffer(cmd));
 
-    VkSubmitInfo submit = {};
-    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit.pNext = nullptr;
-
     //Submit commands
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    submit.pWaitDstStageMask = &waitStage;
-    submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &frames[frameNum].acquireSemaphore;
-    submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &renderSemaphores[swapIndex];
-    submit.commandBufferCount = 1;
-    submit.pCommandBuffers = &cmd;
+    VkSubmitInfo submit
+    {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &frames[frameNum].acquireSemaphore,
+        .pWaitDstStageMask = &waitStage,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmd,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &renderSemaphores[swapIndex]
+    };
 
     VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submit, frames[frameNum].renderFence));
 
     //Draw to screen
-    VkPresentInfoKHR presentInfo = {};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.pNext = nullptr;
-
-    presentInfo.pSwapchains = &swapchain;
-    presentInfo.swapchainCount = 1;
-
-    presentInfo.pWaitSemaphores = &renderSemaphores[swapIndex];
-    presentInfo.waitSemaphoreCount = 1;
-
-    presentInfo.pImageIndices = &swapIndex;
+    VkPresentInfoKHR presentInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &renderSemaphores[swapIndex],
+        .swapchainCount = 1,
+        .pSwapchains = &swapchain,
+        .pImageIndices = &swapIndex
+    };
 
     VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
     if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR || resize)
@@ -1659,7 +1774,8 @@ void RenderUpdate(RenderFrameInfo& info)
         objects[offsets[mesh]++] = {model, tex, glm::vec4(color.r, color.g, color.b, 1.0f)};
     }
 
-    SendObjectData(objects);
+    currentLayout = &depthPipelineLayout;
+    SetObjectData(objects);
 
     Transform3D* cameraTransform = info.cameraTransform;
     glm::mat4 view = cameraTransform->GetViewMatrix();

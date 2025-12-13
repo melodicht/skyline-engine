@@ -2,5 +2,5 @@
 
 void main()
 {
-    gl_FragDepth = gl_FragCoord.z + fwidth(gl_FragCoord.z);
+    gl_FragDepth = gl_FragCoord.z + (fwidth(gl_FragCoord.z) * 3);
 }

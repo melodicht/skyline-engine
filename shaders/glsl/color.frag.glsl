@@ -164,8 +164,18 @@ void main()
         vec3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
         vec3 lightPosScaled = vec3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
-        float unshadowed = texture(sampler2DArrayShadow(arrayTextures[nonuniformEXT(dirLight.shadowID)], shadowSampler),
-            vec4(lightPosScaled.xy, cascade, lightPosScaled.z));
+        float unshadowed = 0;
+
+        vec2 texelSize = 1.0 / textureSize(sampler2DArrayShadow(arrayTextures[nonuniformEXT(dirLight.shadowID)], shadowSampler), 0).xy;
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                unshadowed += texture(sampler2DArrayShadow(arrayTextures[nonuniformEXT(dirLight.shadowID)], shadowSampler),
+                    vec4(lightPosScaled.xy + (vec2(x, y) * texelSize), cascade, lightPosScaled.z)) / 9;
+            }
+        }
 
         vec3 diffuse = max(dot(normal, -dirLight.direction), 0.0) * dirLight.diffuse;
         vec3 viewDir = normalize(-eyeRelPos);
@@ -186,7 +196,18 @@ void main()
         float sampleDepth = length(offsetPos) / spotLight.range;
         vec3 lightPosScaled = vec3(lightPosNorm.xy * 0.5 + 0.5, sampleDepth);
 
-        float unshadowed = texture(sampler2DShadow(textures[nonuniformEXT(spotLight.shadowID)], shadowSampler), lightPosScaled);
+        vec2 texelSize = 1.0 / textureSize(sampler2DShadow(textures[nonuniformEXT(spotLight.shadowID)], shadowSampler), 0).xy;
+
+        float unshadowed = 0;
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                unshadowed += texture(sampler2DShadow(textures[nonuniformEXT(spotLight.shadowID)], shadowSampler),
+                    vec3(lightPosScaled.xy + (vec2(x, y) * texelSize), lightPosScaled.z)) / 9;
+            }
+        }
 
         vec3 lightDir = normalize(offsetPos);
         float lightAngle = dot(lightDir, spotLight.direction);

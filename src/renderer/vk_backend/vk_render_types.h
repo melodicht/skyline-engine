@@ -33,13 +33,6 @@ struct Texture
     u32 descriptorIndex;
 };
 
-// Represents the GPU memory locations of the camera, object, and vertex buffers (CPU->GPU)
-struct VertPushConstants
-{
-    VkDeviceAddress objectAddress;
-    VkDeviceAddress vertexAddress;
-};
-
 struct VkDirLightData
 {
     glm::vec3 direction;
