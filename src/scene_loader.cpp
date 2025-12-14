@@ -7,6 +7,7 @@ struct ComponentInfo
     void (*assignFunc)(Scene&, EntityID);
     void (*loadFunc)(Scene&, EntityID, toml::table*);
     size_t size;
+    const char* name;
 };
 
 std::vector<ComponentInfo> compInfos;
