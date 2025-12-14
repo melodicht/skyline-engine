@@ -1397,8 +1397,8 @@ void BeginShadowPass(Texture target, CullMode cullMode)
     {
         .x = 0,
         .y = 0,
-        .width = (f32)swapExtent.width,
-        .height = (f32)swapExtent.height,
+        .width = (f32)extent.width,
+        .height = (f32)extent.height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
@@ -1435,8 +1435,8 @@ void BeginCascadedPass(Texture target, CullMode cullMode)
     {
         .x = 0,
         .y = 0,
-        .width = (f32)swapExtent.width,
-        .height = (f32)swapExtent.height,
+        .width = (f32)extent.width,
+        .height = (f32)extent.height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
@@ -1472,9 +1472,9 @@ void BeginCubemapShadowPass(Texture target, CullMode cullMode)
     VkViewport viewport
     {
         .x = 0,
-        .y = (f32)swapExtent.height,
-        .width = (f32)swapExtent.width,
-        .height = -(f32)swapExtent.height,
+        .y = (f32)extent.height,
+        .width = (f32)extent.width,
+        .height = -(f32)extent.height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
