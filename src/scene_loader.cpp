@@ -1,6 +1,10 @@
 #include <toml++/toml.hpp>
 #include <iostream>
 
+struct EditorMetadata
+{
+    const char* name;
+};
 
 struct ComponentInfo
 {
@@ -129,7 +133,7 @@ void RegisterComponents(Scene& scene)
     }
 }
 
-void LoadScene(Scene& scene, const char* filename)
+void LoadScene(Scene& scene, const char* filename, bool editor)
 {
     toml::table tbl;
     try
@@ -141,6 +145,12 @@ void LoadScene(Scene& scene, const char* filename)
             toml::table* table = entity.second.as_table();
             EntityID id = scene.NewEntity();
             entityNames[entity.first.data()] = id;
+
+            if (editor)
+            {
+                EditorMetadata* metadata = scene.Assign<EditorMetadata>(id);
+                metadata->name = entity.first.data();
+            }
 
             for (auto val : *table)
             {

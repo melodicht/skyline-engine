@@ -45,7 +45,7 @@ struct PlatformAPI
   
 #include "ecs.h"
 
-#define GAME_INITIALIZE(name) void name(Scene &scene, GameMemory &memory, PlatformAPI &platformAPI)
+#define GAME_INITIALIZE(name) void name(Scene &scene, GameMemory &memory, PlatformAPI &platformAPI, bool editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
 #define GAME_UPDATE_AND_RENDER(name) void name(Scene &scene, GameInput &input, f32 deltaTime)

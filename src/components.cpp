@@ -154,3 +154,6 @@ struct PointLight
 };
 SERIALIZE(PointLight, diffuse, specular, constant, linear, quadratic, maxRange)
 COMPONENT(PointLight)
+
+
+COMPONENT(EditorMetadata)

@@ -217,7 +217,7 @@ void updateLoop(void* appInfo) {
 
 #include <filesystem>
 
-int main()
+int main(int argc, char** argv)
 {
     std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     srand(static_cast<unsigned>(time(0)));
@@ -258,8 +258,21 @@ int main()
     platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
     platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
 
+    bool editor = false;
+
+    if (argc > 0)
+    {
+        for (int i = 0; i < argc; i++)
+        {
+            if (strcmp(argv[i], "-editor"))
+            {
+                editor = true;
+            }
+        }
+    }
+
     Scene scene;
-    gameCode.gameInitialize(scene, gameMemory, platformAPI);
+    gameCode.gameInitialize(scene, gameMemory, platformAPI, editor);
 
     SDL_Event e;
     bool playing = true;
