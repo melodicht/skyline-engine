@@ -118,7 +118,7 @@ void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    compInfos.push_back({AssignComponent<T>, LoadComponent<T>, sizeof(T)});
+    compInfos.push_back({AssignComponent<T>, LoadComponent<T>, sizeof(T), name});
 }
 
 void RegisterComponents(Scene& scene)
