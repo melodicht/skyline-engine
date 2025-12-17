@@ -22,6 +22,8 @@ global_variable PlatformAPI globalPlatformAPI;
 #include "physics.cpp"
 #include "systems.cpp"
 
+EntityID currentCamera = -1;
+
 local void LogDebugRecords();
 
 extern "C"
@@ -41,52 +43,54 @@ GAME_INITIALIZE(GameInitialize)
 
     bool slowStep = false;
 
-    // NOTE(marvin): Initialising the physics system.
-    JPH::RegisterDefaultAllocator();
-    JPH::Factory::sInstance = new JPH::Factory();
-    JPH::RegisterTypes();
+    if (editor)
+    {
+        currentCamera = scene.NewEntity();
+        CameraComponent* camera = scene.Assign<CameraComponent>(currentCamera);
+        FlyingMovement* movement = scene.Assign<FlyingMovement>(currentCamera);
+        scene.Assign<Transform3D>(currentCamera);
 
-    // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
-    JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
+        EditorSystem *editorSystem = new EditorSystem(currentCamera);
+        scene.AddSystem(editorSystem);
+    }
+    else
+    {
+        // NOTE(marvin): Initialising the physics system.
+        JPH::RegisterDefaultAllocator();
+        JPH::Factory::sInstance = new JPH::Factory();
+        JPH::RegisterTypes();
 
-    // NOTE(marvin): Pulled these numbers out of my ass.
-    u32 maxBodies = 1024;
-    u32 numBodyMutexes = 0;  // 0 means auto-detect.
-    u32 maxBodyPairs = 1024;
-    u32 maxContactConstraints = 1024;
-    JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
-    JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
-    JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
-    
-    physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
-                        *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
-                        *sklObjectLayerPairFilter);
+        // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well.
+        JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
 
-    CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
-    scene.AddSystem(characterControllerSys);
+        // NOTE(marvin): Pulled these numbers out of my ass.
+        u32 maxBodies = 1024;
+        u32 numBodyMutexes = 0;  // 0 means auto-detect.
+        u32 maxBodyPairs = 1024;
+        u32 maxContactConstraints = 1024;
+        JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
+        JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
+        JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
 
-    RenderSystem *renderSys = new RenderSystem();
-    MovementSystem *movementSys = new MovementSystem();
-    BuilderSystem *builderSys = new BuilderSystem(slowStep);
-    scene.AddSystem(renderSys);
-    scene.AddSystem(movementSys);
-    scene.AddSystem(builderSys);
+        physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
+                            *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
+                            *sklObjectLayerPairFilter);
 
-//    EntityID playerCharacterEnt = scene.NewEntity();
-//    Transform3D *pcTransform = scene.Assign<Transform3D>(playerCharacterEnt);
-//    PlayerCharacter *playerCharacter = scene.Assign<PlayerCharacter>(playerCharacterEnt);
-//
-//    JPH::CharacterVirtualSettings characterVirtualSettings;
-//    f32 halfHeightOfCylinder = 1.0f;
-//    f32 cylinderRadius = 0.3f;
-//    characterVirtualSettings.mShape = new JPH::CapsuleShape(halfHeightOfCylinder, cylinderRadius);
-//    characterVirtualSettings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cylinderRadius);
-//
-//    JPH::Vec3 characterPosition = JPH::Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
-//    JPH::Quat characterRotation = JPH::Quat(0, 0, 0, 0);
-//    JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
-//    playerCharacter->characterVirtual = characterVirtual;
+        CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
+        scene.AddSystem(characterControllerSys);
 
+        MovementSystem *movementSys = new MovementSystem();
+        BuilderSystem *builderSys = new BuilderSystem(slowStep);
+        scene.AddSystem(movementSys);
+        scene.AddSystem(builderSys);
+
+        // Get the main camera view
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(scene);
+        if (cameraView.begin() != cameraView.end())
+        {
+            currentCamera = *cameraView.begin();
+        }
+    }
 
     scene.InitSystems();
 }
@@ -97,6 +101,87 @@ GAME_INITIALIZE(GameInitialize)
 #include <cstdio>
 #endif
 
+void UpdateRenderer(Scene& scene)
+{
+    NAMED_TIMED_BLOCK(UpdateRenderer);
+
+    if (currentCamera == -1)
+    {
+        return;
+    }
+
+    CameraComponent *camera = scene.Get<CameraComponent>(currentCamera);
+    Transform3D *cameraTransform = scene.Get<Transform3D>(currentCamera);
+
+    std::vector<DirLightRenderInfo> dirLights;
+    for (EntityID ent: SceneView<DirLight, Transform3D>(scene))
+    {
+        DirLight *l = scene.Get<DirLight>(ent);
+        if (l->lightID == -1)
+        {
+            l->lightID = AddDirLight();
+        }
+
+        Transform3D *lTransform = scene.Get<Transform3D>(ent);
+
+        dirLights.push_back({l->lightID, lTransform, l->diffuse, l->specular});
+    }
+
+    std::vector<SpotLightRenderInfo> spotLights;
+    for (EntityID ent: SceneView<SpotLight, Transform3D>(scene))
+    {
+        SpotLight *l = scene.Get<SpotLight>(ent);
+        if (l->lightID == -1)
+        {
+            l->lightID = AddSpotLight();
+        }
+
+        Transform3D *lTransform = scene.Get<Transform3D>(ent);
+
+        spotLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
+                                 l->innerCone, l->outerCone, l->range, true});
+    }
+
+    std::vector<PointLightRenderInfo> pointLights;
+    for (EntityID ent: SceneView<PointLight, Transform3D>(scene))
+    {
+        PointLight *l = scene.Get<PointLight>(ent);
+        if (l->lightID == -1)
+        {
+            l->lightID = AddPointLight();
+        }
+
+        Transform3D *lTransform = scene.Get<Transform3D>(ent);
+
+        pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
+                                  l->constant, l->linear, l->quadratic, l->maxRange, true});
+    }
+
+    std::vector<MeshRenderInfo> meshInstances;
+    for (EntityID ent: SceneView<MeshComponent, Transform3D>(scene))
+    {
+        Transform3D *t = scene.Get<Transform3D>(ent);
+        glm::mat4 model = t->GetWorldTransform();
+        MeshComponent *m = scene.Get<MeshComponent>(ent);
+        MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
+        TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
+        meshInstances.push_back({model, m->color, meshID, texID});
+    }
+
+    RenderFrameInfo sendState{
+        .cameraTransform = cameraTransform,
+        .meshes = meshInstances,
+        .dirLights = dirLights,
+        .spotLights = spotLights,
+        .pointLights = pointLights,
+        .cameraFov = camera->fov,
+        .cameraNear = camera->nearPlane,
+        .cameraFar = camera->farPlane
+    };
+
+    RenderUpdate(sendState);
+}
+
 
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
@@ -105,6 +190,9 @@ __declspec(dllexport)
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     scene.UpdateSystems(&input, deltaTime);
+
+    UpdateRenderer(scene);
+
     LogDebugRecords();
 }
 

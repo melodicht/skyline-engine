@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 #include <random>
+#include <format>
 
 #define SDL_MAIN_HANDLED
 
@@ -184,6 +185,13 @@ void updateLoop(void* appInfo) {
             case SDL_EVENT_KEY_UP:
                 keysDown.erase(SDL_GetKeyName(info->e.key.key));
                 break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                keysDown.insert(std::format("Mouse {}", info->e.button.button));
+                std::cout << std::format("Mouse {}", info->e.button.button) << "\n";
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                keysDown.erase(std::format("Mouse {}", info->e.button.button));
+                break;
         }
     }
 
@@ -243,7 +251,24 @@ int main(int argc, char** argv)
     ImGui_ImplSDL3_InitForOther(window);
     #endif
 
-    SDL_SetWindowRelativeMouseMode(window, true);
+    bool editor = false;
+
+    if (argc > 0)
+    {
+        for (int i = 0; i < argc; i++)
+        {
+            if (!strcmp(argv[i], "-editor"))
+            {
+                editor = true;
+            }
+        }
+    }
+
+    if (!editor)
+    {
+        SDL_SetWindowRelativeMouseMode(window, true);
+    }
+
 
     RenderInitInfo initDesc {
             .window = window,
@@ -257,19 +282,6 @@ int main(int argc, char** argv)
     PlatformAPI platformAPI = {};
     platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
     platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
-
-    bool editor = false;
-
-    if (argc > 0)
-    {
-        for (int i = 0; i < argc; i++)
-        {
-            if (strcmp(argv[i], "-editor"))
-            {
-                editor = true;
-            }
-        }
-    }
 
     Scene scene;
     gameCode.gameInitialize(scene, gameMemory, platformAPI, editor);
