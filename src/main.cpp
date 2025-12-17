@@ -187,7 +187,6 @@ void updateLoop(void* appInfo) {
                 break;
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 keysDown.insert(std::format("Mouse {}", info->e.button.button));
-                std::cout << std::format("Mouse {}", info->e.button.button) << "\n";
                 break;
             case SDL_EVENT_MOUSE_BUTTON_UP:
                 keysDown.erase(std::format("Mouse {}", info->e.button.button));
