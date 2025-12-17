@@ -36,6 +36,15 @@ CPMAddPackage(
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
 
 #==============================================================================
+# IMGUI
+#==============================================================================
+
+file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
+add_library(imgui SHARED ${imgui_sources})
+target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+
+#==============================================================================
 # SHARED DEPENDENCIES (Between platform, rendering backend, and game)
 #==============================================================================
 
@@ -108,15 +117,6 @@ target_compile_definitions(SHARED_DEPENDENCIES
         INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
         INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
         INTERFACE SKL_INTERNAL=${SKL_INTERNAL})
-
-#==============================================================================
-# IMGUI
-#==============================================================================
-
-file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
-add_library(imgui SHARED ${imgui_sources})
-target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 #==============================================================================
 # RENDERING BACKEND
