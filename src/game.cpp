@@ -95,12 +95,6 @@ GAME_INITIALIZE(GameInitialize)
     scene.InitSystems();
 }
 
-// NOTE(marvin): Our logger doesn't have string format...
-// Using c std lib's one for now.
-#if SKL_INTERNAL
-#include <cstdio>
-#endif
-
 void UpdateRenderer(Scene& scene)
 {
     NAMED_TIMED_BLOCK(UpdateRenderer);
@@ -195,6 +189,12 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     LogDebugRecords();
 }
+
+// NOTE(marvin): Our logger doesn't have string format...
+// Using c std lib's one for now.
+#if SKL_INTERNAL
+#include <cstdio>
+#endif
 
 // NOTE(marvin): This has to go after ALL the timed blocks in order of
 // what the preprocesser sees, so that the counter here will be the
