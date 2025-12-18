@@ -160,7 +160,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
         // Checks to make sure that singleLight actually applies with shadow
         singleLight = singleLight * lightsUncovered;
-        overallLight += singleLight;
+        //overallLight += singleLight;
     }
 
     for (var pointIter : u32 = 0 ; pointIter < fixedData.pointLightAmount ; pointIter++) {
@@ -168,8 +168,13 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         var lightToFragDir : vec3<f32> = (in.worldPos/in.worldPos.w).xyz - dynamicShadowedPointLightStore[pointIter].position;
         var lightToFragDistance : f32 = length(lightToFragDir);
 
+        // Checks for shadowing
+        var pointLightUncovered : f32 = textureSampleCompare(dynamicShadowedPointLightMap, shadowMapSampler, normalize(lightToFragDir), pointIter, (lightToFragDistance/dynamicShadowedPointLightStore[pointIter].distanceCutoff) - 0.0025);
+
         // TODO: Create a softer way to enforce cutoff
         if (lightToFragDistance < dynamicShadowedPointLightStore[pointIter].distanceCutoff) {
+
+            // Handles phong lighting
             var singleLight : vec3<f32> = vec3<f32>(0, 0, 0);
             lightToFragDir = normalize(lightToFragDir);
 
@@ -182,11 +187,11 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
             singleLight += specularIntensity * dynamicShadowedPointLightStore[pointIter].specular;
 
             // Takes attenuation into account then adds lighting contribution
-            singleLight *= 1.0 / 
-                (dynamicShadowedPointLightStore[pointIter].constant + 
-                dynamicShadowedPointLightStore[pointIter].linear * lightToFragDistance + 
-                dynamicShadowedPointLightStore[pointIter].quadratic * (lightToFragDistance * lightToFragDistance));
-            overallLight += singleLight;
+            // singleLight *= 1.0 / 
+            //     (dynamicShadowedPointLightStore[pointIter].constant + 
+            //     dynamicShadowedPointLightStore[pointIter].linear * lightToFragDistance + 
+            //     dynamicShadowedPointLightStore[pointIter].quadratic * (lightToFragDistance * lightToFragDistance));
+            overallLight += singleLight * pointLightUncovered;
         }
     }
 

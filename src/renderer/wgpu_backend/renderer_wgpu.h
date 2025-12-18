@@ -123,6 +123,9 @@ private:
     // Populates depth buffer from view of camera buffer
     void BeginDepthPass(WGPUTextureView depthTexture);
 
+    // Populates depth buffer from the view of camera buffer
+    void BeginPointDepthPass(WGPUTextureView depthTexture);
+
     // Populates depth buffer with 
     
     // Stops the current pass

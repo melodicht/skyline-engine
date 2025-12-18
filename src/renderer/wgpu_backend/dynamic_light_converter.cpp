@@ -16,7 +16,6 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     std::vector<WGPUBackendDynamicShadowedDirLightData> ret;
     std::vector<glm::mat4x4> lightViews;
     ret.reserve(cpuType.size());
-    lightSpacesOutput.reserve(lightSpacesOutput.size() + cpuType.size() * lightSpacesCascadeCount);
     lightViews.reserve(cpuType.size());
 
     // Inserts non light space data into GPU data
@@ -110,23 +109,42 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     return ret;
 }
 
+inline glm::mat4x4 lookAtHelper(glm::vec3 location, glm::vec3 forward, glm::vec3 up) {
+    return glm::lookAt(location,location + forward, up);
+}
+
 // Converts cpu point lights to gpu side point lights.
 std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
-    std::vector<PointLightRenderInfo>& cpuType) {
+    std::vector<PointLightRenderInfo>& cpuType,
+    std::vector<glm::mat4x4>& lightSpacesOutput,
+    int shadowHeight,
+    int shadowWidth) {
+
     std::vector<WGPUBackendDynamicShadowedPointLightData> ret{ };
     ret.reserve(cpuType.size());
     for (PointLightRenderInfo& cpuDat : cpuType) {
+        glm::vec3 lightPos = cpuDat.transform.position;
+
+        // Calculates cube map 
+        glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (float)shadowWidth/(float)shadowHeight, 0.1f, cpuDat.maxRange);
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0,-1, 0}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, {-1, 0, 0}, { 0,-1, 0}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 1, 0}, { 0, 0, 1}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0,-1, 0}, { 0, 0,-1}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0, 1}, { 0,-1, 0}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0,-1}, { 0,-1, 0}));
+
+        // Populates gpu type information 
         WGPUBackendDynamicShadowedPointLightData gpuDat{ };
 
         gpuDat.m_diffuse = cpuDat.diffuse;
         gpuDat.m_constant = cpuDat.constant; 
         gpuDat.m_specular = cpuDat.specular;
         gpuDat.m_linear = cpuDat.linear;
-        gpuDat.m_position = cpuDat.transform.position;
+        gpuDat.m_position = lightPos;
         gpuDat.m_quadratic = cpuDat.quadratic;
         gpuDat.m_distanceCutoff = cpuDat.maxRange;
 
-        // Calculates cube map
         ret.push_back(gpuDat);
     }
     return ret;

@@ -32,7 +32,8 @@ if(EMSCRIPTEN)
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
                 --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
         target_compile_options(webgpu INTERFACE 
-                --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py)
+                --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
+                -DDAWN_DEBUG_BREAK_ON_ERROR=1)
         set_property(TARGET webgpu APPEND PROPERTY LINK_DEPENDS 
                 ../notes.txt
         )

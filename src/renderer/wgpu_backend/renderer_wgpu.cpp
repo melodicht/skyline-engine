@@ -326,6 +326,46 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
   m_meshIndexBuffer.BindToRenderPassAsIndexBuffer(m_renderPassEncoder);
 }
 
+void WGPURenderBackend::BeginPointDepthPass(WGPUTextureView depthTexture) {
+  assert(!m_renderPassActive);
+
+  m_renderPassActive = true;
+
+  // Create a command encoder for the draw call
+  WGPUCommandEncoderDescriptor encoderDesc = {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr("Point Depth Encoder Descriptor")
+  };
+  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
+
+  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+    .nextInChain = nullptr,
+    .view = depthTexture,
+    .depthLoadOp = WGPULoadOp_Clear,
+    .depthStoreOp = WGPUStoreOp_Store,
+    .depthClearValue = 1.0f,
+    .depthReadOnly = false,
+    .stencilReadOnly = true,
+  };
+
+  WGPURenderPassDescriptor depthPassDescriptor {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr("Point Depth Pass Descriptor"),
+    .colorAttachmentCount = 0,
+    .colorAttachments = nullptr,
+    .depthStencilAttachment = &depthStencilAttachment,
+    .timestampWrites = nullptr,
+  };
+
+  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &depthPassDescriptor);
+
+  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_pointDepthPipeline);
+
+  m_pointDepthBindGroup.BindToRenderPass(m_renderPassEncoder);
+  m_meshVertexBuffer.BindToRenderPassAsVertexBuffer(m_renderPassEncoder);
+  m_meshIndexBuffer.BindToRenderPassAsIndexBuffer(m_renderPassEncoder);
+}
+
 void WGPURenderBackend::EndPass() {
   m_renderPassActive = false;
 
@@ -443,11 +483,14 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   LOG("Requesting device...");
 
   // General device description
+  WGPULimits deviceRequirements = WGPU_LIMITS_INIT;
+  deviceRequirements.maxTextureArrayLayers = 2048;
+
   WGPUDeviceDescriptor deviceDesc = {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("My Device"),
     .requiredFeatureCount = 0,
-    .requiredLimits = nullptr,
+    .requiredLimits = &deviceRequirements,
     .defaultQueue {
       .nextInChain = nullptr,
       .label = WGPUBackendUtils::wgpuStr("Default Queue")
@@ -959,7 +1002,7 @@ void WGPURenderBackend::InitPipelines()
       .topology = WGPUPrimitiveTopology_TriangleList,
       .stripIndexFormat = WGPUIndexFormat_Undefined,
       .frontFace = WGPUFrontFace_CCW,
-      .cullMode = WGPUCullMode_None
+      .cullMode = WGPUCullMode_Back
     },
     .depthStencil = &depthStencilReadOnlyState,
     .multisample {
@@ -1023,7 +1066,7 @@ void WGPURenderBackend::InitPipelines()
     m_wgpuCore.m_device, 
     1000, 
     1000, 
-    128, 
+    2048, 
     6,
     "Dynamic Point Light Shadow Maps", 
     "Dynamic Point Light Shadow Maps Cube Arrays", 
@@ -1143,13 +1186,13 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   glm::mat4x4 camSpace = mainCamProj * mainCamView;
     
   // Prepares dynamic shadowed lights to be rendered
-  std::vector<glm::mat4x4> lightSpaces;
+  std::vector<glm::mat4x4> dirLightSpaces;
   std::vector<glm::mat4x4> pointLightSpaces;
 
   // TODO: Make cascade ratios more adjustable
   std::vector<float> cascadeRatios = {0.25, 0.50, 0.75, 1.00};
-  const std::vector<WGPUBackendDynamicShadowedDirLightData> shadowedDirLightData = ConvertDirLights(state.dirLights, lightSpaces, 4, camSpace, cascadeRatios, 0.05, state.cameraFar);
-  const std::vector<WGPUBackendDynamicShadowedPointLightData> shadowedPointLightData = ConvertPointLights(state.pointLights);
+  const std::vector<WGPUBackendDynamicShadowedDirLightData> shadowedDirLightData = ConvertDirLights(state.dirLights, dirLightSpaces, 4, camSpace, cascadeRatios, 0.05, state.cameraFar);
+  const std::vector<WGPUBackendDynamicShadowedPointLightData> shadowedPointLightData = ConvertPointLights(state.pointLights, pointLightSpaces, 1000, 1000);
   const std::vector<WGPUBackendDynamicShadowedSpotLightData> shadowedSpotLightData = ConvertSpotLights(state.spotLights);
   // >>> Actually begins sending off information to be rendered <<<
 
@@ -1158,14 +1201,25 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
 
   // Begins writing in shadow mapping passes and inserting data for shadowed lights
   for (u8 cascadeIter = 0 ; cascadeIter < DefaultCascadeCount ; cascadeIter++) {
-    for (u32 dirShadowIdx = 0; dirShadowIdx < shadowedDirLightData.size() ; dirShadowIdx++) {
-      m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, lightSpaces[dirShadowIdx + cascadeIter * shadowedDirLightData.size()]);
+    for (u32 dirShadowIdx = 0 ; dirShadowIdx < shadowedDirLightData.size() ; dirShadowIdx++) {
+      m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, dirLightSpaces[dirShadowIdx + cascadeIter * shadowedDirLightData.size()]);
       BeginDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * DefaultCascadeCount + cascadeIter));
       DrawObjects(meshCounts);
       EndPass();
     }
   }
 
+  for (u32 pointLightIdx = 0 ; pointLightIdx < shadowedPointLightData.size() ; pointLightIdx++) {
+    const WGPUBackendDynamicShadowedPointLightData& pointLight = shadowedPointLightData[pointLightIdx];
+    m_fixedPointDepthPassDatBuffer.WriteBuffer(m_wgpuQueue, {pointLight.m_position, pointLight.m_distanceCutoff});
+    for (u32 pointShadowIdx = pointLightIdx * 6 ; pointShadowIdx < (pointLightIdx + 1) * 6 ; pointShadowIdx++) {
+      m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, pointLightSpaces[pointShadowIdx]);
+      BeginPointDepthPass(m_dynamicPointLightShadowMapTexture.GetView(pointShadowIdx));
+      DrawObjects(meshCounts);
+      EndPass();
+    }
+  }
+  std::cout << "CHECK " << shadowedPointLightData.size() << std::endl;
   // Edits cascade ratios to be put in world space
   float camNearFarDiff = state.cameraFar - state.cameraNear;
   for (float& ratio : cascadeRatios) {
@@ -1180,7 +1234,8 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
 
   m_dynamicShadowedSpotLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, shadowedSpotLightData.data(), (u32)shadowedSpotLightData.size());
 
-  m_dynamicShadowLightSpaces.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, lightSpaces.data(), (u32)lightSpaces.size());
+  m_dynamicShadowLightSpaces.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirLightSpaces.data(), (u32)dirLightSpaces.size());
+
   // Sets fixed data
   WGPUBackendColorPassFixedData colorPassState {
     .m_combined = camSpace,
@@ -1219,12 +1274,12 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   LightID WGPURenderBackend::AddSpotLight() {
     LightID lightID = m_dynamicShadowedSpotLightNextID;
     m_dynamicShadowedSpotLightNextID++;
-    m_dynamicPointLightShadowMapTexture.RegisterShadow(m_wgpuCore.m_device, m_wgpuQueue);
     return lightID;
   }
   LightID WGPURenderBackend::AddPointLight() {
     LightID lightID = m_dynamicShadowedPointLightNextID;
     m_dynamicShadowedPointLightNextID++;
+    m_dynamicPointLightShadowMapTexture.RegisterShadow(m_wgpuCore.m_device, m_wgpuQueue);
     return lightID;
   }
 
@@ -1233,9 +1288,9 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   }
   // TODO Actually implement
   void WGPURenderBackend::DestroySpotLight(LightID lightID) {
-
+    
   }
   void WGPURenderBackend::DestroyPointLight(LightID lightID) {
-
+    m_dynamicPointLightShadowMapTexture.UnregisterShadow();
   }
 #pragma endregion

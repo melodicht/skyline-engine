@@ -99,7 +99,7 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
     return frustumCorners;
 }
 
-
+bool exists = false;
 class RenderSystem : public System
 {
 
@@ -159,12 +159,15 @@ class RenderSystem : public System
             if (l->lightID == -1)
             {
                 l->lightID = AddPointLight();
+                std::cout << l->lightID << std::endl;
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
-            pointLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
-                                   l->constant, l->linear, l->quadratic, l->maxRange});
+            if (l->lightID == 2) {
+                pointLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
+                        l->constant, l->linear, l->quadratic, l->maxRange});
+            }
         }
 
         std::vector<MeshRenderInfo> meshInstances;
@@ -312,6 +315,15 @@ public:
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;
                         pointTransform->position.z += antennaHeight / 2;
+                        pointTransform->scale = {10.0f, 10.0f, 10.0f};
+                        //
+                        MeshComponent *m = scene->Assign<MeshComponent>(pointLight);
+                        m->mesh = cuboidMesh;
+                        ColorComponent *c = scene->Assign<ColorComponent>(pointLight);
+                        c->r = 1.0f;
+                        c->g = 1.0f;
+                        c->b = 1.0f;
+                        //
                         PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
                         f32 red = RandInBetween(0.8, 1.0);
                         pointLightComponent->diffuse = {red, 0.6, 0.25};

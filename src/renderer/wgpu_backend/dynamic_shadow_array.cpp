@@ -142,12 +142,12 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     m_arrayMaxAllocatedSize = maxTextureDepth;
     m_depthPerShadow = depthPerShadow;
     m_inited = true;
-    m_wholeTextureViewDimension = cubeMapView ? WGPUTextureViewDimension_CubeArray : WGPUTextureViewDimension_2D;
+    m_wholeTextureViewDimension = cubeMapView ? WGPUTextureViewDimension_CubeArray : WGPUTextureViewDimension_2DArray;
     m_arrayAllocatedSize = cubeMapView ? 6 : 1;
     // Creates empty shadow map
     WGPUTextureDescriptor textureDesc {
         .nextInChain = nullptr,
-        .label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Shadow Map"),
+        .label = WGPUBackendUtils::wgpuStr(label.data()),
         .usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_RenderAttachment,
         .dimension = WGPUTextureDimension_2D,
         .size = {
@@ -167,7 +167,7 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     
     WGPUTextureViewDescriptor textureViewDesc {
         .nextInChain = nullptr,
-        .label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Texture View"),
+        .label = WGPUBackendUtils::wgpuStr(wholeViewLabel.data()),
         .format = WGPUTextureFormat_Depth32Float,
         .dimension = m_wholeTextureViewDimension,
         .baseMipLevel = 0,

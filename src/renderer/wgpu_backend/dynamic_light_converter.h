@@ -24,6 +24,10 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     float camFar);
 
 // Converts cpu point lights to gpu side point lights.
-std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(std::vector<PointLightRenderInfo>& cpuType);
+std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
+    std::vector<PointLightRenderInfo>& cpuType,
+    std::vector<glm::mat4x4>& lightSpacesOutput,
+    int shadowHeight,
+    int shadowWidth);
 
 std::vector<WGPUBackendDynamicShadowedSpotLightData> ConvertSpotLights(std::vector<SpotLightRenderInfo>& cpuType);
