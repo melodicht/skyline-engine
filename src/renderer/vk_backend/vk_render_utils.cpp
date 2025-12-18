@@ -68,7 +68,7 @@ void DestroyImage(VmaAllocator allocator, AllocatedImage image)
 }
 
 //Change layout of image
-void TransitionImage(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
+VkImageMemoryBarrier2 ImageBarrier(VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
 {
     VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
     imageBarrier.pNext = nullptr;
@@ -94,14 +94,7 @@ void TransitionImage(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout
     imageBarrier.subresourceRange = subImage;
     imageBarrier.image = image;
 
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
-
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &imageBarrier;
-
-    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+    return imageBarrier;
 }
 
 //Create a temporary command buffer for executing commands outside of the rendering loop

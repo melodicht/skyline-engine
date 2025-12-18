@@ -1,31 +1,7 @@
-// Taken from
+// Inspired from
 // https://github.com/cmuratori/computer_enhance/blob/main/perfaware/part3/listing_0108_platform_metrics.cpp
-// Marvin is a paying subscriber for that course and so is allowed to
-// use this piece of source code. We can continune to use this
-// provided that the codebase remains to be used in a personal and
-// educational setting.
 
-#if _WIN32
-
-#include <intrin.h>
-#include <windows.h>
-
-static u64 GetOSTimerFreq(void)
-{
-    LARGE_INTEGER Freq;
-    QueryPerformanceFrequency(&Freq);
-    return Freq.QuadPart;
-}
-
-static u64 ReadOSTimer(void)
-{
-    LARGE_INTEGER Value;
-    QueryPerformanceCounter(&Value);
-    return Value.QuadPart;
-}
-
-
-#elif __APPLE__ || __EMSCRIPTEN__
+#if __APPLE__ || __EMSCRIPTEN__
 static u64 GetOSTimerFreq(void)
 {
     return 0;
@@ -49,6 +25,27 @@ static u64 EstimateCPUTimerFreq(void)
 
 #else
 
+#if _WIN32
+
+#include <intrin.h>
+#include <windows.h>
+
+static u64 GetOSTimerFreq(void)
+{
+    LARGE_INTEGER Freq;
+    QueryPerformanceFrequency(&Freq);
+    return Freq.QuadPart;
+}
+
+static u64 ReadOSTimer(void)
+{
+    LARGE_INTEGER Value;
+    QueryPerformanceCounter(&Value);
+    return Value.QuadPart;
+}
+
+#else
+
 #include <x86intrin.h>
 #include <sys/time.h>
 
@@ -65,6 +62,7 @@ static u64 ReadOSTimer(void)
 	u64 Result = GetOSTimerFreq()*(u64)Value.tv_sec + (u64)Value.tv_usec;
 	return Result;
 }
+#endif
 
 inline u64 ReadCPUTimer(void)
 {
@@ -101,4 +99,7 @@ static u64 EstimateCPUTimerFreq(void)
 
     return CPUFreq;
 }
+
 #endif
+
+

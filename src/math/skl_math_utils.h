@@ -1,6 +1,6 @@
 #pragma once
 
-#include "skl_math_consts.h"
+#include "skl_math_types.h"
 
 #include <vector>
 
@@ -34,6 +34,7 @@ glm::vec3 GetUpVector(Transform3D *transform);
 glm::mat4 GetViewMatrix(Transform3D *transform);
 
 void GetPointViews(Transform3D *transform, glm::mat4 *views);
+
 // Generates a random float in the inclusive range of the two given
 // floats.
 f32 RandInBetween(f32 LO, f32 HI);

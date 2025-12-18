@@ -29,16 +29,8 @@ struct Texture
 {
     AllocatedImage texture;
     VkImageView imageView;
-    VkSampler sampler;
     VkExtent2D extent;
     u32 descriptorIndex;
-};
-
-// Represents the GPU memory locations of the camera, object, and vertex buffers (CPU->GPU)
-struct VertPushConstants
-{
-    VkDeviceAddress objectAddress;
-    VkDeviceAddress vertexAddress;
 };
 
 struct VkDirLightData
@@ -95,7 +87,7 @@ struct FragPushConstants
     glm::vec3 ambientLight;
 };
 
-struct CubemapPushConstants
+struct ShadowPushConstants
 {
     glm::vec3 lightPos;
     float farPlane;

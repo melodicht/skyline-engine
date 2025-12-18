@@ -412,7 +412,10 @@ Makefile
 out
 
 
-build
+# Ignores contents of build folder but not the folder itself.
+build/*
+!build/.gitkeep 
+
 
 /SkylineEngine_XCode
 /test
@@ -421,3 +424,5 @@ build
 /xcodebuild
 /.vscode
 .DS_Store
+/cmake-build-debug-clang
+/cmake-build-release-clang

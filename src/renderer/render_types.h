@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -19,10 +21,17 @@ struct Vertex
     f32 uvY;
 };
 
+struct AABB
+{
+    glm::vec3 min;
+    glm::vec3 max;
+};
+
 // Represents the transformation data of the objects in the scene (CPU->GPU)
 struct ObjectData
 {
     glm::mat4 model;
+    TextureID texture;
     glm::vec4 color;
 };
 

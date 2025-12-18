@@ -20,13 +20,28 @@
 #include <cstdio>
 #include <cstring>
 
+#if __cplusplus >= 202002L
+#include <version>
+#endif
+#if defined(__cpp_lib_span)
+#define VKB_SPAN_OVERLOADS 1
+#elif !defined(VKB_SPAN_OVERLOADS)
+#define VKB_SPAN_OVERLOADS 0
+#endif
+
+#if VKB_SPAN_OVERLOADS
+#include <span>
+#endif
+
 #include <vector>
 #include <string>
 #include <system_error>
+#include <variant>
 
 #include <vulkan/vulkan_core.h>
 
 #include "VkBootstrapDispatch.h"
+#include "VkBootstrapFeatureChain.h"
 
 #ifdef VK_MAKE_API_VERSION
 #define VKB_MAKE_VK_VERSION(variant, major, minor, patch) VK_MAKE_API_VERSION(variant, major, minor, patch)
@@ -56,157 +71,114 @@
 
 namespace vkb {
 
+// Currently GCC's maybe-uninitialized warning gets tripped when std::variant<> contains a std::vector<>, silence it for the meantime
+#if (defined(__GNUC__) || defined(__GNUG__)) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 struct Error {
     std::error_code type;
     VkResult vk_result = VK_SUCCESS; // optional error value if a vulkan call failed
+    std::vector<std::string> detailed_failure_reasons; // optional list of reasons why the operation failed - mainly used to return why VkPhysicalDevices failed to be selected
 };
+#if (defined(__GNUC__) || defined(__GNUG__)) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 template <typename T> class Result {
     public:
-    Result(const T& value) noexcept : m_value{ value }, m_init{ true } {}
-    Result(T&& value) noexcept : m_value{ std::move(value) }, m_init{ true } {}
+    Result(const T& value) noexcept : m_data{ value } {}
+    Result(T&& value) noexcept : m_data{ std::move(value) } {}
 
-    Result(Error error) noexcept : m_error{ error }, m_init{ false } {}
+    Result(const Error& error) noexcept : m_data{ error } {}
+    Result(Error&& error) noexcept : m_data{ std::move(error) } {}
 
     Result(std::error_code error_code, VkResult result = VK_SUCCESS) noexcept
-    : m_error{ error_code, result }, m_init{ false } {}
+    : m_data{ Error{ error_code, result, {} } } {}
 
-    ~Result() noexcept { destroy(); }
-    Result(Result const& expected) noexcept : m_init(expected.m_init) {
-        if (m_init)
-            new (&m_value) T{ expected.m_value };
-        else
-            m_error = expected.m_error;
-    }
-    Result& operator=(Result const& result) noexcept {
-        destroy();
-        m_init = result.m_init;
-        if (m_init)
-            new (&m_value) T{ result.m_value };
-        else
-            m_error = result.m_error;
-        return *this;
-    }
-    Result(Result&& expected) noexcept : m_init(expected.m_init) {
-        if (m_init)
-            new (&m_value) T{ std::move(expected.m_value) };
-        else
-            m_error = std::move(expected.m_error);
-    }
-    Result& operator=(Result&& result) noexcept {
-        destroy();
-        m_init = result.m_init;
-        if (m_init)
-            new (&m_value) T{ std::move(result.m_value) };
-        else
-            m_error = std::move(result.m_error);
-        return *this;
-    }
+    Result(std::error_code error_code, std::vector<std::string> const& detailed_failure_reasons) noexcept
+    : m_data{ Error{ error_code, VK_SUCCESS, detailed_failure_reasons } } {}
+
     Result& operator=(const T& expect) noexcept {
-        destroy();
-        m_init = true;
-        new (&m_value) T{ expect };
+        m_data = expect;
         return *this;
     }
     Result& operator=(T&& expect) noexcept {
-        destroy();
-        m_init = true;
-        new (&m_value) T{ std::move(expect) };
+        m_data = std::move(expect);
         return *this;
     }
     Result& operator=(const Error& error) noexcept {
-        destroy();
-        m_init = false;
-        m_error = error;
+        m_data = error;
         return *this;
     }
     Result& operator=(Error&& error) noexcept {
-        destroy();
-        m_init = false;
-        m_error = error;
+        m_data = std::move(error);
         return *this;
     }
     // clang-format off
-	const T* operator-> () const noexcept { assert (m_init); return &m_value; }
-	T*       operator-> ()       noexcept { assert (m_init); return &m_value; }
-	const T& operator* () const& noexcept { assert (m_init);	return m_value; }
-	T&       operator* () &      noexcept { assert (m_init); return m_value; }
-	T        operator* () &&	 noexcept { assert (m_init); return std::move (m_value); }
-	const T&  value () const&    noexcept { assert (m_init); return m_value; }
-	T&        value () &         noexcept { assert (m_init); return m_value; }
-	T         value () &&        noexcept { assert (m_init); return std::move (m_value); }
+    const T* operator-> () const { return &std::get<T>(m_data); }
+    T*       operator-> ()       { return &std::get<T>(m_data); }
+    const T& operator* () const& { return std::get<T>(m_data); }
+    T&       operator* () &      { return std::get<T>(m_data); }
+    T        operator* () &&     { return std::move(std::get<T>(m_data)); }
+    const T&  value () const&    { return std::get<T>(m_data); }
+    T&        value () &         { return std::get<T>(m_data); }
+    T         value () &&        { return std::move(std::get<T>(m_data)); }
 
     // std::error_code associated with the error
-    std::error_code error() const { assert (!m_init); return m_error.type; }
+    std::error_code error() const { return std::get<Error>(m_data).type; }
     // optional VkResult that could of been produced due to the error
-    VkResult vk_result() const { assert (!m_init); return m_error.vk_result; }
+    VkResult vk_result() const { return std::get<Error>(m_data).vk_result; }
     // Returns the struct that holds the std::error_code and VkResult
-    Error full_error() const { assert (!m_init); return m_error; }
+    Error full_error() const { return std::get<Error>(m_data); }
+    // Returns the detailed error list that contributed to the error. Example: Reasons why VkPhysicalDevices failed to be selected
+    std::vector<std::string> const& detailed_failure_reasons() const  { return std::get<Error>(m_data).detailed_failure_reasons; }
     // clang-format on
 
     // check if the result has an error that matches a specific error case
     template <typename E> bool matches_error(E error_enum_value) const {
-        return !m_init && static_cast<E>(m_error.type.value()) == error_enum_value;
+        return !has_value() && static_cast<E>(std::get<Error>(m_data).type.value()) == error_enum_value;
     }
 
-    bool has_value() const { return m_init; }
-    explicit operator bool() const { return m_init; }
+    bool has_value() const { return std::holds_alternative<T>(m_data); }
+    explicit operator bool() const { return has_value(); }
 
     private:
-    void destroy() {
-        if (m_init) m_value.~T();
-    }
-    union {
-        T m_value;
-        Error m_error;
-    };
-    bool m_init;
+    std::variant<T, Error> m_data;
 };
 
 namespace detail {
-struct GenericFeaturesPNextNode {
+class FeaturesChain {
+    struct StructInfo {
+        VkStructureType sType{};
+        size_t starting_location{};
+        size_t struct_size{};
+    };
+    std::vector<StructInfo> structure_infos;
+    std::vector<std::byte> structures;
 
-    static const uint32_t field_capacity = 256;
+    std::vector<StructInfo>::const_iterator find_sType(VkStructureType sType) const;
 
-    GenericFeaturesPNextNode();
+    public:
+    bool empty() const;
 
-    void disable_fields();
+    bool is_feature_struct_in_chain(VkStructureType sType) const;
 
-    template <typename T> GenericFeaturesPNextNode(T const& features) noexcept {
-        disable_fields();
-        memcpy(this, &features, sizeof(T));
-    }
+    // Add a features structure to the FeaturesChain if it isn't present. If it is, merge the already existing structure with structure
+    void add_structure(VkStructureType sType, size_t struct_size, const void* structure);
 
-    static bool match(GenericFeaturesPNextNode const& requested, GenericFeaturesPNextNode const& supported) noexcept;
+    // If a structure with sType exists, remove it from the FeatureChain
+    void remove_structure(VkStructureType sType);
 
-    void combine(GenericFeaturesPNextNode const& right) noexcept;
+    // Return true if this FeatureChain contains an sType struct and all of the true fields in structure are also true in the FeatureChain struct
+    bool match(VkStructureType sType, const void* structure) const;
 
-    VkStructureType sType = static_cast<VkStructureType>(0);
-    void* pNext = nullptr;
-    VkBool32 fields[field_capacity];
-};
+    // Add to the error_list all structure fields in requested_features_chain not present in this chain
+    void match_all(std::vector<std::string>& error_list, FeaturesChain const& requested_features_chain) const;
 
-struct GenericFeatureChain {
-    std::vector<GenericFeaturesPNextNode> nodes;
+    void create_chained_features(VkPhysicalDeviceFeatures2& features2);
 
-    template <typename T> void add(T const& features) noexcept {
-        // If this struct is already in the list, combine it
-        for (auto& node : nodes) {
-            if (static_cast<VkStructureType>(features.sType) == node.sType) {
-                node.combine(features);
-                return;
-            }
-        }
-        // Otherwise append to the end
-        nodes.push_back(features);
-    }
-
-    bool match_all(GenericFeatureChain const& extension_requested) const noexcept;
-    bool find_and_match(GenericFeatureChain const& extension_requested) const noexcept;
-
-    void chain_up(VkPhysicalDeviceFeatures2& feats2) noexcept;
-
-    void combine(GenericFeatureChain const& right) noexcept;
+    std::vector<void*> get_pNext_chain_members();
 };
 
 } // namespace detail
@@ -355,16 +327,16 @@ void destroy_instance(Instance const& instance); // release instance resources
 
 #if defined(_WIN32)
     VK_KHR_win32_surface
+#elif defined(__ANDROID__)
+    VK_KHR_android_surface
+#elif defined(_DIRECT2DISPLAY)
+    VK_KHR_display
 #elif defined(__linux__) || defined(__FreeBSD__)
     VK_KHR_xcb_surface
     VK_KHR_xlib_surface
     VK_KHR_wayland_surface
 #elif defined(__APPLE__)
     VK_EXT_metal_surface
-#elif defined(__ANDROID__)
-    VK_KHR_android_surface
-#elif defined(_DIRECT2DISPLAY)
-    VK_KHR_display
 #endif
 
 Use `InstanceBuilder::enable_extension()` to add new extensions without altering the default behavior
@@ -414,8 +386,21 @@ class InstanceBuilder {
     InstanceBuilder& enable_layer(const char* layer_name);
     // Adds an extension to be enabled. Will fail to create an instance if the extension isn't available.
     InstanceBuilder& enable_extension(const char* extension_name);
-    InstanceBuilder& enable_extensions(std::vector<const char*> const& extensions);
+
+    // Add extensions to be enabled. Will fail to create an instance if the extension aren't available.
     InstanceBuilder& enable_extensions(size_t count, const char* const* extensions);
+
+    // Add extensions to be enabled. Will fail to create an instance if the extension aren't available.
+    InstanceBuilder& enable_extensions(std::vector<const char*> const& extensions) {
+        return enable_extensions(extensions.size(), extensions.data());
+    }
+
+#if VKB_SPAN_OVERLOADS
+    // Add extensions to be enabled. Will fail to create an instance if the extension aren't available.
+    InstanceBuilder& enable_extensions(std::span<const char*> extensions) {
+        return enable_extensions(extensions.size(), extensions.data());
+    }
+#endif
 
     // Headless Mode does not load the required extensions for presentation. Defaults to true.
     InstanceBuilder& set_headless(bool headless = true);
@@ -472,7 +457,6 @@ class InstanceBuilder {
         std::vector<const char*> layers;
         std::vector<const char*> extensions;
         VkInstanceCreateFlags flags = static_cast<VkInstanceCreateFlags>(0);
-        std::vector<VkBaseOutStructure*> pNext_elements;
         std::vector<VkLayerSettingEXT> layer_settings;
 
         // debug callback - use the default so it is not nullptr
@@ -547,7 +531,7 @@ struct PhysicalDevice {
 
     // Returns true if all the features are present
     template <typename T> bool are_extension_features_present(T const& features) const {
-        return is_features_node_present(detail::GenericFeaturesPNextNode(features));
+        return extended_features_chain.match(static_cast<VkStructureType>(features.sType), &features);
     }
 
     // If the given extension is present, make the extension be enabled on the device.
@@ -556,7 +540,16 @@ struct PhysicalDevice {
 
     // If all the given extensions are present, make all the extensions be enabled on the device.
     // Returns true if all the extensions are present.
-    bool enable_extensions_if_present(const std::vector<const char*>& extensions);
+    bool enable_extensions_if_present(size_t count, const char* const* extensions);
+    bool enable_extensions_if_present(const std::vector<const char*>& extensions) {
+        return enable_extensions_if_present(extensions.size(), extensions.data());
+    }
+
+#if VKB_SPAN_OVERLOADS
+    bool enable_extensions_if_present(std::span<const char*> extensions) {
+        return enable_extensions_if_present(extensions.size(), extensions.data());
+    }
+#endif
 
     // If the features from VkPhysicalDeviceFeatures are all present, make all of the features be enable on the device.
     // Returns true if all the features are present.
@@ -565,7 +558,10 @@ struct PhysicalDevice {
     // If the features from the provided features struct are all present, make all of the features be enable on the
     // device. Returns true if all of the features are present.
     template <typename T> bool enable_extension_features_if_present(T const& features_check) {
-        return enable_features_node_if_present(detail::GenericFeaturesPNextNode(features_check));
+        T scratch_space_struct{};
+        scratch_space_struct.sType = features_check.sType;
+        return enable_features_struct_if_present(
+            static_cast<VkStructureType>(features_check.sType), sizeof(T), &features_check, &scratch_space_struct);
     }
 
     // A conversion function which allows this PhysicalDevice to be used
@@ -577,7 +573,7 @@ struct PhysicalDevice {
     std::vector<std::string> extensions_to_enable;
     std::vector<std::string> available_extensions;
     std::vector<VkQueueFamilyProperties> queue_families;
-    detail::GenericFeatureChain extended_features_chain;
+    detail::FeaturesChain extended_features_chain;
 
     bool defer_surface_initialization = false;
     bool properties2_ext_enabled = false;
@@ -586,8 +582,7 @@ struct PhysicalDevice {
     friend class PhysicalDeviceSelector;
     friend class DeviceBuilder;
 
-    bool is_features_node_present(detail::GenericFeaturesPNextNode const& node) const;
-    bool enable_features_node_if_present(detail::GenericFeaturesPNextNode const& node);
+    bool enable_features_struct_if_present(VkStructureType sType, size_t struct_size, const void* features_struct, void* query_struct);
 };
 
 enum class PreferredDeviceType { other = 0, integrated = 1, discrete = 2, virtual_gpu = 3, cpu = 4 };
@@ -642,8 +637,17 @@ class PhysicalDeviceSelector {
     // Require a physical device which supports a specific extension.
     PhysicalDeviceSelector& add_required_extension(const char* extension);
     // Require a physical device which supports a set of extensions.
-    PhysicalDeviceSelector& add_required_extensions(std::vector<const char*> const& extensions);
     PhysicalDeviceSelector& add_required_extensions(size_t count, const char* const* extensions);
+    PhysicalDeviceSelector& add_required_extensions(std::vector<const char*> const& extensions) {
+        return add_required_extensions(extensions.size(), extensions.data());
+    }
+
+#if VKB_SPAN_OVERLOADS
+    // Require a physical device which supports a set of extensions.
+    PhysicalDeviceSelector& add_required_extensions(std::span<const char*> extensions) {
+        return add_required_extensions(extensions.size(), extensions.data());
+    }
+#endif
 
     // Require a physical device that supports a (major, minor) version of vulkan.
     PhysicalDeviceSelector& set_minimum_version(uint32_t major, uint32_t minor);
@@ -651,12 +655,11 @@ class PhysicalDeviceSelector {
     // By default PhysicalDeviceSelector enables the portability subset if available
     // This function disables that behavior
     PhysicalDeviceSelector& disable_portability_subset();
-
     // Require a physical device which supports a specific set of general/extension features.
     // If this function is used, the user should not put their own VkPhysicalDeviceFeatures2 in
     // the pNext chain of VkDeviceCreateInfo.
     template <typename T> PhysicalDeviceSelector& add_required_extension_features(T const& features) {
-        criteria.extended_features_chain.add(features);
+        criteria.extended_features_chain.add_structure(static_cast<VkStructureType>(features.sType), sizeof(T), &features);
         return *this;
     }
 
@@ -719,18 +722,16 @@ class PhysicalDeviceSelector {
         VkPhysicalDeviceFeatures required_features{};
         VkPhysicalDeviceFeatures2 required_features2{};
 
-        detail::GenericFeatureChain extended_features_chain;
+        detail::FeaturesChain extended_features_chain;
         bool defer_surface_initialization = false;
         bool use_first_gpu_unconditionally = false;
         bool enable_portability_subset = true;
     } criteria;
 
-    PhysicalDevice populate_device_details(
-        VkPhysicalDevice phys_device, detail::GenericFeatureChain const& src_extended_features_chain) const;
+    PhysicalDevice populate_device_details(VkPhysicalDevice phys_device, detail::FeaturesChain const& src_extended_features_chain) const;
 
-    PhysicalDevice::Suitable is_device_suitable(PhysicalDevice const& phys_device) const;
-
-    Result<std::vector<PhysicalDevice>> select_impl() const;
+    PhysicalDevice::Suitable is_device_suitable(
+        PhysicalDevice const& phys_device, std::vector<std::string>& unsuitability_reasons) const;
 };
 
 // ---- Queue ---- //
@@ -779,8 +780,21 @@ struct Device {
 
 // For advanced device queue setup
 struct CustomQueueDescription {
-    explicit CustomQueueDescription(uint32_t index, std::vector<float> priorities);
-    uint32_t index = 0;
+    explicit CustomQueueDescription(uint32_t index, std::vector<float> const& priorities)
+    : index(index), priorities(priorities) {}
+
+    explicit CustomQueueDescription(uint32_t index, std::vector<float>&& priorities)
+    : index(index), priorities(std::move(priorities)) {}
+
+    explicit CustomQueueDescription(uint32_t index, size_t count, float const* priorities)
+    : index(index), priorities(priorities, priorities + count) {}
+
+#if VKB_SPAN_OVERLOADS
+    explicit CustomQueueDescription(uint32_t index, std::span<const float> priorities)
+    : index(index), priorities(priorities.begin(), priorities.end()) {}
+#endif
+
+    uint32_t index;
     std::vector<float> priorities;
 };
 
@@ -795,12 +809,17 @@ class DeviceBuilder {
 
     // For Advanced Users: specify the exact list of VkDeviceQueueCreateInfo's needed for the application.
     // If a custom queue setup is provided, getting the queues and queue indexes is up to the application.
-    DeviceBuilder& custom_queue_setup(std::vector<CustomQueueDescription> queue_descriptions);
+    DeviceBuilder& custom_queue_setup(size_t count, CustomQueueDescription const* queue_descriptions);
+    DeviceBuilder& custom_queue_setup(std::vector<CustomQueueDescription> const& queue_descriptions);
+    DeviceBuilder& custom_queue_setup(std::vector<CustomQueueDescription>&& queue_descriptions);
+#if VKB_SPAN_OVERLOADS
+    DeviceBuilder& custom_queue_setup(std::span<const CustomQueueDescription> queue_descriptions);
+#endif
 
     // Add a structure to the pNext chain of VkDeviceCreateInfo.
     // The structure must be valid when DeviceBuilder::build() is called.
     template <typename T> DeviceBuilder& add_pNext(T* structure) {
-        info.pNext_chain.push_back(reinterpret_cast<VkBaseOutStructure*>(structure));
+        info.pNext_chain.push_back(structure);
         return *this;
     }
 
@@ -811,7 +830,7 @@ class DeviceBuilder {
     PhysicalDevice physical_device;
     struct DeviceInfo {
         VkDeviceCreateFlags flags = static_cast<VkDeviceCreateFlags>(0);
-        std::vector<VkBaseOutStructure*> pNext_chain;
+        std::vector<void*> pNext_chain;
         std::vector<CustomQueueDescription> queue_descriptions;
         VkAllocationCallbacks* allocation_callbacks = nullptr;
     } info;
@@ -840,7 +859,11 @@ struct Swapchain {
     // structure.
     Result<std::vector<VkImageView>> get_image_views();
     Result<std::vector<VkImageView>> get_image_views(const void* pNext);
+    void destroy_image_views(size_t count, VkImageView const* image_views);
     void destroy_image_views(std::vector<VkImageView> const& image_views);
+#if VKB_SPAN_OVERLOADS
+    void destroy_image_views(std::span<const VkImageView> image_views);
+#endif
 
     // A conversion function which allows this Swapchain to be used
     // in places where VkSwapchainKHR would have been used.
@@ -952,7 +975,7 @@ class SwapchainBuilder {
     // Add a structure to the pNext chain of VkSwapchainCreateInfoKHR.
     // The structure must be valid when SwapchainBuilder::build() is called.
     template <typename T> SwapchainBuilder& add_pNext(T* structure) {
-        info.pNext_chain.push_back(reinterpret_cast<VkBaseOutStructure*>(structure));
+        info.pNext_chain.push_back(structure);
         return *this;
     }
 
@@ -966,7 +989,7 @@ class SwapchainBuilder {
     struct SwapchainInfo {
         VkPhysicalDevice physical_device = VK_NULL_HANDLE;
         VkDevice device = VK_NULL_HANDLE;
-        std::vector<VkBaseOutStructure*> pNext_chain;
+        std::vector<void*> pNext_chain;
         VkSwapchainCreateFlagBitsKHR create_flags = static_cast<VkSwapchainCreateFlagBitsKHR>(0);
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         std::vector<VkSurfaceFormatKHR> desired_formats;

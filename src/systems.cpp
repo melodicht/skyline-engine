@@ -1,79 +1,3 @@
-class GravitySystem : public System
-{
-    void OnUpdate(Scene *scene, f32 deltaTime)
-    {
-        for (EntityID ent: SceneView<Rigidbody, GravityComponent>(*scene))
-        {
-            Rigidbody *rb = scene->Get<Rigidbody>(ent);
-            GravityComponent *gc = scene->Get<GravityComponent>(ent);
-
-            rb->v_y -= gc->strength;
-        }
-    }
-};
-
-// Scans for collision of a single component
-// and edits trajectory of ball otherwise
-void scanCollision(CircleCollider *checkCollider, Rigidbody *accessRigid, Transform3D *accessTransform, Scene &accessScene)
-{
-    for (EntityID ent: SceneView<Transform3D, Rigidbody, CircleCollider>(accessScene))
-    {
-        Transform3D *t = accessScene.Get<Transform3D>(ent);
-        Rigidbody *rb = accessScene.Get<Rigidbody>(ent);
-        CircleCollider *cc = accessScene.Get<CircleCollider>(ent);
-        if (rb != accessRigid)
-        {
-            double diffX = t->position.y - accessTransform->position.y;
-            double diffY = t->position.z - accessTransform->position.z;
-            double distance = sqrt(diffX * diffX + diffY * diffY);
-            if (distance < cc->radius + checkCollider->radius)
-            {
-                double normX = diffX / distance;
-                double normY = diffY / distance;
-                double thisSpeedMag = -sqrt(accessRigid->v_x * accessRigid->v_x + accessRigid->v_y * accessRigid->v_y);
-                accessRigid->v_x = normX * thisSpeedMag;
-                accessRigid->v_y = normY * thisSpeedMag;
-                double speedMag = sqrt(rb->v_x * rb->v_x + rb->v_y * rb->v_y);
-                rb->v_x = normX * speedMag;
-                rb->v_y = normY * speedMag;
-            }
-        }
-    }
-}
-
-class CollisionSystem : public System
-{
-    void OnUpdate(Scene *scene, f32 deltaTime)
-    {
-        // Forward movement, collision, rendering
-        for (EntityID ent: SceneView<Transform3D, Rigidbody, CircleCollider>(*scene))
-        {
-            Transform3D *t = scene->Get<Transform3D>(ent);
-            Rigidbody *rb = scene->Get<Rigidbody>(ent);
-            CircleCollider *cc = scene->Get<CircleCollider>(ent);
-            float radius = cc->radius;
-
-            // Not framerate independent for simpler collision logic.
-            t->position.y += rb->v_x;
-            t->position.z += rb->v_y;
-
-            // Collision check x-axis
-            if ((t->position.y - radius) < (WINDOW_WIDTH / -2.0f) || (t->position.y + radius) > (WINDOW_WIDTH / 2.0f))
-            {
-                rb->v_x *= -1;
-            }
-
-            // Collision check y-axis
-            if ((t->position.z - radius) < (WINDOW_HEIGHT / -2.0f) || (t->position.z + radius) > (WINDOW_HEIGHT / 2.0f))
-            {
-                rb->v_y *= -1;
-            }
-
-            scanCollision(cc, rb, t, *scene);
-        }
-    }
-};
-
 std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
 {
     glm::mat4 inverse = glm::inverse(proj * view);
@@ -99,26 +23,21 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
     return frustumCorners;
 }
 
-bool exists = false;
+#define NUM_CASCADES 6
+
 class RenderSystem : public System
 {
-
-    void OnStart(Scene *scene)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
-        RenderPipelineInitInfo initDesc {};
+        NAMED_TIMED_BLOCK(RenderSystem);
 
-        InitPipelines(initDesc);
-    }
-
-    void OnUpdate(Scene *scene, f32 deltaTime)
-    {
         // Get the main camera view
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
         {
             return;
         }
-    
+
         EntityID cameraEnt = *cameraView.begin();
         CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
         Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
@@ -134,7 +53,7 @@ class RenderSystem : public System
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
-            dirLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular});
+            dirLights.push_back({l->lightID, lTransform, l->diffuse, l->specular});
         }
 
         std::vector<SpotLightRenderInfo> spotLights;
@@ -148,8 +67,8 @@ class RenderSystem : public System
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
-            spotLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
-                                  l->innerCone, l->outerCone, l->range});
+            spotLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
+                                  l->innerCone, l->outerCone, l->range, true});
         }
 
         std::vector<PointLightRenderInfo> pointLights;
@@ -164,69 +83,174 @@ class RenderSystem : public System
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
-            if (l->lightID == 2) {
-                pointLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
-                        l->constant, l->linear, l->quadratic, l->maxRange});
-            }
+            pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
+                                   l->constant, l->linear, l->quadratic, l->maxRange, true});
         }
 
         std::vector<MeshRenderInfo> meshInstances;
-        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
+        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
-            glm::mat4 model = GetTransformMatrix(t);
-            ColorComponent *c = scene->Get<ColorComponent>(ent);
+            glm::mat4 model = t->GetWorldTransform();
             MeshComponent *m = scene->Get<MeshComponent>(ent);
-            MeshID mesh = m->mesh;
-            meshInstances.push_back({model, {c->r, c->g, c->b}, mesh});
+            MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
+            TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
+            meshInstances.push_back({model, m->color, meshID, texID});
         }
 
         RenderFrameInfo sendState{
-            .cameraTransform = *cameraTransform,
-            .meshes = meshInstances, 
-            .dirLights = dirLights,
-            .spotLights = spotLights,
-            .pointLights = pointLights,
-            .cameraFov = camera->fov,
-            .cameraNear = camera->near,
-            .cameraFar = camera->far
+                .cameraTransform = cameraTransform,
+                .meshes = meshInstances,
+                .dirLights = dirLights,
+                .spotLights = spotLights,
+                .pointLights = pointLights,
+                .cameraFov = camera->fov,
+                .cameraNear = camera->nearPlane,
+                .cameraFar = camera->farPlane
         };
-        
+
         RenderUpdate(sendState);
+    }
+};
+
+// TODO(marvin): Figure out a better place to put this, for it is not
+// a system, and too generalisable for it to be a private method on
+// CharacterControllerSystem.
+
+local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
+{
+    // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
+    JPH::Vec3 result = {};
+    if (input->keysDown.contains("W"))
+    {
+        result = JPH::Vec3(0, 0, 1);
+    }
+    else if (input->keysDown.contains("S"))
+    {
+        result = JPH::Vec3(0, 0, -1);
+    }
+    else if (input->keysDown.contains("D"))
+    {
+        result = JPH::Vec3(-1, 0, 0);
+    }
+    else if (input->keysDown.contains("A"))
+    {
+        result = JPH::Vec3(1, 0, 0);
+    }
+    return result;
+}
+
+class CharacterControllerSystem : public System
+{
+private:
+    JPH::PhysicsSystem *physicsSystem;
+    JPH::TempAllocatorImpl *allocator;
+
+    void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
+                              JPH::Vec3 movementDirection, f32 deltaTime)
+    {
+        characterVirtual.SetLinearVelocity(movementDirection);
+
+        JPH::Vec3Arg gravity = JPH::Vec3(0, -9.81f, 0);
+        JPH::CharacterVirtual::ExtendedUpdateSettings settings;
+        // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
+        // how much memory ExtendedUpdate needs...
+        characterVirtual.ExtendedUpdate(deltaTime,
+                                        gravity,
+                                        settings,
+                                        physicsSystem.GetDefaultBroadPhaseLayerFilter(Layer::MOVING),
+                                        physicsSystem.GetDefaultLayerFilter(Layer::MOVING),
+                                        {},
+                                        {},
+                                        *allocator);
+    }
+
+public:
+    CharacterControllerSystem(JPH::PhysicsSystem *ps)
+    {
+        physicsSystem = ps;
+        allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+    }
+
+    void OnStart(Scene *scene)
+    {
+
+    }
+
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    {
+        NAMED_TIMED_BLOCK(CharacterControllerSystem);
+        SceneView<PlayerCharacter, Transform3D> playerView = SceneView<PlayerCharacter, Transform3D>(*scene);
+        if (playerView.begin() == playerView.end())
+        {
+            return;
+        }
+
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (playerView.begin() == playerView.end())
+        {
+            return;
+        }
+        EntityID playerEnt = *playerView.begin();
+        PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
+        JPH::CharacterVirtual *cv = pc->characterVirtual;
+        Transform3D *pt = scene->Get<Transform3D>(playerEnt);
+
+        EntityID cameraEnt = *playerView.begin();
+        Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
+
+        glm::vec3 ip = pt->GetLocalPosition();
+        JPH::Vec3 playerPhysicsInitialPosition = JPH::Vec3(-ip.y, ip.z, ip.x);
+        cv->SetPosition(playerPhysicsInitialPosition);
+
+        glm::vec3 ir = pt->GetLocalRotation();
+        JPH::Quat playerPhysicsInitialRotation = JPH::Quat(-ir.y, ir.z, ir.x, 1.0f).Normalized();
+        cv->SetRotation(playerPhysicsInitialRotation);
+
+        JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
+        MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
+
+        // Update player and camera transforms from character virtual's position
+        JPH::Vec3 cp = cv->GetPosition();
+        pt->GetLocalPosition() = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
+#if 0
+        ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
+#endif
     }
 };
 
 class MovementSystem : public System
 {
-    void OnUpdate(Scene *scene, f32 deltaTime)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        NAMED_TIMED_BLOCK(MovementSystem);
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
             Transform3D *t = scene->Get<Transform3D>(ent);
 
-            t->rotation.z += mouseDeltaX * f->turnSpeed;
-            t->rotation.y += mouseDeltaY * f->turnSpeed;
-            t->rotation.y = std::min(std::max(t->rotation.y, -90.0f), 90.0f);
+            t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
+            t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
+            t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
 
-            if (keysDown["W"])
+            if (input->keysDown.contains("W"))
             {
-                t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetForwardVector() * f->moveSpeed * deltaTime);
             }
 
-            if (keysDown["S"])
+            if (input->keysDown.contains("S"))
             {
-                t->position -= GetForwardVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetForwardVector() * -f->moveSpeed * deltaTime);
             }
 
-            if (keysDown["D"])
+            if (input->keysDown.contains("D"))
             {
-                t->position += GetRightVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetRightVector() * f->moveSpeed * deltaTime);
             }
 
-            if (keysDown["A"])
+            if (input->keysDown.contains("A"))
             {
-                t->position -= GetRightVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
             }
         }
     }
@@ -266,7 +290,7 @@ public:
         this->slowStep = slowStep;
     }
 
-    void OnUpdate(Scene *scene, f32 deltaTime)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         if (slowStep && timer > 0.0f)
         {
@@ -302,28 +326,20 @@ public:
 
             if (plane->width <= 16.0f || plane->length <= 16.0f || (plane->width / plane->length) >= 128 || (plane->length / plane->width) >= 128)
             {
-                if (RandInBetween(0.0f, 1.0f) > 0.9375f)
+                if (RandInBetween(0.0f, 1.0f) > 0.975f)
                 {
                     // Build antenna
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-                    BuildPart(scene, ent, t, cuboidMesh, {antennaWidth, antennaWidth, antennaHeight});
-                    t->position.z -= antennaWidth / 2;
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
+                    t->AddLocalPosition({0, 0, -antennaWidth / 2});
 
-                    if (pointLightCount < 256)
+                    if (pointLightCount < 64)
                     {
                         EntityID pointLight = scene->NewEntity();
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;
-                        pointTransform->position.z += antennaHeight / 2;
-                        pointTransform->scale = {10.0f, 10.0f, 10.0f};
-                        //
-                        MeshComponent *m = scene->Assign<MeshComponent>(pointLight);
-                        m->mesh = cuboidMesh;
-                        ColorComponent *c = scene->Assign<ColorComponent>(pointLight);
-                        c->r = 1.0f;
-                        c->g = 1.0f;
-                        c->b = 1.0f;
-                        //
+                        pointTransform->AddLocalPosition({0, 0, antennaHeight / 2});
+                        pointTransform->SetLocalScale({16, 16, 16});
                         PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
                         f32 red = RandInBetween(0.8, 1.0);
                         pointLightComponent->diffuse = {red, 0.6, 0.25};
@@ -334,8 +350,6 @@ public:
                         pointLightComponent->maxRange = 1000;
 
                         pointLightCount++;
-
-                        LOG(pointLightCount);
                     }
                 }
 
@@ -345,7 +359,7 @@ public:
 
             switch (RandInt(0, 13))
             {
-                case 0:
+            case 0:
                 {
                     // Rotate
                     f32 shortSide = std::min(plane->width, plane->length);
@@ -365,10 +379,10 @@ public:
                     plane->width = width;
                     plane->length = length;
 
-                    t->rotation.z += glm::degrees(angle);
+                    t->AddLocalRotation({0, 0, glm::degrees(angle)});
                     break;
                 }
-                case 1:
+            case 1:
                 {
                     // Build Trapezoid
                     if (plane->width > 256 || plane->length > 256)
@@ -377,20 +391,20 @@ public:
                     }
 
                     f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
-                    BuildPart(scene, ent, t, trapMesh, {plane->length, plane->width, trapHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
                     Plane *p = scene->Assign<Plane>(newPlane);
                     *newT = *t;
-                    newT->position.z += trapHeight / 2;
+                    newT->AddLocalPosition({0, 0, trapHeight / 2});
                     p->width = plane->width / 2;
                     p->length = plane->length / 2;
 
                     scene->Remove<Plane>(ent);
                     break;
                 }
-                case 2:
+            case 2:
                 {
                     // Build Pyramid Roof
                     if (plane->width > 96 || plane->length > 96)
@@ -399,12 +413,12 @@ public:
                     }
 
                     f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, pyraMesh, {plane->length, plane->width, pyraHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
                 }
-                case 3:
+            case 3:
                 {
                     // Build Prism Roof
                     if (plane->width > 96)
@@ -413,31 +427,31 @@ public:
                     }
 
                     f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, prismMesh, {plane->length, plane->width, prismHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
                 }
-                case 4:
-                case 5:
-                case 6:
-                case 7:
+            case 4:
+            case 5:
+            case 6:
+            case 7:
                 {
                     // Build Cuboid
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
-                    BuildPart(scene, ent, t, cuboidMesh, {plane->length, plane->width, cuboidHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
                     Plane *p = scene->Assign<Plane>(newPlane);
                     *newT = *t;
-                    newT->position.z += cuboidHeight / 2;
+                    newT->AddLocalPosition({0, 0, cuboidHeight / 2});
                     *p = *plane;
 
                     scene->Remove<Plane>(ent);
                     break;
                 }
-                default:
+            default:
                 {
                     // Subdivide
                     EntityID newPlane = scene->NewEntity();
@@ -457,8 +471,8 @@ public:
                         plane->length = divisible * ratio;
                         p->length = divisible * (1.0f - ratio);
 
-                        t->position -= GetForwardVector(t) * ((old - plane->length) * 0.5f);
-                        newT->position += GetForwardVector(newT) * ((old - p->length) * 0.5f);
+                        t->AddLocalPosition(glm::normalize(t->GetForwardVector()) * ((old - plane->length) * -0.5f));
+                        newT->AddLocalPosition(glm::normalize(newT->GetForwardVector()) * ((old - p->length) * 0.5f));
                     }
                     else
                     {
@@ -469,25 +483,22 @@ public:
                         plane->width = divisible * ratio;
                         p->width = divisible * (1.0f - ratio);
 
-                        t->position -= GetRightVector(t) * ((old - plane->width) * 0.5f);
-                        newT->position += GetRightVector(newT) * ((old - p->width) * 0.5f);
+                        t->AddLocalPosition(glm::normalize(t->GetRightVector()) * ((old - plane->width) * -0.5f));
+                        newT->AddLocalPosition(glm::normalize(newT->GetRightVector()) * ((old - p->width) * 0.5f));
                     }
                 }
             }
         }
     }
 
-    void BuildPart(Scene *scene, EntityID ent, Transform3D *t, uint32_t mesh, glm::vec3 scale)
+    void BuildPart(Scene *scene, EntityID ent, Transform3D *t, MeshAsset *mesh, glm::vec3 scale)
     {
-        t->position.z += scale.z / 2;
-        t->scale = scale;
+        t->AddLocalPosition({0, 0, scale.z / 2});
+        t->SetLocalScale(scale);
 
         MeshComponent *m = scene->Assign<MeshComponent>(ent);
         m->mesh = mesh;
-        ColorComponent *c = scene->Assign<ColorComponent>(ent);
         f32 shade = RandInBetween(0.25f, 0.75f);
-        c->r = shade;
-        c->g = shade;
-        c->b = shade;
+        m->color = {shade, shade, shade};
     }
 };

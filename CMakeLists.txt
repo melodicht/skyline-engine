@@ -1,37 +1,63 @@
 cmake_minimum_required(VERSION 3.22)
+project("skyline-engine")
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-project("untitled-engine")
+# TODO(marvin): Work towards getting this out by doing things properly
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-# Resolves dependencies
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+
+set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+set(GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game.cpp)
+
 include(cmake/CPM.cmake)
-
-add_library(DEPENDENCIES INTERFACE)
-set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
-
-# Resolves dependencies that always are needed
-CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
+CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
-CPMAddPackage("gh:ocornut/imgui#v1.92.2b")
-target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
-target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
-target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
+CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
+CPMAddPackage("gh:marzer/tomlplusplus#v3.4.0")
 
-# Includes skl math library
+CPMAddPackage(
+    NAME JoltPhysics
+    GITHUB_REPOSITORY jrouwe/JoltPhysics
+    GIT_TAG v5.3.0
+    SOURCE_SUBDIR Build
+    OPTIONS
+        "TARGET_UNIT_TESTS OFF"
+        "TARGET_HELLO_WORLD OFF"
+        "TARGET_PERFORMANCE_TEST OFF"
+        "TARGET_SAMPLES OFF"
+        "ENABLE_ALL_WARNINGS OFF"
+      )
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
-target_link_libraries(DEPENDENCIES INTERFACE skl-math)
 
-# Includes imgui
-file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
-add_library(imgui STATIC ${imgui_sources})
-target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-list(APPEND SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+#==============================================================================
+# SHARED DEPENDENCIES (Between platform, rendering backend, and game)
+#==============================================================================
 
-target_link_libraries(DEPENDENCIES INTERFACE imgui)
+add_library(SHARED_DEPENDENCIES INTERFACE)
+target_link_libraries(SHARED_DEPENDENCIES INTERFACE
+        SDL3::SDL3
+        glm::glm
+        imgui
+        skl-math
+        tomlplusplus::tomlplusplus
+)
 
-# Sets up compilation options
+add_library(RENDERING_BACKEND INTERFACE)
+
+#==============================================================================
+# COMPILATION OPTIONS
+#==============================================================================
+
+add_compile_definitions(NOMINMAX)
+
+# option_if_not_defined vs option
+# https://github.com/google/marl/issues/223
 
 # Determines which rendering backend is used
 if(NOT DEFINED SKL_RENDER_SYS)
@@ -78,9 +104,23 @@ if(NOT DEFINED SKL_ENABLE_ASSERTS)
         endif()
 endif()
 
-# Plugs in options to main executable
-target_compile_definitions(DEPENDENCIES INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})
-target_compile_definitions(DEPENDENCIES INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING})
+target_compile_definitions(SHARED_DEPENDENCIES
+        INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
+        INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
+        INTERFACE SKL_INTERNAL=${SKL_INTERNAL})
+
+#==============================================================================
+# IMGUI
+#==============================================================================
+
+file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
+add_library(imgui SHARED ${imgui_sources})
+target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+
+#==============================================================================
+# RENDERING BACKEND
+#==============================================================================
 
 # Determines rendering backend if none is explicitly picked
 if(${SKL_RENDER_SYS} STREQUAL "Default")
@@ -100,14 +140,10 @@ if(${SKL_RENDER_SYS} STREQUAL "Default")
 # Checks if selected option is available for current device, throws error if not
 else()
         message("Checking for api support on current machine...")
-        # Web and Apple simply do not work with anything outside of WebGPU
+        # Web simply does not work with anything outside of WebGPU
         if(EMSCRIPTEN)
                 if(NOT ${SKL_RENDER_SYS} STREQUAL "WebGPU")
                         message(FATAL_ERROR "Web builds need to use WebGPU backend")
-                endif()
-        elseif(APPLE)
-                if(NOT ${SKL_RENDER_SYS} STREQUAL "WebGPU")
-                        message(FATAL_ERROR "Apple devices currently only support WebGPU backends")
                 endif()
         endif()
 endif()
@@ -118,60 +154,84 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
-        add_library(vulkan-backend STATIC
+        add_library(vulkan-backend SHARED
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
                 ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
-        target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
-        target_link_libraries(vulkan-backend PRIVATE SDL3::SDL3)
-        target_link_libraries(vulkan-backend PRIVATE glm::glm)
-        target_link_libraries(vulkan-backend PRIVATE imgui)
+        target_link_libraries(vulkan-backend PRIVATE
+                SHARED_DEPENDENCIES
+                Vulkan::Headers)
+        if (APPLE)
+            target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
+        endif()
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
                 ${CMAKE_CURRENT_SOURCE_DIR}/src
                 $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-        
-        target_compile_definitions(DEPENDENCIES INTERFACE
+        target_compile_definitions(vulkan-backend PRIVATE VK_NO_PROTOTYPES)
+        target_compile_definitions(RENDERING_BACKEND INTERFACE
                 SKL_RENDERER=0
         )
-        target_compile_definitions(vulkan-backend PRIVATE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})
-
-        target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
-
+        target_link_libraries(RENDERING_BACKEND INTERFACE vulkan-backend)
 elseif(${SKL_RENDER_SYS} STREQUAL "WebGPU")
-
         # Includes backend dll as part of projects
         add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wgpu_backend wgpu-backend)
-        target_link_libraries(DEPENDENCIES INTERFACE
-                wgpu-backend
-        )
-
         # Allows for switching off certain pieces of logic not supported by certain backends
-        target_compile_definitions(DEPENDENCIES INTERFACE 
+        target_compile_definitions(RENDERING_BACKEND INTERFACE 
                 SKL_RENDERER=1
         )
+        target_link_libraries(RENDERING_BACKEND INTERFACE wgpu-backend)
 endif()
 
-# Puts together target
-add_executable(${PROJECT_NAME} ${SRC})
-target_include_directories(${PROJECT_NAME} PUBLIC
+#==============================================================================
+# GAME MODULE
+#==============================================================================
+add_library(game-module MODULE ${GAME_SRC})
+# Version the PDB file to avoid locking issues
+string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
+set_target_properties(game-module PROPERTIES
+        PDB_NAME "game_module_${BUILD_TIME}")
+target_compile_definitions(game-module PRIVATE
+        debugRecordArray=debugRecordsGame)
+target_link_libraries(game-module PRIVATE
+        SHARED_DEPENDENCIES
+        RENDERING_BACKEND
+        Jolt)
+target_include_directories(game-module PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${JoltPhysics_SOURCE_DIR})
+
+#==============================================================================
+# PLATFORM
+#==============================================================================
+add_executable(platform ${PLATFORM_SRC})
+set_target_properties(platform PROPERTIES
+        OUTPUT_NAME ${PROJECT_NAME}
+)
+target_include_directories(platform PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-target_link_libraries(${PROJECT_NAME} PRIVATE DEPENDENCIES)
+target_link_libraries(platform PRIVATE
+        SHARED_DEPENDENCIES
+        RENDERING_BACKEND
+        fastgltf::fastgltf)
+
+add_dependencies(platform game-module)
+
 if (EMSCRIPTEN)
-        set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+        set_target_properties(platform PROPERTIES SUFFIX ".html")
+elseif (WIN32)
+        add_custom_command(TARGET platform POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
+                COMMAND_EXPAND_LISTS)
 endif()
 
-if (WIN32)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> $<TARGET_FILE_DIR:${PROJECT_NAME}>
-            COMMAND_EXPAND_LISTS
-    )
-endif()
-
-# Deals with moving files into build folder
+#==============================================================================
+# POST-BUILD
+#==============================================================================
 
 # Deals with local compilation
 if(NOT EMSCRIPTEN)
@@ -187,16 +247,15 @@ if(NOT EMSCRIPTEN)
                 endif()
         endif()
 
+        set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+        set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
+        file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
+
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
-                set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-                set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
-
                 file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
 
                 set(SLANGC "slangc")
-
-                file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
 
                 foreach(SHADER ${SHADERS})
                 get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
@@ -209,23 +268,38 @@ if(NOT EMSCRIPTEN)
                         VERBATIM)
                 endforeach()
 
+                file(GLOB_RECURSE GLSL_SHADERS "${SHADERS_IN_DIR}/glsl/*.glsl")
+
+                set(GLSLANG "glslangValidator")
+
+                foreach(SHADER ${GLSL_SHADERS})
+                    get_filename_component(SHADER_NAME ${SHADER} NAME_WLE)
+                    set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
+                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
+                    add_custom_command(
+                            MAIN_DEPENDENCY ${SHADER}
+                            OUTPUT ${SHADER_OUT_NAME}
+                            COMMAND ${GLSLANG} ${SHADER} -o ${SHADER_OUT_NAME} --target-env vulkan1.3
+                            VERBATIM)
+                endforeach()
+
                 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 
-                add_dependencies(${PROJECT_NAME} build_shaders)
+                add_dependencies(platform build_shaders)
         elseif(SKL_RENDER_SYS STREQUAL "WebGPU")
-                add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+                add_custom_command(TARGET platform PRE_LINK
                         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${BUILD_DIR}/shaders"
                 )
         endif()
 
         # Imports other resources into build
-        add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
-                COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${BUILD_DIR}
-        )
+        add_custom_target(copy_data ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${BUILD_DIR})
+
+        add_dependencies(platform copy_data)
 
 # Preloads files for emscripten
 else()
-        target_link_options(${PROJECT_NAME} PRIVATE
+        target_link_options(platform PRIVATE
                 "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/shaders/webgpu@/shaders/" #This isn't great, would be better to encapsulate all of this into a specific folder
                 "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/models@/models/"
                 "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/fonts@/fonts/"

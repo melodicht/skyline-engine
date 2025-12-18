@@ -10,13 +10,14 @@ struct CameraData
 struct ObjectData
 {
     float4x4 model;
+    int texID;
     float4 color;
 };
 
 struct DirLightData
 {
     float3 direction;
-    uint shadowID;
+    int shadowID;
 
     float3 diffuse;
     float3 specular;
@@ -28,7 +29,7 @@ struct SpotLightData
 
     float3 position;
     float3 direction;
-    uint shadowID;
+    int shadowID;
 
     float3 diffuse;
     float3 specular;
@@ -41,7 +42,7 @@ struct SpotLightData
 struct PointLightData
 {
     float3 position;
-    uint shadowID;
+    int shadowID;
 
     float3 diffuse;
     float3 specular;
@@ -88,10 +89,12 @@ struct PushConstants
 // Represents a vertex that has been processed by the vertex shader
 struct CoarseVertex
 {
-    float4 color;
     float4 worldPos;
     float3 normal;
+    float uvX;
     float3 eyeRelPos;
+    float uvY;
+    int instance;
 };
 
 // Represents a processed vertex along with its screenspace position
@@ -128,7 +131,9 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
     vertData.eyeRelPos = worldPos.xyz - pcs.camera->pos;
     vertData.worldPos = worldPos;
     vertData.normal = normal;
-    vertData.color = object.color;
+    vertData.uvX = vert.uvX;
+    vertData.uvY = vert.uvY;
+    vertData.instance = baseInstance + instanceID;
 
     output.pos = mul(mul(worldPos, pcs.camera->view), pcs.camera->proj);
     output.vertData = vertData;
@@ -138,13 +143,13 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
 
 
 [[vk::binding(0,0)]]
-Sampler2DShadow[] shadowMaps;
+__DynamicResource<__DynamicResourceKind.General> textures[];
 
-[[vk::binding(0,0)]]
-Sampler2DArrayShadow[] shadowArrays;
+[[vk::binding(1,0)]]
+SamplerComparisonState shadowSampler;
 
-[[vk::binding(0,0)]]
-SamplerCubeShadow[] shadowCubemaps;
+[[vk::binding(2,0)]]
+SamplerState textureSampler;
 
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
@@ -152,6 +157,16 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
     float4 viewPos = mul(vertData.worldPos, pcs.camera->view);
 
     float3 light = pcs.ambientLight;
+
+    ObjectData object = pcs.objects[vertData.instance];
+
+    float4 color = object.color;
+
+    if (object.texID != -1)
+    {
+        Texture2D texture = textures[object.texID];
+        color *= texture.Sample(textureSampler, float2(vertData.uvX, vertData.uvY));
+    }
 
     for (uint i = 0; i < pcs.dirLightCount; i++)
     {
@@ -182,14 +197,15 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
         float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
+        Texture2DArray cascadedMap = textures[dirLight.shadowID];
+
         float unshadowed = 0;
 
         for (int x = -1; x <= 1; x++)
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += shadowArrays[dirLight.shadowID].SampleCmp(float3(lightPosScaled.xy, cascade),
-                                                                                lightPosScaled.z, int2(x, y)) / 9;
+                unshadowed += cascadedMap.SampleCmp(shadowSampler, float3(lightPosScaled.xy, cascade), lightPosScaled.z, int2(x, y)) / 9;
             }
         }
 
@@ -212,14 +228,15 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
         float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
+        Texture2D map = textures[spotLight.shadowID];
+
         float unshadowed = 0;
 
         for (int x = -1; x <= 1; x++)
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += shadowMaps[spotLight.shadowID].SampleCmp(lightPosScaled.xy,
-                                                                       lightPosScaled.z, int2(x, y)) / 9;
+                unshadowed += map.SampleCmp(shadowSampler, lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 9;
             }
         }
 
@@ -248,7 +265,9 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 
         float sampleDepth = length(offsetPos) / pointLight.maxRange;
 
-        float unshadowed = shadowCubemaps[pointLight.shadowID].SampleCmp(offsetLightDir, sampleDepth);
+        TextureCube cubemap = textures[pointLight.shadowID];
+
+        float unshadowed = cubemap.SampleCmp(shadowSampler, offsetLightDir, sampleDepth);
 
         float distance = length(lightVec);
         float attenuation = 1.0 / (pointLight.constant + (pointLight.linear * distance) + (pointLight.quadratic * distance * distance));
@@ -263,5 +282,5 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         light += unshadowed * attenuation * (diffuse + specular);
     }
 
-    return vertData.color * float4(light, 1.0);
+    return color * float4(light, 1.0);
 };

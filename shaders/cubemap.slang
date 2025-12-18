@@ -10,6 +10,7 @@ struct CameraData
 struct ObjectData
 {
     float4x4 model;
+    int texID;
     float4 color;
 };
 

@@ -8,7 +8,7 @@
 #include "renderer/wgpu_backend/render_types_wgpu.h"
 #include "renderer/wgpu_backend/dynamic_shadow_array.h"
 
-#include "math/skl_math_consts.h"
+#include "math/skl_math_types.h"
 
 #include <SDL3/SDL.h>
 

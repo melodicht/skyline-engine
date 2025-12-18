@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/skl_math_consts.h"
+#include "math/skl_math_types.h"
 #include "render_types.h"
 
 #include <SDL3/SDL.h>
@@ -53,6 +53,14 @@ struct RenderUploadMeshInfo {
 };
 MeshID UploadMesh(RenderUploadMeshInfo& info);
 
+struct RenderUploadTextureInfo {
+    u32 width;
+    u32 height;
+    u32* pixelData;
+};
+
+TextureID UploadTexture(RenderUploadTextureInfo& info);
+
 LightID AddDirLight();
 LightID AddSpotLight();
 LightID AddPointLight();
@@ -77,6 +85,7 @@ struct MeshRenderInfo {
     glm::mat4 matrix;
     glm::vec3 rgbColor;
     MeshID mesh;
+    TextureID texture;
 
     // Vulkan Specific
 
@@ -86,7 +95,7 @@ struct MeshRenderInfo {
 struct DirLightRenderInfo {
     // Shared
     LightID lightID;
-    Transform3D transform;
+    Transform3D* transform;
 
     glm::vec3 diffuse;
     glm::vec3 specular;
@@ -98,7 +107,7 @@ struct DirLightRenderInfo {
 
 struct SpotLightRenderInfo {
     LightID lightID;
-    Transform3D transform;
+    Transform3D* transform;
 
     glm::vec3 diffuse;
     glm::vec3 specular;
@@ -106,11 +115,13 @@ struct SpotLightRenderInfo {
     f32 innerCone;
     f32 outerCone;
     f32 range;
+
+    bool needsUpdate;
 };
 
 struct PointLightRenderInfo {
     LightID lightID;
-    Transform3D transform;
+    Transform3D* transform;
 
     glm::vec3 diffuse;
     glm::vec3 specular;
@@ -120,12 +131,14 @@ struct PointLightRenderInfo {
     f32 quadratic;
 
     f32 maxRange;
+
+    bool needsUpdate;
 };
 
 // Represents the information needed to render a single frame on any renderer
 struct RenderFrameInfo {
     // Shared
-    Transform3D cameraTransform;
+    Transform3D* cameraTransform;
     std::vector<MeshRenderInfo> &meshes;
 
     std::vector<DirLightRenderInfo>& dirLights;
