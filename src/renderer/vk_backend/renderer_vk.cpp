@@ -710,7 +710,7 @@ void InitRenderer(RenderInitInfo& info)
     VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
 
     // Create the swapchain and associated resources at the default dimensions
-    CreateSwapchain(info.startWidth, info.startHeight, nullptr);
+    CreateSwapchain(info.startWidth, info.startHeight, VK_NULL_HANDLE);
 
     // Create the command pools and command buffers
     VkCommandPoolCreateInfo commandPoolInfo
@@ -1196,7 +1196,7 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .pColorBlendState = &colorBlending,
         .pDynamicState = &dynamicState,
         .layout = depthPipelineLayout,
-        .renderPass = nullptr, // No renderpass necessary because we are using dynamic rendering
+        .renderPass = VK_NULL_HANDLE, // No renderpass necessary because we are using dynamic rendering
         .subpass = 0
     };
 
@@ -1223,11 +1223,11 @@ void InitPipelines(RenderPipelineInitInfo& info)
     colorPipelineInfo.pDepthStencilState = &colorDepthStencil;
     colorPipelineInfo.layout = colorPipelineLayout;
 
-    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &cascadedPipelineInfo, nullptr, &cascadedPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &cubemapPipelineInfo, nullptr, &cubemapPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &depthPipelineInfo, nullptr, &depthPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &colorPipelineInfo, nullptr, &colorPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &cascadedPipelineInfo, nullptr, &cascadedPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &cubemapPipelineInfo, nullptr, &cubemapPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &depthPipelineInfo, nullptr, &depthPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &colorPipelineInfo, nullptr, &colorPipeline));
 
     vkDestroyShaderModule(device, depthShader, nullptr);
     vkDestroyShaderModule(device, dirShadowFragShader, nullptr);
@@ -1279,7 +1279,7 @@ bool InitFrame()
     //Synchronize and get images
     VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, 1000000000));
 
-    VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].acquireSemaphore, nullptr, &swapIndex);
+    VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].acquireSemaphore, VK_NULL_HANDLE, &swapIndex);
     if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
     {
         RecreateSwapchain();
