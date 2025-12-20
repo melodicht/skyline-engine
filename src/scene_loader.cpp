@@ -1,7 +1,7 @@
 #include <toml++/toml.hpp>
 #include <iostream>
 
-struct EditorMetadata
+struct NameComponent
 {
     std::string name;
 };
@@ -10,90 +10,13 @@ struct ComponentInfo
 {
     void (*assignFunc)(Scene&, EntityID);
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
+    DataEntry* (*readFunc)(Scene&, EntityID, std::string);
     size_t size;
     const char* name;
 };
 
 std::vector<ComponentInfo> compInfos;
-std::unordered_map<std::string, EntityID> entityNames;
-
-template <typename T>
-void LoadValue(T* dest, toml::node* data) {}
-
-template <>
-void LoadValue<int>(int* dest, toml::node* data)
-{
-    if (!data->is_integer())
-    {
-        std::cout << "This field must be an integer\n";
-    }
-
-    *dest = data->as_integer()->get();
-}
-
-template <>
-void LoadValue<float>(float* dest, toml::node* data)
-{
-    if (!data->is_floating_point())
-    {
-        std::cout << "This field must be a floating point number\n";
-    }
-
-    *dest = data->as_floating_point()->get();
-}
-
-template <>
-void LoadValue<bool>(bool* dest, toml::node* data)
-{
-    if (!data->is_boolean())
-    {
-        std::cout << "This field must be a boolean\n";
-    }
-
-    *dest = data->as_boolean()->get();
-}
-
-template <>
-void LoadValue<glm::vec3>(glm::vec3* dest, toml::node* data)
-{
-    if (!data->is_array())
-    {
-        std::cout << "This field must be an array\n";
-    }
-
-    toml::array* array = data->as_array();
-
-    if (array->size() != 3)
-    {
-        std::cout << "This field must have a length of 3\n";
-    }
-
-    LoadValue<float>(&dest->x, array->get(0));
-    LoadValue<float>(&dest->y, array->get(1));
-    LoadValue<float>(&dest->z, array->get(2));
-}
-
-template <>
-void LoadValue<MeshAsset*>(MeshAsset** dest, toml::node* data)
-{
-    if (!data->is_string())
-    {
-        std::cout << "This field must be an string\n";
-    }
-
-    *dest = globalPlatformAPI.platformLoadMeshAsset(data->as_string()->get());
-}
-
-template <>
-void LoadValue<TextureAsset*>(TextureAsset** dest, toml::node* data)
-{
-    if (!data->is_string())
-    {
-        std::cout << "This field must be an string\n";
-    }
-
-    *dest = globalPlatformAPI.platformLoadTextureAsset(data->as_string()->get());
-}
+std::unordered_map<std::string, EntityID> entityIds;
 
 template <typename T>
 s32 WriteFromData(T* dest, DataEntry* data) { return 0; }
@@ -177,12 +100,48 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
 }
 
 template <typename T>
-void LoadIfPresent(T* dest, const char* name, toml::table* data)
+DataEntry* ReadToData(T* src, std::string name) { return nullptr; }
+
+template <>
+DataEntry* ReadToData<s32>(s32* src, std::string name)
 {
-    if (data->contains(name))
-    {
-        LoadValue<T>(dest, data->get(name));
-    }
+    return new DataEntry(name, *src);
+}
+
+template <>
+DataEntry* ReadToData<f32>(f32* src, std::string name)
+{
+    return new DataEntry(name, *src);
+}
+
+template <>
+DataEntry* ReadToData<bool>(bool* src, std::string name)
+{
+    return new DataEntry(name, *src);
+}
+
+template <>
+DataEntry* ReadToData<glm::vec3>(glm::vec3* src, std::string name)
+{
+    return new DataEntry(name, *src);
+}
+
+template <>
+DataEntry* ReadToData<std::string>(std::string* src, std::string name)
+{
+    return new DataEntry(name, *src);
+}
+
+template <>
+DataEntry* ReadToData<MeshAsset*>(MeshAsset** src, std::string name)
+{
+    return new DataEntry(name, (*src)->name);
+}
+
+template <>
+DataEntry* ReadToData<TextureAsset*>(TextureAsset** src, std::string name)
+{
+    return new DataEntry(name, (*src)->name);
 }
 
 template <typename T>
@@ -205,13 +164,6 @@ void AssignComponent(Scene &scene, EntityID entity)
 }
 
 template <typename T>
-void LoadComponent(Scene &scene, EntityID entity, toml::table* compData)
-{
-    T* comp = scene.Get<T>(entity);
-    LoadValue<T>(comp, compData);
-}
-
-template <typename T>
 s32 WriteComponent(Scene &scene, EntityID entity, DataEntry* compData)
 {
     T* comp = scene.Get<T>(entity);
@@ -219,11 +171,18 @@ s32 WriteComponent(Scene &scene, EntityID entity, DataEntry* compData)
 }
 
 template <typename T>
+DataEntry* ReadComponent(Scene &scene, EntityID entity, std::string name)
+{
+    T* comp = scene.Get<T>(entity);
+    return ReadToData<T>(comp, name);
+}
+
+template <typename T>
 void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    compInfos.push_back({AssignComponent<T>, WriteComponent<T>, sizeof(T), name});
+    compInfos.push_back({AssignComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
 }
 
 void RegisterComponents(Scene& scene)
@@ -234,7 +193,7 @@ void RegisterComponents(Scene& scene)
     }
 }
 
-int LoadScene(Scene& scene, std::string name, bool editor)
+s32 LoadScene(Scene& scene, std::string name)
 {
     std::string filepath = "scenes/" + name + ".toml";
     DataEntry* data = globalPlatformAPI.platformLoadDataAsset(filepath, name);
@@ -249,12 +208,11 @@ int LoadScene(Scene& scene, std::string name, bool editor)
             return -1;
         }
         EntityID id = scene.NewEntity();
-        entityNames[entity->name] = id;
-        if (editor)
-        {
-            EditorMetadata* metadata = scene.Assign<EditorMetadata>(id);
-            metadata->name = entity->name;
-        }
+        entityIds[entity->name] = id;
+
+        NameComponent* nameComp = scene.Assign<NameComponent>(id);
+        nameComp->name = entity->name;
+
         for (DataEntry* comp : entity->structVal)
         {
             if (!stringToId.contains(comp->name))
@@ -269,7 +227,7 @@ int LoadScene(Scene& scene, std::string name, bool editor)
     s32 rv = 0;
     for (DataEntry* entity : data->structVal)
     {
-        EntityID id = entityNames[entity->name];
+        EntityID id = entityIds[entity->name];
         for (DataEntry* comp : entity->structVal)
         {
             int compIndex = stringToId[comp->name];
@@ -277,5 +235,6 @@ int LoadScene(Scene& scene, std::string name, bool editor)
             rv |= compInfo.writeFunc(scene, id, comp);
         }
     }
+    delete data;
     return rv;
 }

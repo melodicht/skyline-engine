@@ -87,6 +87,7 @@ PLATFORM_LOAD_MESH_ASSET(LoadMeshAsset)
     info.idxSize = indices.size();
 
     MeshAsset asset;
+    asset.name = name;
     asset.id = UploadMesh(info);
     meshAssets[name] = asset;
 
@@ -118,6 +119,7 @@ PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
     info.pixelData = pixels.data();
 
     TextureAsset asset;
+    asset.name = name;
     asset.width = width;
     asset.height = height;
     asset.id = UploadTexture(info);

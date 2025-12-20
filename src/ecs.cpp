@@ -48,6 +48,11 @@ inline void *ComponentPool::get(size_t index)
     return pData + index * elementSize;
 }
 
+inline EntityID ComponentPool::getOwner(u8 *ptr)
+{
+    return ((size_t)(ptr - pData)) / elementSize;
+}
+
 /*
  * SCENE FUNCTIONALITY
  */

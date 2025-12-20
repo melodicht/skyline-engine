@@ -35,6 +35,7 @@ public:
     glm::mat4 GetViewMatrix();
     void GetPointViews(glm::mat4 *views);
     void SetParent(Transform3D *newParent);
+    Transform3D *GetParent();
 
     ~Transform3D();
 

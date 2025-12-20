@@ -57,6 +57,8 @@ struct ComponentPool
 
     // Gets the component in this pData at the given index.
     inline void *get(size_t index);
+
+    inline EntityID getOwner(u8 *ptr);
 };
 
 /*
@@ -191,5 +193,13 @@ struct Scene
 
         T *pComponent = static_cast<T *>(componentPools[componentId]->get(GetEntityIndex(id)));
         return pComponent;
+    }
+
+    template<typename T>
+    EntityID GetOwner(T* component)
+    {
+        s32 componentId = GetComponentId<T>();
+        EntityID id = componentPools[componentId]->getOwner((u8*)component);
+        return id;
     }
 };

@@ -7,12 +7,14 @@
 
 struct MeshAsset
 {
+    std::string name;
     MeshID id;
     AABB aabb;
 };
 
 struct TextureAsset
 {
+    std::string name;
     u32 width;
     u32 height;
 

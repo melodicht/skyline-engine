@@ -24,8 +24,11 @@
 #define __FOR_FIELDS() _FOR_FIELDS
 
 
-#define ADD_FIELD(type, field) \
+#define WRITE_FIELD(type, field) \
     rv |= WriteIfPresent<decltype(type::field)>(&dest->field, #field, data->structVal);
+
+#define READ_FIELD(type, field) \
+    data->structVal.push_back(ReadToData<decltype(type::field)>(&src->field, #field));
 
 #define SERIALIZE(name, ...) \
     template<> \
@@ -36,8 +39,15 @@
             return -1; \
         } \
         s32 rv = 0; \
-        FOR_FIELDS(ADD_FIELD, name, __VA_ARGS__) \
+        FOR_FIELDS(WRITE_FIELD, name, __VA_ARGS__) \
         return rv; \
+    } \
+    template <> \
+    DataEntry* ReadToData<name>(name* src, std::string name) \
+    { \
+        DataEntry* data = new DataEntry(name); \
+        FOR_FIELDS(READ_FIELD, name, __VA_ARGS__) \
+        return data; \
     }
 
 #define COMPONENT(type) [[maybe_unused]] static int add##type = (AddComponent<type>(#type), 0);
@@ -60,11 +70,11 @@ s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compDa
                 return -1;
             }
             std::string parentName = entry->stringVal;
-            if (!entityNames.contains(parentName))
+            if (!entityIds.contains(parentName))
             {
                 return -1;
             }
-            EntityID parent = entityNames[parentName];
+            EntityID parent = entityIds[parentName];
             Transform3D* parentTransform = scene.Get<Transform3D>(parent);
             if (parentTransform == nullptr)
             {
@@ -74,6 +84,21 @@ s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compDa
         }
     }
     return rv;
+}
+
+template <>
+DataEntry* ReadComponent<Transform3D>(Scene &scene, EntityID entity, std::string name)
+{
+    Transform3D* comp = scene.Get<Transform3D>(entity);
+    DataEntry* data = ReadToData<Transform3D>(comp, name);
+    Transform3D* parent = comp->GetParent();
+    if (parent != nullptr)
+    {
+        EntityID parentEnt = scene.GetOwner<Transform3D>(parent);
+        NameComponent* nameComp = scene.Get<NameComponent>(parentEnt);
+        data->structVal.push_back(new DataEntry("parent", nameComp->name));
+    }
+    return data;
 }
 
 
@@ -163,4 +188,4 @@ SERIALIZE(PointLight, diffuse, specular, constant, linear, quadratic, maxRange)
 COMPONENT(PointLight)
 
 
-COMPONENT(EditorMetadata)
+COMPONENT(NameComponent)

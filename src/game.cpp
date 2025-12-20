@@ -39,7 +39,7 @@ GAME_INITIALIZE(GameInitialize)
     RenderPipelineInitInfo initDesc {};
     InitPipelines(initDesc);
 
-    s32 rv = LoadScene(scene, "test", editor);
+    s32 rv = LoadScene(scene, "test");
     if (rv != 0)
     {
         std::cout << "Failed to load scene\n";
