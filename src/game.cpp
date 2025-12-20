@@ -102,8 +102,6 @@ GAME_INITIALIZE(GameInitialize)
 
 void UpdateRenderer(Scene& scene)
 {
-    NAMED_TIMED_BLOCK(UpdateRenderer);
-
     if (currentCamera == -1)
     {
         return;
