@@ -92,7 +92,13 @@ When there are several translation units in a project, and some of them referenc
 2. C++ Compiler: On windows, use Clang. On Unix, either gcc or Clang works.
 3. Vulkan:
    - https://vulkan.lunarg.com/sdk/home
-   - Install the latest version. As of writing this, we know that 1.4.328.1 works.
+   - Install the latest version. As of writing this, we know that 1.4.328.1
+     works.
+   - When installing, don't need to tick any of the boxes when asking to install addons.
+4. CMake
+5. Install the latest graphic drivers on your system.
+
+Any other dependencies of our project are installed when cmake is run.
 
 ## Steps
 
