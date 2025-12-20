@@ -10,7 +10,7 @@ struct ComponentInfo
 {
     void (*assignFunc)(Scene&, EntityID);
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
-    DataEntry* (*readFunc)(Scene&, EntityID, std::string);
+    DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
     const char* name;
 };
@@ -167,14 +167,22 @@ template <typename T>
 s32 WriteComponent(Scene &scene, EntityID entity, DataEntry* compData)
 {
     T* comp = scene.Get<T>(entity);
+    if (comp == nullptr)
+    {
+        return -1;
+    }
     return WriteFromData<T>(comp, compData);
 }
 
 template <typename T>
-DataEntry* ReadComponent(Scene &scene, EntityID entity, std::string name)
+DataEntry* ReadComponent(Scene &scene, EntityID entity)
 {
     T* comp = scene.Get<T>(entity);
-    return ReadToData<T>(comp, name);
+    if (comp == nullptr)
+    {
+        return nullptr;
+    }
+    return ReadToData<T>(comp, compName<T>);
 }
 
 template <typename T>
@@ -196,7 +204,7 @@ void RegisterComponents(Scene& scene)
 s32 LoadScene(Scene& scene, std::string name)
 {
     std::string filepath = "scenes/" + name + ".toml";
-    DataEntry* data = globalPlatformAPI.platformLoadDataAsset(filepath, name);
+    DataEntry* data = globalPlatformAPI.platformLoadDataAsset(filepath);
     if (data->type != STRUCT_ENTRY)
     {
         return -1;

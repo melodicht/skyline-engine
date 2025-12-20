@@ -85,12 +85,11 @@ s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compDa
     }
     return rv;
 }
-
 template <>
-DataEntry* ReadComponent<Transform3D>(Scene &scene, EntityID entity, std::string name)
+DataEntry* ReadComponent<Transform3D>(Scene &scene, EntityID entity)
 {
     Transform3D* comp = scene.Get<Transform3D>(entity);
-    DataEntry* data = ReadToData<Transform3D>(comp, name);
+    DataEntry* data = ReadToData<Transform3D>(comp, "Transform3D");
     Transform3D* parent = comp->GetParent();
     if (parent != nullptr)
     {

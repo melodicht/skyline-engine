@@ -191,7 +191,7 @@ PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
     try
     {
         file = toml::parse_file(path);
-        return LoadTableToData(name, &file);
+        return LoadTableToData("Scene", &file);
     }
     catch (const toml::parse_error& error)
     {
