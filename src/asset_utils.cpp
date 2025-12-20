@@ -3,6 +3,7 @@
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
+#include <toml++/toml.hpp>
 
 template <>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};
@@ -123,4 +124,76 @@ PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
     texAssets[name] = asset;
 
     return &texAssets[name];
+}
+
+DataEntry* LoadNodeToData(std::string name, toml::node& node);
+
+DataEntry* LoadTableToData(std::string name, toml::table* table)
+{
+    DataEntry* data = new DataEntry(name);
+    for (auto elem : *table)
+    {
+        data->structVal.push_back(LoadNodeToData(elem.first.data(), elem.second));
+    }
+    return data;
+}
+
+f32 LoadFloatFromNode(toml::node* node)
+{
+    if (!node->is_floating_point())
+    {
+        return 0;
+    }
+    return node->as_floating_point()->get();
+}
+
+DataEntry* LoadNodeToData(std::string name, toml::node& node)
+{
+    if (node.is_integer())
+    {
+        return new DataEntry(name, (s32)node.as_integer()->get());
+    }
+    else if (node.is_floating_point())
+    {
+        return new DataEntry(name, (f32)node.as_floating_point()->get());
+    }
+    else if (node.is_boolean())
+    {
+        return new DataEntry(name, node.as_boolean()->get());
+    }
+    else if (node.is_array())
+    {
+        toml::array* array = node.as_array();
+        glm::vec3 vector =
+        {
+            LoadFloatFromNode(array->get(0)),
+            LoadFloatFromNode(array->get(1)),
+            LoadFloatFromNode(array->get(2))
+        };
+        return new DataEntry(name, vector);
+    }
+    else if (node.is_string())
+    {
+        return new DataEntry(name, node.as_string()->get());
+    }
+    else if (node.is_table())
+    {
+        return LoadTableToData(name, node.as_table());
+    }
+    return nullptr;
+}
+
+PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
+{
+    toml::table file;
+    try
+    {
+        file = toml::parse_file(path);
+        return LoadTableToData(name, &file);
+    }
+    catch (const toml::parse_error& error)
+    {
+        std::cout << error << '\n';
+        return nullptr;
+    }
 }

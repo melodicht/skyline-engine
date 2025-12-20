@@ -35,10 +35,14 @@ typedef PLATFORM_LOAD_MESH_ASSET(platform_load_mesh_asset_t);
 #define PLATFORM_LOAD_TEXTURE_ASSET(proc) TextureAsset* proc(std::string name)
 typedef PLATFORM_LOAD_TEXTURE_ASSET(platform_load_texture_asset_t);
 
+#define PLATFORM_LOAD_DATA_ASSET(proc) DataEntry* proc(std::string path, std::string name)
+typedef PLATFORM_LOAD_DATA_ASSET(platform_load_data_asset_t);
+
 struct PlatformAPI
 {
     platform_load_mesh_asset_t *platformLoadMeshAsset;
     platform_load_texture_asset_t *platformLoadTextureAsset;
+    platform_load_data_asset_t *platformLoadDataAsset;
 };
 
 // NOTE(marvin): Game platform only needs to know about scene, and only system needs to know about game input. Maybe separate out scene.h?

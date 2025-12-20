@@ -281,6 +281,7 @@ int main(int argc, char** argv)
     PlatformAPI platformAPI = {};
     platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
     platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
+    platformAPI.platformLoadDataAsset = &LoadDataAsset;
 
     Scene scene;
     gameCode.gameInitialize(scene, gameMemory, platformAPI, editor);

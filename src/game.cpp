@@ -39,7 +39,12 @@ GAME_INITIALIZE(GameInitialize)
     RenderPipelineInitInfo initDesc {};
     InitPipelines(initDesc);
 
-    LoadScene(scene, "scenes/test.toml", editor);
+    s32 rv = LoadScene(scene, "test", editor);
+    if (rv != 0)
+    {
+        std::cout << "Failed to load scene\n";
+        exit(-1);
+    }
 
     bool slowStep = false;
 

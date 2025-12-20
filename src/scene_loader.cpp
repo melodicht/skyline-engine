@@ -3,13 +3,13 @@
 
 struct EditorMetadata
 {
-    const char* name;
+    std::string name;
 };
 
 struct ComponentInfo
 {
     void (*assignFunc)(Scene&, EntityID);
-    void (*loadFunc)(Scene&, EntityID, toml::table*);
+    s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
     size_t size;
     const char* name;
 };
@@ -96,12 +96,106 @@ void LoadValue<TextureAsset*>(TextureAsset** dest, toml::node* data)
 }
 
 template <typename T>
+s32 WriteFromData(T* dest, DataEntry* data) { return 0; }
+
+template <>
+s32 WriteFromData<s32>(s32* dest, DataEntry* data)
+{
+    if (data->type != INT_ENTRY)
+    {
+        return -1;
+    }
+    *dest = data->intVal;
+    return 0;
+}
+
+template <>
+s32 WriteFromData<f32>(f32* dest, DataEntry* data)
+{
+    if (data->type != FLOAT_ENTRY)
+    {
+        return -1;
+    }
+    *dest = data->floatVal;
+    return 0;
+}
+
+template <>
+s32 WriteFromData<bool>(bool* dest, DataEntry* data)
+{
+    if (data->type != BOOL_ENTRY)
+    {
+        return -1;
+    }
+
+    *dest = data->boolVal;
+    return 0;
+}
+
+template <>
+s32 WriteFromData<glm::vec3>(glm::vec3* dest, DataEntry* data)
+{
+    if (data->type != VEC_ENTRY)
+    {
+        return -1;
+    }
+    *dest = data->vecVal;
+    return 0;
+}
+
+template <>
+s32 WriteFromData<std::string>(std::string* dest, DataEntry* data)
+{
+    if (data->type != STR_ENTRY)
+    {
+        return -1;
+    }
+    *dest = data->stringVal;
+    return 0;
+}
+
+template <>
+s32 WriteFromData<MeshAsset*>(MeshAsset** dest, DataEntry* data)
+{
+    if (data->type != STR_ENTRY)
+    {
+        return -1;
+    }
+    *dest = globalPlatformAPI.platformLoadMeshAsset(data->stringVal);
+    return 0;
+}
+
+template <>
+s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
+{
+    if (data->type != STR_ENTRY)
+    {
+        return -1;
+    }
+    *dest = globalPlatformAPI.platformLoadTextureAsset(data->stringVal);
+    return 0;
+}
+
+template <typename T>
 void LoadIfPresent(T* dest, const char* name, toml::table* data)
 {
     if (data->contains(name))
     {
         LoadValue<T>(dest, data->get(name));
     }
+}
+
+template <typename T>
+s32 WriteIfPresent(T* dest, std::string name, std::vector<DataEntry*>& data)
+{
+    for (DataEntry* entry : data)
+    {
+        if (entry->name == name)
+        {
+            return WriteFromData<T>(dest, entry);
+        }
+    }
+    return 0;
 }
 
 template <typename T>
@@ -118,11 +212,18 @@ void LoadComponent(Scene &scene, EntityID entity, toml::table* compData)
 }
 
 template <typename T>
+s32 WriteComponent(Scene &scene, EntityID entity, DataEntry* compData)
+{
+    T* comp = scene.Get<T>(entity);
+    return WriteFromData<T>(comp, compData);
+}
+
+template <typename T>
 void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    compInfos.push_back({AssignComponent<T>, LoadComponent<T>, sizeof(T), name});
+    compInfos.push_back({AssignComponent<T>, WriteComponent<T>, sizeof(T), name});
 }
 
 void RegisterComponents(Scene& scene)
@@ -133,54 +234,48 @@ void RegisterComponents(Scene& scene)
     }
 }
 
-void LoadScene(Scene& scene, const char* filename, bool editor)
+int LoadScene(Scene& scene, std::string name, bool editor)
 {
-    toml::table tbl;
-    try
+    std::string filepath = "scenes/" + name + ".toml";
+    DataEntry* data = globalPlatformAPI.platformLoadDataAsset(filepath, name);
+    if (data->type != STRUCT_ENTRY)
     {
-        tbl = toml::parse_file(filename);
-
-        for (auto entity : tbl)
+        return -1;
+    }
+    for (DataEntry* entity : data->structVal)
+    {
+        if (entity->type != STRUCT_ENTRY)
         {
-            toml::table* table = entity.second.as_table();
-            EntityID id = scene.NewEntity();
-            entityNames[entity.first.data()] = id;
-
-            if (editor)
-            {
-                EditorMetadata* metadata = scene.Assign<EditorMetadata>(id);
-                metadata->name = entity.first.data();
-            }
-
-            for (auto val : *table)
-            {
-                if (!stringToId.contains(val.first.data()))
-                {
-                    std::cout << "Invalid Component: " << val.first.data() <<"\n";
-                    exit(0);
-                }
-
-                int compIndex = stringToId[val.first.data()];
-                ComponentInfo& compInfo = compInfos[compIndex];
-                compInfo.assignFunc(scene, id);
-            }
+            return -1;
         }
-
-        for (auto entity : tbl)
+        EntityID id = scene.NewEntity();
+        entityNames[entity->name] = id;
+        if (editor)
         {
-            toml::table* table = entity.second.as_table();
-            EntityID id = entityNames[entity.first.data()];
-
-            for (auto val : *table)
+            EditorMetadata* metadata = scene.Assign<EditorMetadata>(id);
+            metadata->name = entity->name;
+        }
+        for (DataEntry* comp : entity->structVal)
+        {
+            if (!stringToId.contains(comp->name))
             {
-                int compIndex = stringToId[val.first.data()];
-                ComponentInfo& compInfo = compInfos[compIndex];
-                compInfo.loadFunc(scene, id, val.second.as_table());
+                return -1;
             }
+            s32 compIndex = stringToId[comp->name];
+            ComponentInfo& compInfo = compInfos[compIndex];
+            compInfo.assignFunc(scene, id);
         }
     }
-    catch (const toml::parse_error& error)
+    s32 rv = 0;
+    for (DataEntry* entity : data->structVal)
     {
-        std::cout << error << '\n';
+        EntityID id = entityNames[entity->name];
+        for (DataEntry* comp : entity->structVal)
+        {
+            int compIndex = stringToId[comp->name];
+            ComponentInfo& compInfo = compInfos[compIndex];
+            rv |= compInfo.writeFunc(scene, id, comp);
+        }
     }
+    return rv;
 }

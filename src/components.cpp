@@ -25,15 +25,20 @@
 
 
 #define ADD_FIELD(type, field) \
-    LoadIfPresent<decltype(type::field)>(&dest->field, #field, table);
+    rv |= WriteIfPresent<decltype(type::field)>(&dest->field, #field, data->structVal);
 
 #define SERIALIZE(name, ...) \
     template<> \
-    void LoadValue<name>(name* dest, toml::node* data) \
+    s32 WriteFromData<name>(name* dest, DataEntry* data) \
     { \
-         toml::table* table = data->as_table(); \
-         FOR_FIELDS(ADD_FIELD, name, __VA_ARGS__) \
-    } \
+        if (data->type != STRUCT_ENTRY) \
+        { \
+            return -1; \
+        } \
+        s32 rv = 0; \
+        FOR_FIELDS(ADD_FIELD, name, __VA_ARGS__) \
+        return rv; \
+    }
 
 #define COMPONENT(type) [[maybe_unused]] static int add##type = (AddComponent<type>(#type), 0);
 
@@ -42,31 +47,33 @@
 SERIALIZE(Transform3D, position, rotation, scale)
 COMPONENT(Transform3D)
 template <>
-void LoadComponent<Transform3D>(Scene &scene, EntityID entity, toml::table* compData)
+s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compData)
 {
     Transform3D* comp = scene.Get<Transform3D>(entity);
-    LoadValue<Transform3D>(comp, compData);
-
-    if (compData->contains("parent"))
+    s32 rv = WriteFromData<Transform3D>(comp, compData);
+    for (DataEntry* entry : compData->structVal)
     {
-        toml::node* parentData = compData->get("parent");
-        if (!parentData->is_string())
+        if (entry->name == "parent")
         {
-            std::cout << "This field must be an string\n";
+            if (entry->type != STR_ENTRY)
+            {
+                return -1;
+            }
+            std::string parentName = entry->stringVal;
+            if (!entityNames.contains(parentName))
+            {
+                return -1;
+            }
+            EntityID parent = entityNames[parentName];
+            Transform3D* parentTransform = scene.Get<Transform3D>(parent);
+            if (parentTransform == nullptr)
+            {
+                return -1;
+            }
+            comp->SetParent(parentTransform);
         }
-        std::string parentName = parentData->as_string()->get();
-        if (!entityNames.contains(parentName))
-        {
-            std::cout << "This field must be the name of an entity";
-        }
-        EntityID parent = entityNames[parentName];
-        Transform3D* parentTransform = scene.Get<Transform3D>(parent);
-        if (parentTransform == nullptr)
-        {
-            std::cout << "The parent must have a Transform3D";
-        }
-        comp->SetParent(parentTransform);
     }
+    return rv;
 }
 
 
