@@ -25,6 +25,93 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
     return frustumCorners;
 }
 
+#define NUM_CASCADES 6
+
+class RenderSystem : public System
+{
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    {
+        // Get the main camera view
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (cameraView.begin() == cameraView.end())
+        {
+            return;
+        }
+
+        EntityID cameraEnt = *cameraView.begin();
+        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
+        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
+
+        std::vector<DirLightRenderInfo> dirLights;
+        for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
+        {
+            DirLight *l = scene->Get<DirLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddDirLight();
+            }
+
+            Transform3D *lTransform = scene->Get<Transform3D>(ent);
+
+            dirLights.push_back({l->lightID, lTransform, l->diffuse, l->specular});
+        }
+
+        std::vector<SpotLightRenderInfo> spotLights;
+        for (EntityID ent: SceneView<SpotLight, Transform3D>(*scene))
+        {
+            SpotLight *l = scene->Get<SpotLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddSpotLight();
+            }
+
+            Transform3D *lTransform = scene->Get<Transform3D>(ent);
+
+            spotLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
+                                  l->innerCone, l->outerCone, l->range, true});
+        }
+
+        std::vector<PointLightRenderInfo> pointLights;
+        for (EntityID ent: SceneView<PointLight, Transform3D>(*scene))
+        {
+            PointLight *l = scene->Get<PointLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddPointLight();
+            }
+
+            Transform3D *lTransform = scene->Get<Transform3D>(ent);
+
+            pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
+                                   l->constant, l->linear, l->quadratic, l->maxRange, true});
+        }
+
+        std::vector<MeshRenderInfo> meshInstances;
+        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
+        {
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            glm::mat4 model = t->GetWorldTransform();
+            MeshComponent *m = scene->Get<MeshComponent>(ent);
+            MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
+            TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
+            meshInstances.push_back({model, m->color, meshID, texID});
+        }
+
+        RenderFrameInfo sendState{
+                .cameraTransform = cameraTransform,
+                .meshes = meshInstances,
+                .dirLights = dirLights,
+                .spotLights = spotLights,
+                .pointLights = pointLights,
+                .cameraFov = camera->fov,
+                .cameraNear = camera->nearPlane,
+                .cameraFar = camera->farPlane
+        };
+
+        RenderUpdate(sendState);
+    }
+};
+
 // TODO(marvin): Figure out a better place to put this, for it is not
 // a system, and too generalisable for it to be a private method on
 // CharacterControllerSystem.
@@ -91,7 +178,6 @@ public:
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
-        NAMED_TIMED_BLOCK(CharacterControllerSystem);
         SceneView<PlayerCharacter, Transform3D> playerView = SceneView<PlayerCharacter, Transform3D>(*scene);
         if (playerView.begin() == playerView.end())
         {
@@ -135,7 +221,6 @@ class MovementSystem : public System
 {
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
-        NAMED_TIMED_BLOCK(MovementSystem);
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
