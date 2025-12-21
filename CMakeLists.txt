@@ -196,7 +196,6 @@ target_compile_definitions(game-module PRIVATE
         debugRecordArray=debugRecordsGame)
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
-        RENDERING_BACKEND
         Jolt)
 target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include

@@ -6,7 +6,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include "renderer/render_backend.h"
 #include "asset_types.h"
 
 #include "ecs.cpp"
