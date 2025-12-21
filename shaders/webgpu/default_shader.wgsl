@@ -160,7 +160,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
         // Checks to make sure that singleLight actually applies with shadow
         singleLight = singleLight * lightsUncovered;
-        //overallLight += singleLight;
+        overallLight += singleLight;
     }
 
     for (var pointIter : u32 = 0 ; pointIter < fixedData.pointLightAmount ; pointIter++) {
@@ -187,10 +187,10 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
             singleLight += specularIntensity * dynamicShadowedPointLightStore[pointIter].specular;
 
             // Takes attenuation into account then adds lighting contribution
-            // singleLight *= 1.0 / 
-            //     (dynamicShadowedPointLightStore[pointIter].constant + 
-            //     dynamicShadowedPointLightStore[pointIter].linear * lightToFragDistance + 
-            //     dynamicShadowedPointLightStore[pointIter].quadratic * (lightToFragDistance * lightToFragDistance));
+            singleLight *= 1.0 / 
+                (dynamicShadowedPointLightStore[pointIter].constant + 
+                dynamicShadowedPointLightStore[pointIter].linear * lightToFragDistance + 
+                dynamicShadowedPointLightStore[pointIter].quadratic * (lightToFragDistance * lightToFragDistance));
             overallLight += singleLight * pointLightUncovered;
         }
     }

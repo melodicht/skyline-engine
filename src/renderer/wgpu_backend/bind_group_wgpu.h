@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/skl_math_consts.h"
+#include "math/skl_math_types.h"
 #include "renderer/wgpu_backend/utils_wgpu.h"
 
 #include <webgpu/webgpu.h>

@@ -24,10 +24,10 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
         gpuDat.m_diffuse = cpuDat.diffuse;
         gpuDat.m_intensity = 1; // TODO: Implement intensity scaling
         gpuDat.m_specular = cpuDat.specular;
-        gpuDat.m_direction = GetForwardVector(&cpuDat.transform);
+        gpuDat.m_direction = cpuDat.transform->GetForwardVector();
 
         ret.push_back(std::move(gpuDat));
-        lightViews.push_back(std::move(GetViewMatrix(&cpuDat.transform)));
+        lightViews.push_back(std::move(cpuDat.transform->GetViewMatrix()));
     }
 
     // Find world corners of camera space
@@ -123,7 +123,7 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
     std::vector<WGPUBackendDynamicShadowedPointLightData> ret{ };
     ret.reserve(cpuType.size());
     for (PointLightRenderInfo& cpuDat : cpuType) {
-        glm::vec3 lightPos = cpuDat.transform.position;
+        glm::vec3 lightPos = cpuDat.transform->position;
 
         // Calculates cube map 
         glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (float)shadowWidth/(float)shadowHeight, 0.1f, cpuDat.maxRange);
@@ -161,8 +161,8 @@ std::vector<WGPUBackendDynamicShadowedSpotLightData> ConvertSpotLights(std::vect
         gpuDat.m_penumbraCutoff = cpuDat.innerCone;
         gpuDat.m_specular = cpuDat.specular;
         gpuDat.m_outerCutoff = cpuDat.outerCone;
-        gpuDat.m_direction = GetForwardVector(&cpuDat.transform);
-        gpuDat.m_position = cpuDat.transform.position;
+        gpuDat.m_direction = cpuDat.transform->GetForwardVector();
+        gpuDat.m_position = cpuDat.transform->position;
 
         ret.push_back(gpuDat);
     }

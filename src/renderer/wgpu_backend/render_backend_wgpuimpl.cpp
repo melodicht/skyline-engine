@@ -25,6 +25,10 @@ MeshID UploadMesh(RenderUploadMeshInfo& desc) {
     return wgpuRenderer.UploadMesh(desc.vertSize, desc.vertData, desc.idxSize, desc.idxData);
 }
 
+TextureID UploadTexture(RenderUploadTextureInfo& desc) {
+    return 0;
+}
+
 void DestroyMesh(RenderDestroyMeshInfo& desc) {
     wgpuRenderer.DestroyMesh(desc.meshID);
 }
@@ -53,3 +57,4 @@ void DestroySpotLight(LightID lightID) {
 void DestroyPointLight(LightID lightID) {
     wgpuRenderer.DestroyPointLight(lightID);
 }
+

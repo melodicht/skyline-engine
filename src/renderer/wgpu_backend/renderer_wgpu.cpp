@@ -1182,7 +1182,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   // Prepares camera to be rendered through
   float mainCamAspectRatio = (float)m_screenWidth / (float)m_screenHeight;
   glm::mat4x4 mainCamProj = glm::perspective(glm::radians(state.cameraFov), mainCamAspectRatio, state.cameraNear, state.cameraFar);
-  glm::mat4x4 mainCamView = GetViewMatrix(&state.cameraTransform);
+  glm::mat4x4 mainCamView = state.cameraTransform->GetViewMatrix();
   glm::mat4x4 camSpace = mainCamProj * mainCamView;
     
   // Prepares dynamic shadowed lights to be rendered
@@ -1241,7 +1241,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     .m_combined = camSpace,
     .m_view = mainCamView,
     .m_proj = mainCamProj,
-    .m_pos = state.cameraTransform.position,
+    .m_pos = state.cameraTransform->position,
     .m_dirLightCount = (u32)shadowedDirLightData.size(),
     .m_pointLightCount = (u32)shadowedPointLightData.size(),
     .m_spotLightCount = (u32)shadowedSpotLightData.size(),
