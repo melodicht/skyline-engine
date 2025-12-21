@@ -41,6 +41,9 @@ When there are several translation units in a project, and some of them referenc
 
 # Components Overview
 
+- Renderer implementations
+  - Only one of which can be used.
+
 - Sub components that are used by both components:
   - meta_definitions.h
     - It's meta because we are inserting our own features into the programming language, almost as if we are programming in a variation of C++.
@@ -51,6 +54,8 @@ When there are several translation units in a project, and some of them referenc
     - It's the interface between the platform module and the game module.
     - The platform only needs to know the signatures.
     - The game module actually needs to implement it.
+  - render_game.h
+    - The subset of renderer interface used by the game module.
   - math (our math, not the stdlib one)
   - asset_utils.cpp
 
@@ -92,7 +97,13 @@ When there are several translation units in a project, and some of them referenc
 2. C++ Compiler: On windows, use Clang. On Unix, either gcc or Clang works.
 3. Vulkan:
    - https://vulkan.lunarg.com/sdk/home
-   - Install the latest version. As of writing this, we know that 1.4.328.1 works.
+   - Install the latest version. As of writing this, we know that 1.4.328.1
+     works.
+   - When installing, don't need to tick any of the boxes when asking to install addons.
+4. CMake
+5. Install the latest graphic drivers on your system.
+
+Any other dependencies of our project are installed when cmake is run.
 
 ## Steps
 

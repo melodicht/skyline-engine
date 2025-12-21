@@ -6,7 +6,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include "renderer/render_backend.h"
 #include "asset_types.h"
 
 #include "ecs.cpp"
@@ -35,7 +34,7 @@ GAME_INITIALIZE(GameInitialize)
     globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
-    InitPipelines(initDesc);
+    globalPlatformAPI.rendererInitPipelines(initDesc);
 
     LoadScene(scene, "scenes/city.toml");
 
@@ -116,8 +115,9 @@ DebugRecord debugRecordArray[__COUNTER__];
 local void LogDebugRecords()
 {
 #if SKL_INTERNAL
+    u32 debugRecordsCount = ArrayCount(debugRecordArray);
     for (u32 i = 0;
-         i < ArrayCount(debugRecordArray);
+         i < debugRecordsCount;
          ++i)
     {
         DebugRecord *debugRecord = debugRecordArray + i;
@@ -134,6 +134,10 @@ local void LogDebugRecords()
                hitCount,
                cycleCount / hitCount);
     }
-    puts("\n");
+
+    if (debugRecordsCount > 1)
+    {
+        puts("");
+    }
 #endif
 }
