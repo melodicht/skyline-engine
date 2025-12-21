@@ -12,7 +12,6 @@ struct ComponentInfo
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
-    const char* name;
 };
 
 std::vector<ComponentInfo> compInfos;

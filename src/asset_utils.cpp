@@ -199,3 +199,14 @@ PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
         return nullptr;
     }
 }
+
+PLATFORM_WRITE_DATA_ASSET(WriteDataAsset)
+{
+    if (data->type != STRUCT_ENTRY)
+    {
+        return -1;
+    }
+    toml::table file;
+
+    return 0;
+}
