@@ -35,7 +35,7 @@ GAME_INITIALIZE(GameInitialize)
     globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
-    InitPipelines(initDesc);
+    globalPlatformAPI.rendererInitPipelines(initDesc);
 
     LoadScene(scene, "scenes/city.toml");
 

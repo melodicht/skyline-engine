@@ -41,6 +41,9 @@ When there are several translation units in a project, and some of them referenc
 
 # Components Overview
 
+- Renderer implementations
+  - Only one of which can be used.
+
 - Sub components that are used by both components:
   - meta_definitions.h
     - It's meta because we are inserting our own features into the programming language, almost as if we are programming in a variation of C++.
@@ -51,6 +54,8 @@ When there are several translation units in a project, and some of them referenc
     - It's the interface between the platform module and the game module.
     - The platform only needs to know the signatures.
     - The game module actually needs to implement it.
+  - render_game.h
+    - The subset of renderer interface used by the game module.
   - math (our math, not the stdlib one)
   - asset_utils.cpp
 
