@@ -2,6 +2,8 @@
 
 #include <map>
 #include <random>
+// TODO(marvin): Interactions with threads should probably go through platform API.
+#include <thread>
 #include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -36,7 +38,7 @@ GAME_INITIALIZE(GameInitialize)
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.rendererInitPipelines(initDesc);
 
-    LoadScene(scene, "scenes/city.toml");
+    LoadScene(scene, "scenes/simple_physics.toml");
 
     bool slowStep = false;
 
@@ -45,14 +47,20 @@ GAME_INITIALIZE(GameInitialize)
     JPH::Factory::sInstance = new JPH::Factory();
     JPH::RegisterTypes();
 
+    // NOTE(marvin): Pulled these numbers out of my ass. Should define these at a better place.
+    const u32 maxPhysicsJobs = 2048;
+    const u32 maxPhysicsBarriers = 8;
+    const u32 maxBodies = 1024;
+    const u32 numBodyMutexes = 0;  // 0 means auto-detect.
+    const u32 maxBodyPairs = 1024;
+    const u32 maxContactConstraints = 1024;
+    const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
+    
+    JPH::JobSystemThreadPool jobSystem = JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
+
     // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
     JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
 
-    // NOTE(marvin): Pulled these numbers out of my ass.
-    u32 maxBodies = 1024;
-    u32 numBodyMutexes = 0;  // 0 means auto-detect.
-    u32 maxBodyPairs = 1024;
-    u32 maxContactConstraints = 1024;
     JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
     JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
     JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();

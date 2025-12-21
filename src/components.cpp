@@ -88,6 +88,14 @@ struct PlayerCharacter
 COMPONENT(PlayerCharacter)
 
 
+struct StaticBox
+{
+    glm::vec3 volume;
+    bool initialized = false;
+};
+SERIALIZE(StaticBox, volume)
+COMPONENT(StaticBox)
+
 struct CameraComponent
 {
     float fov = 90;

@@ -162,6 +162,20 @@ private:
                                         *allocator);
     }
 
+    static void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsSystem)
+    {
+        JPH::CharacterVirtualSettings characterVirtualSettings;
+        f32 halfHeightOfCylinder = 1.0f;
+        f32 cylinderRadius = 0.3f;
+        characterVirtualSettings.mShape = new JPH::CapsuleShape(halfHeightOfCylinder, cylinderRadius);
+        characterVirtualSettings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cylinderRadius);
+
+        JPH::Vec3 characterPosition = JPH::Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
+        JPH::Quat characterRotation = JPH::Quat(0, 0, 0, 0);
+        JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
+        pc->characterVirtual = characterVirtual;
+    }
+
 public:
     CharacterControllerSystem(JPH::PhysicsSystem *ps)
     {
@@ -189,6 +203,38 @@ public:
         }
         EntityID playerEnt = *playerView.begin();
         PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
+
+        if (pc->characterVirtual == nullptr)
+        {
+            this->initializePlayerCharacter(pc, this->physicsSystem);
+        }
+
+        JPH::BodyInterface &bodyInterface = this->physicsSystem->GetBodyInterface();
+        for (EntityID ent : SceneView<StaticBox, Transform3D>(*scene))
+        {
+            StaticBox *sb = scene->Get<StaticBox>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+
+            if (!sb->initialized)
+            {
+                JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(sb->volume);
+                JPH::Vec3 halfExtent{
+                    abs(abs(joltVolume.GetX()) / 2),
+                    abs(abs(joltVolume.GetY()) / 2),
+                    abs(abs(joltVolume.GetZ()) / 2)
+                };
+                JPH::BoxShapeSettings staticBodySettings{halfExtent, 0.05f};
+                JPH::ShapeSettings::ShapeResult shapeResult = staticBodySettings.Create();
+                JPH::ShapeRefC shape = shapeResult.Get();
+
+                JPH::Vec3 position = OurToJoltCoordinateSystem(t->position);
+                JPH::BodyCreationSettings bodyCreationSettings{shape, position,
+                                                               JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
+                JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
+                bodyInterface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
+            }
+        }
+
         JPH::CharacterVirtual *cv = pc->characterVirtual;
         Transform3D *pt = scene->Get<Transform3D>(playerEnt);
 
@@ -196,7 +242,7 @@ public:
         Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
 
         glm::vec3 ip = pt->GetLocalPosition();
-        JPH::Vec3 playerPhysicsInitialPosition = JPH::Vec3(-ip.y, ip.z, ip.x);
+        JPH::Vec3 playerPhysicsInitialPosition = OurToJoltCoordinateSystem(ip);
         cv->SetPosition(playerPhysicsInitialPosition);
 
         glm::vec3 ir = pt->GetLocalRotation();
