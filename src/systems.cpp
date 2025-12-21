@@ -48,7 +48,7 @@ class RenderSystem : public System
             DirLight *l = scene->Get<DirLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = AddDirLight();
+                l->lightID = globalPlatformAPI.rendererAddDirLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -62,7 +62,7 @@ class RenderSystem : public System
             SpotLight *l = scene->Get<SpotLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = AddSpotLight();
+                l->lightID = globalPlatformAPI.rendererAddSpotLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -77,7 +77,7 @@ class RenderSystem : public System
             PointLight *l = scene->Get<PointLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = AddPointLight();
+                l->lightID = globalPlatformAPI.rendererAddPointLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -108,7 +108,7 @@ class RenderSystem : public System
                 .cameraFar = camera->farPlane
         };
 
-        RenderUpdate(sendState);
+        globalPlatformAPI.rendererRenderUpdate(sendState);
     }
 };
 

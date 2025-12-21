@@ -2,6 +2,7 @@
 
 #include "meta_definitions.h"
 #include "renderer/render_types.h"
+#include "renderer/render_game.h"
 #include "asset_types.h"
 
 #if SKL_INTERNAL
@@ -43,10 +44,21 @@ typedef PLATFORM_WRITE_DATA_ASSET(platform_write_data_asset_t);
 
 struct PlatformAPI
 {
+    // Asset Utility
     platform_load_mesh_asset_t *platformLoadMeshAsset;
     platform_load_texture_asset_t *platformLoadTextureAsset;
     platform_load_data_asset_t *platformLoadDataAsset;
     platform_write_data_asset_t *platformWriteDataAsset;
+
+    // Renderer
+    platform_renderer_init_pipelines_t *rendererInitPipelines;
+    platform_renderer_add_light_t *rendererAddDirLight;
+    platform_renderer_add_light_t *rendererAddSpotLight;
+    platform_renderer_add_light_t *rendererAddPointLight;
+    platform_renderer_destroy_light_t *rendererDestroyDirLight;
+    platform_renderer_destroy_light_t *rendererDestroySpotLight;
+    platform_renderer_destroy_light_t *rendererDestroyPointLight;
+    platform_renderer_render_update_t *rendererRenderUpdate;
 };
 
 // NOTE(marvin): Game platform only needs to know about scene, and only system needs to know about game input. Maybe separate out scene.h?

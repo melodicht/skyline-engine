@@ -37,7 +37,7 @@ GAME_INITIALIZE(GameInitialize)
     globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
-    InitPipelines(initDesc);
+    globalPlatformAPI.rendererInitPipelines(initDesc);
 
     s32 rv = LoadScene(scene, "test");
     if (rv != 0)
