@@ -114,6 +114,20 @@ struct FlyingMovement
 SERIALIZE(FlyingMovement, moveSpeed, turnSpeed)
 COMPONENT(FlyingMovement)
 
+struct HorizontalLook
+{
+    f32 turnSpeed = 0.1f;
+};
+SERIALIZE(HorizontalLook, turnSpeed)
+COMPONENT(HorizontalLook)
+
+struct VerticalLook
+{
+    f32 turnSpeed = 0.1;
+};
+SERIALIZE(VerticalLook, turnSpeed)
+COMPONENT(VerticalLook)
+
 
 struct Plane
 {

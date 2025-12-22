@@ -6,14 +6,19 @@ position = [5.0, 0.0, 0.0]
 mesh = "cube"
 texture = "diamond_ore"
 
-
 ## Player character
 
-[camera.Transform3D]
+[playerBody.Transform3D]
+position = [0.0, 0.0, 3.0]
+[playerBody.HorizontalLook]
+[playerBody.PlayerCharacter]
+
+[playerHead.Transform3D]
 position = [0.0, 0.0, 5.0]
-[camera.CameraComponent]
+parent = "playerBody"
+[playerHead.CameraComponent]
 farPlane = 100.0
-[camera.PlayerCharacter]
+[playerHead.VerticalLook]
 
 
 ## The floor

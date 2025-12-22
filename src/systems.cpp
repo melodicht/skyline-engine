@@ -272,8 +272,16 @@ public:
 
 class MovementSystem : public System
 {
+private:
+    // Cannot look up/down to the extent where it becomes looking behind.
+    void CapVerticalRotationForward(Transform3D *t)
+    {
+        t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
+    }
+public:
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        // TODO(marvin): Duplicate looking code between FlyingMovement and the XLook family of components.
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
@@ -281,7 +289,7 @@ class MovementSystem : public System
 
             t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
             t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
-            t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
+            this->CapVerticalRotationForward(t);
 
             if (input->keysDown.contains("W"))
             {
@@ -303,9 +311,23 @@ class MovementSystem : public System
                 t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
             }
         }
+
+        for (EntityID ent : SceneView<HorizontalLook, Transform3D>(*scene))
+        {
+            HorizontalLook *hl = scene->Get<HorizontalLook>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            t->AddLocalRotation({0, 0, input->mouseDeltaX * hl->turnSpeed});
+        }
+
+        for (EntityID ent : SceneView<VerticalLook, Transform3D>(*scene))
+        {
+            VerticalLook *vl = scene->Get<VerticalLook>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            t->AddLocalRotation({0, input->mouseDeltaY * vl->turnSpeed, 0});
+            this->CapVerticalRotationForward(t);
+        }
     }
 };
-
 
 // A vocabulary
 //
