@@ -108,3 +108,12 @@ inline JPH::Vec3 OurToJoltCoordinateSystem(glm::vec3 ourVec3)
     JPH::Vec3 result{rx, ry, rz};
     return result;
 }
+
+inline glm::vec3 JoltToOurCoordinateSystem(JPH::Vec3 joltVec3)
+{
+    f32 rx = joltVec3.GetZ();
+    f32 ry = -joltVec3.GetX();
+    f32 rz = joltVec3.GetY();
+    glm::vec3 result{rx, ry, rz};
+    return result;
+}

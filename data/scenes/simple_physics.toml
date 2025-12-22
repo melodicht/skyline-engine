@@ -1,22 +1,22 @@
-# Player character
+## Cube (for visual reference)
 
 [cube.Transform3D]
-position = [50.0, 0.0, 0.0]
+position = [5.0, 0.0, 0.0]
 [cube.MeshComponent]
 mesh = "cube"
 texture = "diamond_ore"
-[cube.PlayerCharacter]
+
+
+## Player character
 
 [camera.Transform3D]
-parent = "cube"
+position = [0.0, 0.0, 20.0]
 [camera.CameraComponent]
 farPlane = 100.0
-[camera.FlyingMovement]
+[camera.PlayerCharacter]
 
 
-
-
-# The floor
+## The floor
 
 [floor.Transform3D]
 position = [0.0, 0.0, -5.0]
@@ -25,3 +25,9 @@ scale = [50.0, 50.0, 1.0]
 mesh = "cube"
 [floor.StaticBox]
 volume = [50.0, 50.0, 1.0]
+
+[mainLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+[mainLight.DirLight]
+diffuse = [1.0, 1.0, 1.0]
+specular = [1.0, 1.0, 1.0]

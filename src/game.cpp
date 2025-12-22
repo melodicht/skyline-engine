@@ -69,7 +69,7 @@ GAME_INITIALIZE(GameInitialize)
                         *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
                         *sklObjectLayerPairFilter);
 
-    CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
+    CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem, &jobSystem);
     scene.AddSystem(characterControllerSys);
 
     RenderSystem *renderSys = new RenderSystem();

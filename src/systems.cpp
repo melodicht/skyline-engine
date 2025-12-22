@@ -142,16 +142,20 @@ class CharacterControllerSystem : public System
 private:
     JPH::PhysicsSystem *physicsSystem;
     JPH::TempAllocatorImpl *allocator;
+    JPH::JobSystem *jobSystem;
 
     void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
                               JPH::Vec3 movementDirection, f32 deltaTime)
     {
-        characterVirtual.SetLinearVelocity(movementDirection);
+        JPH::Vec3 velocity = characterVirtual.GetLinearVelocity();
+        JPH::Vec3Arg gravity{0, -9.81f, 0};
+        velocity += gravity * deltaTime;
+        velocity.SetX(0.0f);
+        velocity.SetZ(0.0f);
+        velocity += movementDirection;
+        characterVirtual.SetLinearVelocity(velocity);
 
-        JPH::Vec3Arg gravity = JPH::Vec3(0, -9.81f, 0);
         JPH::CharacterVirtual::ExtendedUpdateSettings settings;
-        // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
-        // how much memory ExtendedUpdate needs...
         characterVirtual.ExtendedUpdate(deltaTime,
                                         gravity,
                                         settings,
@@ -160,6 +164,10 @@ private:
                                         {},
                                         {},
                                         *allocator);
+
+        // TODO(marvin): Physics System update should happen in its own system.
+        u32 collisionSteps = 1;
+        this->physicsSystem->Update(deltaTime, collisionSteps, this->allocator, this->jobSystem);
     }
 
     static void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsSystem)
@@ -177,9 +185,11 @@ private:
     }
 
 public:
-    CharacterControllerSystem(JPH::PhysicsSystem *ps)
+    CharacterControllerSystem(JPH::PhysicsSystem *ps, JPH::JobSystem *js)
     {
         physicsSystem = ps;
+        jobSystem = js;
+        // TODO(marvin): Is it possible for Jolt's temp allocator to take from our memory arenas (after we have them)?
         allocator = new JPH::TempAllocatorImpl(1024*1024*16);
     }
 
@@ -232,15 +242,15 @@ public:
                                                                JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
                 JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
                 bodyInterface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
+
+                sb->initialized = true;
             }
         }
 
         JPH::CharacterVirtual *cv = pc->characterVirtual;
         Transform3D *pt = scene->Get<Transform3D>(playerEnt);
 
-        EntityID cameraEnt = *playerView.begin();
-        Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
-
+        // Load player's transform into character virtual
         glm::vec3 ip = pt->GetLocalPosition();
         JPH::Vec3 playerPhysicsInitialPosition = OurToJoltCoordinateSystem(ip);
         cv->SetPosition(playerPhysicsInitialPosition);
@@ -252,12 +262,16 @@ public:
         JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
         MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
 
-        // Update player and camera transforms from character virtual's position
-        JPH::Vec3 cp = cv->GetPosition();
-        pt->GetLocalPosition() = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-#if 0
-        ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-#endif
+        // Update player's transform from character virtual's position
+        JPH::Vec3 joltPosition = cv->GetPosition();
+        glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
+        pt->SetLocalPosition(position);
+        
+
+        LOG(position.x);
+        LOG(position.y);
+        LOG(position.z);
+        LOG("\n");
     }
 };
 
