@@ -40,7 +40,7 @@ GAME_INITIALIZE(GameInitialize)
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.rendererInitPipelines(initDesc);
 
-    s32 rv = LoadScene(scene, "simple_physics");
+    s32 rv = LoadScene(scene, "test");
     if (rv != 0)
     {
         std::cout << "Failed to load scene\n";
