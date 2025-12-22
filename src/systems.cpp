@@ -118,21 +118,22 @@ local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
 {
     // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
     JPH::Vec3 result = {};
+    f32 moveSpeed = 20.0f;
     if (input->keysDown.contains("W"))
     {
-        result = JPH::Vec3(0, 0, 1);
+        result = JPH::Vec3(0, 0, moveSpeed);
     }
     else if (input->keysDown.contains("S"))
     {
-        result = JPH::Vec3(0, 0, -1);
+        result = JPH::Vec3(0, 0, -moveSpeed);
     }
     else if (input->keysDown.contains("D"))
     {
-        result = JPH::Vec3(-1, 0, 0);
+        result = JPH::Vec3(-moveSpeed, 0, 0);
     }
     else if (input->keysDown.contains("A"))
     {
-        result = JPH::Vec3(1, 0, 0);
+        result = JPH::Vec3(moveSpeed, 0, 0);
     }
     return result;
 }
