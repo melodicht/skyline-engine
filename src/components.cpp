@@ -84,7 +84,9 @@ COMPONENT(MeshComponent)
 struct PlayerCharacter
 {
     JPH::CharacterVirtual* characterVirtual = nullptr;
+    f32 moveSpeed = 5.0f;
 };
+SERIALIZE(PlayerCharacter, moveSpeed)
 COMPONENT(PlayerCharacter)
 
 

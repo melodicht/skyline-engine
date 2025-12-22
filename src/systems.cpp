@@ -114,27 +114,30 @@ class RenderSystem : public System
 // a system, and too generalisable for it to be a private method on
 // SKLPhysicsSystem.
 
-local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
+local glm::vec3 GetMovementDirection(GameInput *input, Transform3D *t)
 {
-    // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
-    JPH::Vec3 result = {};
-    f32 moveSpeed = 20.0f;
+    glm::vec3 result{};
+    
     if (input->keysDown.contains("W"))
     {
-        result = JPH::Vec3(0, 0, moveSpeed);
+        result += t->GetForwardVector();
     }
-    else if (input->keysDown.contains("S"))
+
+    if (input->keysDown.contains("S"))
     {
-        result = JPH::Vec3(0, 0, -moveSpeed);
+        result -= t->GetForwardVector();
     }
-    else if (input->keysDown.contains("D"))
+
+    if (input->keysDown.contains("D"))
     {
-        result = JPH::Vec3(-moveSpeed, 0, 0);
+        result += t->GetRightVector();
     }
-    else if (input->keysDown.contains("A"))
+
+    if (input->keysDown.contains("A"))
     {
-        result = JPH::Vec3(moveSpeed, 0, 0);
+        result -= t->GetRightVector();
     }
+
     return result;
 }
 
@@ -146,14 +149,14 @@ private:
     JPH::JobSystem *jobSystem;
 
     void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
-                              JPH::Vec3 movementDirection, f32 deltaTime)
+                              JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime)
     {
         JPH::Vec3 velocity = characterVirtual.GetLinearVelocity();
         JPH::Vec3Arg gravity{0, -9.81f, 0};
         velocity += gravity * deltaTime;
         velocity.SetX(0.0f);
         velocity.SetZ(0.0f);
-        velocity += movementDirection;
+        velocity += movementDirection * moveSpeed;
         characterVirtual.SetLinearVelocity(velocity);
 
         JPH::CharacterVirtual::ExtendedUpdateSettings settings;
@@ -282,6 +285,7 @@ public:
         }
 
         JPH::CharacterVirtual *cv = pc->characterVirtual;
+        f32 moveSpeed = pc->moveSpeed;
         Transform3D *pt = scene->Get<Transform3D>(playerEnt);
 
         // Load player's transform into character virtual
@@ -293,8 +297,9 @@ public:
         JPH::Quat playerPhysicsInitialRotation = JPH::Quat(-ir.y, ir.z, ir.x, 1.0f).Normalized();
         cv->SetRotation(playerPhysicsInitialRotation);
 
-        JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
-        MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
+        glm::vec3 ourMovementDirection = GetMovementDirection(input, pt);
+        JPH::Vec3 joltMovementDirection = OurToJoltCoordinateSystem(ourMovementDirection);
+        MoveCharacterVirtual(*cv, *physicsSystem, joltMovementDirection, moveSpeed, deltaTime);
 
         // Update player's transform from character virtual's position
         JPH::Vec3 joltPosition = cv->GetPosition();
