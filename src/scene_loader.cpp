@@ -99,7 +99,10 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
 }
 
 template <typename T>
-DataEntry* ReadToData(T* src, std::string name) { return nullptr; }
+DataEntry* ReadToData(T* src, std::string name)
+{
+    return new DataEntry(name);
+}
 
 template <>
 DataEntry* ReadToData<s32>(s32* src, std::string name)
