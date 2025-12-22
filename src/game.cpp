@@ -42,34 +42,7 @@ GAME_INITIALIZE(GameInitialize)
 
     bool slowStep = false;
 
-    // NOTE(marvin): Initialising the physics system.
-    JPH::RegisterDefaultAllocator();
-    JPH::Factory::sInstance = new JPH::Factory();
-    JPH::RegisterTypes();
-
-    // NOTE(marvin): Pulled these numbers out of my ass. Should define these at a better place.
-    const u32 maxPhysicsJobs = 2048;
-    const u32 maxPhysicsBarriers = 8;
-    const u32 maxBodies = 1024;
-    const u32 numBodyMutexes = 0;  // 0 means auto-detect.
-    const u32 maxBodyPairs = 1024;
-    const u32 maxContactConstraints = 1024;
-    const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
-    
-    JPH::JobSystemThreadPool jobSystem = JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
-
-    // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
-    JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
-
-    JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
-    JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
-    JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
-    
-    physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
-                        *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
-                        *sklObjectLayerPairFilter);
-
-    CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem, &jobSystem);
+    SKLPhysicsSystem *characterControllerSys = new SKLPhysicsSystem();
     scene.AddSystem(characterControllerSys);
 
     RenderSystem *renderSys = new RenderSystem();
@@ -78,23 +51,6 @@ GAME_INITIALIZE(GameInitialize)
     scene.AddSystem(renderSys);
     scene.AddSystem(movementSys);
     scene.AddSystem(builderSys);
-
-//    EntityID playerCharacterEnt = scene.NewEntity();
-//    Transform3D *pcTransform = scene.Assign<Transform3D>(playerCharacterEnt);
-//    PlayerCharacter *playerCharacter = scene.Assign<PlayerCharacter>(playerCharacterEnt);
-//
-//    JPH::CharacterVirtualSettings characterVirtualSettings;
-//    f32 halfHeightOfCylinder = 1.0f;
-//    f32 cylinderRadius = 0.3f;
-//    characterVirtualSettings.mShape = new JPH::CapsuleShape(halfHeightOfCylinder, cylinderRadius);
-//    characterVirtualSettings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cylinderRadius);
-//
-//    JPH::Vec3 characterPosition = JPH::Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
-//    JPH::Quat characterRotation = JPH::Quat(0, 0, 0, 0);
-//    JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
-//    playerCharacter->characterVirtual = characterVirtual;
-
-
     scene.InitSystems();
 }
 

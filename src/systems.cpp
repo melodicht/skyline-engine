@@ -112,7 +112,7 @@ class RenderSystem : public System
 
 // TODO(marvin): Figure out a better place to put this, for it is not
 // a system, and too generalisable for it to be a private method on
-// CharacterControllerSystem.
+// SKLPhysicsSystem.
 
 local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
 {
@@ -138,7 +138,7 @@ local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
     return result;
 }
 
-class CharacterControllerSystem : public System
+class SKLPhysicsSystem : public System
 {
 private:
     JPH::PhysicsSystem *physicsSystem;
@@ -186,12 +186,45 @@ private:
     }
 
 public:
-    CharacterControllerSystem(JPH::PhysicsSystem *ps, JPH::JobSystem *js)
+    SKLPhysicsSystem()
     {
-        physicsSystem = ps;
-        jobSystem = js;
+        JPH::RegisterDefaultAllocator();
+        JPH::Factory::sInstance = new JPH::Factory();
+        JPH::RegisterTypes();
+
+        // NOTE(marvin): Pulled these numbers out of my ass.
+        const u32 maxPhysicsJobs = 2048;
+        const u32 maxPhysicsBarriers = 8;
+        const u32 maxBodies = 1024;
+        const u32 numBodyMutexes = 0;  // 0 means auto-detect.
+        const u32 maxBodyPairs = 1024;
+        const u32 maxContactConstraints = 1024;
+        const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
+    
+        JPH::JobSystemThreadPool *jobSystem = new JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
+
+        // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
+        JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
+
+        JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
+        JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
+        JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
+    
+        physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
+                            *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
+                            *sklObjectLayerPairFilter);
+
+        this->physicsSystem = physicsSystem;
+        this->jobSystem = jobSystem;
         // TODO(marvin): Is it possible for Jolt's temp allocator to take from our memory arenas (after we have them)?
-        allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+        this->allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+    }
+
+    ~SKLPhysicsSystem()
+    {
+        delete this->allocator;
+        delete this->jobSystem;
+        delete this->physicsSystem;
     }
 
     void OnStart(Scene *scene)
