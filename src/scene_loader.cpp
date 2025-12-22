@@ -248,3 +248,31 @@ s32 LoadScene(Scene& scene, std::string name)
     delete data;
     return rv;
 }
+
+DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
+{
+    NameComponent* name = scene.Get<NameComponent>(ent);
+    DataEntry* data = new DataEntry(name->name);
+    ComponentMask mask = scene.entities[GetEntityIndex(ent)].mask;
+    for (s32 i = 0; i < MAX_COMPONENTS; i++)
+    {
+        if (mask[i])
+        {
+            data->structVal.push_back(compInfos[i].readFunc(scene, ent));
+        }
+    }
+    return data;
+}
+
+void SaveScene(Scene& scene, std::string name)
+{
+    DataEntry* sceneData = new DataEntry("Scene");
+    for (EntityID ent : SceneView<>(scene))
+    {
+        sceneData->structVal.push_back(ReadEntityToData(scene, ent));
+    }
+
+    std::string filepath = "scenes/" + name + ".toml";
+    globalPlatformAPI.platformWriteDataAsset(filepath, sceneData);
+    delete sceneData;
+}
