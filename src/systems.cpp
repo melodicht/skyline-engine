@@ -267,12 +267,6 @@ public:
         JPH::Vec3 joltPosition = cv->GetPosition();
         glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
         pt->SetLocalPosition(position);
-        
-
-        LOG(position.x);
-        LOG(position.y);
-        LOG(position.z);
-        LOG("\n");
     }
 };
 

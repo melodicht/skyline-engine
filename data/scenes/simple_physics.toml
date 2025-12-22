@@ -10,7 +10,7 @@ texture = "diamond_ore"
 ## Player character
 
 [camera.Transform3D]
-position = [0.0, 0.0, 20.0]
+position = [0.0, 0.0, 5.0]
 [camera.CameraComponent]
 farPlane = 100.0
 [camera.PlayerCharacter]
@@ -31,3 +31,14 @@ rotation = [0.0, 30.0, 30.0]
 [mainLight.DirLight]
 diffuse = [1.0, 1.0, 1.0]
 specular = [1.0, 1.0, 1.0]
+
+## An obstacle on the floor
+
+[obstacle.Transform3D]
+position = [0.0, 0.0, -4.0]
+scale = [5.0, 5.0, 5.0]
+[obstacle.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+[obstacle.StaticBox]
+volume = [5.0, 5.0, 1.0]
