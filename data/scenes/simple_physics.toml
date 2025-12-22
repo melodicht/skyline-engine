@@ -12,9 +12,12 @@ texture = "diamond_ore"
 position = [0.0, 0.0, 3.0]
 [playerBody.HorizontalLook]
 [playerBody.PlayerCharacter]
+[playerBody.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
 
 [playerHead.Transform3D]
-position = [0.0, 0.0, 5.0]
+position = [0.0, 0.0, 2.0]
 parent = "playerBody"
 [playerHead.CameraComponent]
 farPlane = 100.0
