@@ -38,7 +38,7 @@ GAME_INITIALIZE(GameInitialize)
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.rendererInitPipelines(initDesc);
 
-    LoadScene(scene, "scenes/simple_physics.toml");
+    LoadScene(scene, "scenes/city.toml");
 
     bool slowStep = false;
 

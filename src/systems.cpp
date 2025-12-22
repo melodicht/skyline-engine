@@ -329,25 +329,8 @@ public:
             t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
             this->CapVerticalRotationForward(t);
 
-            if (input->keysDown.contains("W"))
-            {
-                t->AddLocalPosition(t->GetForwardVector() * f->moveSpeed * deltaTime);
-            }
-
-            if (input->keysDown.contains("S"))
-            {
-                t->AddLocalPosition(t->GetForwardVector() * -f->moveSpeed * deltaTime);
-            }
-
-            if (input->keysDown.contains("D"))
-            {
-                t->AddLocalPosition(t->GetRightVector() * f->moveSpeed * deltaTime);
-            }
-
-            if (input->keysDown.contains("A"))
-            {
-                t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
-            }
+            glm::vec3 movementDirection = GetMovementDirection(input, t);
+            t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
         }
 
         for (EntityID ent : SceneView<HorizontalLook, Transform3D>(*scene))
