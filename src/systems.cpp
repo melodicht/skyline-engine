@@ -114,46 +114,54 @@ class RenderSystem : public System
 
 // TODO(marvin): Figure out a better place to put this, for it is not
 // a system, and too generalisable for it to be a private method on
-// CharacterControllerSystem.
+// SKLPhysicsSystem.
 
-local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
+local glm::vec3 GetMovementDirection(GameInput *input, Transform3D *t)
 {
-    // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
-    JPH::Vec3 result = {};
+    glm::vec3 result{};
+    
     if (input->keysDown.contains("W"))
     {
-        result = JPH::Vec3(0, 0, 1);
+        result += t->GetForwardVector();
     }
-    else if (input->keysDown.contains("S"))
+
+    if (input->keysDown.contains("S"))
     {
-        result = JPH::Vec3(0, 0, -1);
+        result -= t->GetForwardVector();
     }
-    else if (input->keysDown.contains("D"))
+
+    if (input->keysDown.contains("D"))
     {
-        result = JPH::Vec3(-1, 0, 0);
+        result += t->GetRightVector();
     }
-    else if (input->keysDown.contains("A"))
+
+    if (input->keysDown.contains("A"))
     {
-        result = JPH::Vec3(1, 0, 0);
+        result -= t->GetRightVector();
     }
+
     return result;
 }
 
-class CharacterControllerSystem : public System
+class SKLPhysicsSystem : public System
 {
 private:
     JPH::PhysicsSystem *physicsSystem;
     JPH::TempAllocatorImpl *allocator;
+    JPH::JobSystem *jobSystem;
 
     void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
-                              JPH::Vec3 movementDirection, f32 deltaTime)
+                              JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime)
     {
-        characterVirtual.SetLinearVelocity(movementDirection);
+        JPH::Vec3 velocity = characterVirtual.GetLinearVelocity();
+        JPH::Vec3Arg gravity{0, -9.81f, 0};
+        velocity += gravity * deltaTime;
+        velocity.SetX(0.0f);
+        velocity.SetZ(0.0f);
+        velocity += movementDirection * moveSpeed;
+        characterVirtual.SetLinearVelocity(velocity);
 
-        JPH::Vec3Arg gravity = JPH::Vec3(0, -9.81f, 0);
         JPH::CharacterVirtual::ExtendedUpdateSettings settings;
-        // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
-        // how much memory ExtendedUpdate needs...
         characterVirtual.ExtendedUpdate(deltaTime,
                                         gravity,
                                         settings,
@@ -162,13 +170,66 @@ private:
                                         {},
                                         {},
                                         *allocator);
+
+        // TODO(marvin): Physics System update should happen in its own system.
+        u32 collisionSteps = 1;
+        this->physicsSystem->Update(deltaTime, collisionSteps, this->allocator, this->jobSystem);
+    }
+
+    static void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsSystem)
+    {
+        JPH::CharacterVirtualSettings characterVirtualSettings;
+        f32 halfHeightOfCylinder = 1.0f;
+        f32 cylinderRadius = 0.3f;
+        characterVirtualSettings.mShape = new JPH::CapsuleShape(halfHeightOfCylinder, cylinderRadius);
+        characterVirtualSettings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cylinderRadius);
+
+        JPH::Vec3 characterPosition = JPH::Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
+        JPH::Quat characterRotation = JPH::Quat(0, 0, 0, 0);
+        JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
+        pc->characterVirtual = characterVirtual;
     }
 
 public:
-    CharacterControllerSystem(JPH::PhysicsSystem *ps)
+    SKLPhysicsSystem()
     {
-        physicsSystem = ps;
-        allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+        JPH::RegisterDefaultAllocator();
+        JPH::Factory::sInstance = new JPH::Factory();
+        JPH::RegisterTypes();
+
+        // NOTE(marvin): Pulled these numbers out of my ass.
+        const u32 maxPhysicsJobs = 2048;
+        const u32 maxPhysicsBarriers = 8;
+        const u32 maxBodies = 1024;
+        const u32 numBodyMutexes = 0;  // 0 means auto-detect.
+        const u32 maxBodyPairs = 1024;
+        const u32 maxContactConstraints = 1024;
+        const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
+    
+        JPH::JobSystemThreadPool *jobSystem = new JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
+
+        // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
+        JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
+
+        JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
+        JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
+        JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
+    
+        physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
+                            *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
+                            *sklObjectLayerPairFilter);
+
+        this->physicsSystem = physicsSystem;
+        this->jobSystem = jobSystem;
+        // TODO(marvin): Is it possible for Jolt's temp allocator to take from our memory arenas (after we have them)?
+        this->allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+    }
+
+    ~SKLPhysicsSystem()
+    {
+        delete this->allocator;
+        delete this->jobSystem;
+        delete this->physicsSystem;
     }
 
     void OnStart(Scene *scene)
@@ -191,36 +252,76 @@ public:
         }
         EntityID playerEnt = *playerView.begin();
         PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
+
+        if (pc->characterVirtual == nullptr)
+        {
+            this->initializePlayerCharacter(pc, this->physicsSystem);
+        }
+
+        JPH::BodyInterface &bodyInterface = this->physicsSystem->GetBodyInterface();
+        for (EntityID ent : SceneView<StaticBox, Transform3D>(*scene))
+        {
+            StaticBox *sb = scene->Get<StaticBox>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+
+            if (!sb->initialized)
+            {
+                JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(sb->volume);
+                JPH::Vec3 halfExtent{
+                    abs(abs(joltVolume.GetX()) / 2),
+                    abs(abs(joltVolume.GetY()) / 2),
+                    abs(abs(joltVolume.GetZ()) / 2)
+                };
+                JPH::BoxShapeSettings staticBodySettings{halfExtent, 0.05f};
+                JPH::ShapeSettings::ShapeResult shapeResult = staticBodySettings.Create();
+                JPH::ShapeRefC shape = shapeResult.Get();
+
+                JPH::Vec3 position = OurToJoltCoordinateSystem(t->position);
+                JPH::BodyCreationSettings bodyCreationSettings{shape, position,
+                                                               JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
+                JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
+                bodyInterface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
+
+                sb->initialized = true;
+            }
+        }
+
         JPH::CharacterVirtual *cv = pc->characterVirtual;
+        f32 moveSpeed = pc->moveSpeed;
         Transform3D *pt = scene->Get<Transform3D>(playerEnt);
 
-        EntityID cameraEnt = *playerView.begin();
-        Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
-
+        // Load player's transform into character virtual
         glm::vec3 ip = pt->GetLocalPosition();
-        JPH::Vec3 playerPhysicsInitialPosition = JPH::Vec3(-ip.y, ip.z, ip.x);
+        JPH::Vec3 playerPhysicsInitialPosition = OurToJoltCoordinateSystem(ip);
         cv->SetPosition(playerPhysicsInitialPosition);
 
         glm::vec3 ir = pt->GetLocalRotation();
         JPH::Quat playerPhysicsInitialRotation = JPH::Quat(-ir.y, ir.z, ir.x, 1.0f).Normalized();
         cv->SetRotation(playerPhysicsInitialRotation);
 
-        JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
-        MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
+        glm::vec3 ourMovementDirection = GetMovementDirection(input, pt);
+        JPH::Vec3 joltMovementDirection = OurToJoltCoordinateSystem(ourMovementDirection);
+        MoveCharacterVirtual(*cv, *physicsSystem, joltMovementDirection, moveSpeed, deltaTime);
 
-        // Update player and camera transforms from character virtual's position
-        JPH::Vec3 cp = cv->GetPosition();
-        pt->GetLocalPosition() = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-#if 0
-        ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-#endif
+        // Update player's transform from character virtual's position
+        JPH::Vec3 joltPosition = cv->GetPosition();
+        glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
+        pt->SetLocalPosition(position);
     }
 };
 
 class MovementSystem : public System
 {
+private:
+    // Cannot look up/down to the extent where it becomes looking behind.
+    void CapVerticalRotationForward(Transform3D *t)
+    {
+        t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
+    }
+public:
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        // TODO(marvin): Duplicate looking code between FlyingMovement and the XLook family of components.
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
@@ -228,31 +329,28 @@ class MovementSystem : public System
 
             t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
             t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
-            t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
+            this->CapVerticalRotationForward(t);
 
-            if (input->keysDown.contains("W"))
-            {
-                t->AddLocalPosition(t->GetForwardVector() * f->moveSpeed * deltaTime);
-            }
+            glm::vec3 movementDirection = GetMovementDirection(input, t);
+            t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
+        }
 
-            if (input->keysDown.contains("S"))
-            {
-                t->AddLocalPosition(t->GetForwardVector() * -f->moveSpeed * deltaTime);
-            }
+        for (EntityID ent : SceneView<HorizontalLook, Transform3D>(*scene))
+        {
+            HorizontalLook *hl = scene->Get<HorizontalLook>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            t->AddLocalRotation({0, 0, input->mouseDeltaX * hl->turnSpeed});
+        }
 
-            if (input->keysDown.contains("D"))
-            {
-                t->AddLocalPosition(t->GetRightVector() * f->moveSpeed * deltaTime);
-            }
-
-            if (input->keysDown.contains("A"))
-            {
-                t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
-            }
+        for (EntityID ent : SceneView<VerticalLook, Transform3D>(*scene))
+        {
+            VerticalLook *vl = scene->Get<VerticalLook>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            t->AddLocalRotation({0, input->mouseDeltaY * vl->turnSpeed, 0});
+            this->CapVerticalRotationForward(t);
         }
     }
 };
-
 
 // A vocabulary
 //

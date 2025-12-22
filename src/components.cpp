@@ -115,9 +115,19 @@ COMPONENT(MeshComponent)
 struct PlayerCharacter
 {
     JPH::CharacterVirtual* characterVirtual = nullptr;
+    f32 moveSpeed = 5.0f;
 };
+SERIALIZE(PlayerCharacter, moveSpeed)
 COMPONENT(PlayerCharacter)
 
+
+struct StaticBox
+{
+    glm::vec3 volume;
+    bool initialized = false;
+};
+SERIALIZE(StaticBox, volume)
+COMPONENT(StaticBox)
 
 struct CameraComponent
 {
@@ -136,6 +146,20 @@ struct FlyingMovement
 };
 SERIALIZE(FlyingMovement, moveSpeed, turnSpeed)
 COMPONENT(FlyingMovement)
+
+struct HorizontalLook
+{
+    f32 turnSpeed = 0.1f;
+};
+SERIALIZE(HorizontalLook, turnSpeed)
+COMPONENT(HorizontalLook)
+
+struct VerticalLook
+{
+    f32 turnSpeed = 0.1;
+};
+SERIALIZE(VerticalLook, turnSpeed)
+COMPONENT(VerticalLook)
 
 
 struct Plane

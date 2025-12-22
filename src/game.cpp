@@ -2,6 +2,8 @@
 
 #include <map>
 #include <random>
+// TODO(marvin): Interactions with threads should probably go through platform API.
+#include <thread>
 #include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -96,6 +98,15 @@ GAME_INITIALIZE(GameInitialize)
         }
     }
 
+    SKLPhysicsSystem *characterControllerSys = new SKLPhysicsSystem();
+    scene.AddSystem(characterControllerSys);
+
+    RenderSystem *renderSys = new RenderSystem();
+    MovementSystem *movementSys = new MovementSystem();
+    BuilderSystem *builderSys = new BuilderSystem(slowStep);
+    scene.AddSystem(renderSys);
+    scene.AddSystem(movementSys);
+    scene.AddSystem(builderSys);
     scene.InitSystems();
 }
 
