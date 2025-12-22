@@ -61,29 +61,8 @@ GAME_INITIALIZE(GameInitialize)
     }
     else
     {
-        // NOTE(marvin): Initialising the physics system.
-        JPH::RegisterDefaultAllocator();
-        JPH::Factory::sInstance = new JPH::Factory();
-        JPH::RegisterTypes();
-
-        // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well.
-        JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
-
-        // NOTE(marvin): Pulled these numbers out of my ass.
-        u32 maxBodies = 1024;
-        u32 numBodyMutexes = 0;  // 0 means auto-detect.
-        u32 maxBodyPairs = 1024;
-        u32 maxContactConstraints = 1024;
-        JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
-        JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
-        JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
-
-        physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
-                            *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
-                            *sklObjectLayerPairFilter);
-
-        CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
-        scene.AddSystem(characterControllerSys);
+        SKLPhysicsSystem *physicsSys = new SKLPhysicsSystem();
+        scene.AddSystem(physicsSys);
 
         MovementSystem *movementSys = new MovementSystem();
         BuilderSystem *builderSys = new BuilderSystem(slowStep);
@@ -98,15 +77,8 @@ GAME_INITIALIZE(GameInitialize)
         }
     }
 
-    SKLPhysicsSystem *characterControllerSys = new SKLPhysicsSystem();
-    scene.AddSystem(characterControllerSys);
-
     RenderSystem *renderSys = new RenderSystem();
-    MovementSystem *movementSys = new MovementSystem();
-    BuilderSystem *builderSys = new BuilderSystem(slowStep);
     scene.AddSystem(renderSys);
-    scene.AddSystem(movementSys);
-    scene.AddSystem(builderSys);
     scene.InitSystems();
 }
 
