@@ -1,5 +1,6 @@
 #include "asset_types.h"
 
+#include <fstream>
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
@@ -200,6 +201,36 @@ PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
     }
 }
 
+void SaveDataToNode(DataEntry* data, toml::table* dest)
+{
+    switch (data->type)
+    {
+        case INT_ENTRY:
+            dest->emplace(data->name, data->intVal);
+            break;
+        case FLOAT_ENTRY:
+            dest->emplace(data->name, data->floatVal);
+            break;
+        case BOOL_ENTRY:
+            dest->emplace(data->name, data->boolVal);
+            break;
+        case VEC_ENTRY:
+            dest->emplace(data->name, toml::array{data->vecVal.x, data->vecVal.y, data->vecVal.z});
+            break;
+        case STR_ENTRY:
+            dest->emplace(data->name, data->stringVal);
+            break;
+        case STRUCT_ENTRY:
+            toml::table table;
+            for (DataEntry* field : data->structVal)
+            {
+                SaveDataToNode(field, &table);
+            }
+            dest->emplace(data->name, table);
+            break;
+    }
+}
+
 PLATFORM_WRITE_DATA_ASSET(WriteDataAsset)
 {
     if (data->type != STRUCT_ENTRY)
@@ -207,6 +238,10 @@ PLATFORM_WRITE_DATA_ASSET(WriteDataAsset)
         return -1;
     }
     toml::table file;
+    SaveDataToNode(data, &file);
+
+    std::ofstream output(path);
+    output << file;
 
     return 0;
 }
