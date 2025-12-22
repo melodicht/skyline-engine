@@ -12,6 +12,7 @@ struct ComponentInfo
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
+    std::string name;
 };
 
 std::vector<ComponentInfo> compInfos;
@@ -94,7 +95,10 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
     {
         return -1;
     }
-    *dest = globalPlatformAPI.platformLoadTextureAsset(data->stringVal);
+    if (data->stringVal != "")
+    {
+        *dest = globalPlatformAPI.platformLoadTextureAsset(data->stringVal);
+    }
     return 0;
 }
 
@@ -143,6 +147,10 @@ DataEntry* ReadToData<MeshAsset*>(MeshAsset** src, std::string name)
 template <>
 DataEntry* ReadToData<TextureAsset*>(TextureAsset** src, std::string name)
 {
+    if (*src == nullptr)
+    {
+        return new DataEntry(name, std::string(""));
+    }
     return new DataEntry(name, (*src)->name);
 }
 
@@ -192,7 +200,7 @@ void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    compInfos.push_back({AssignComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T)});
+    compInfos.push_back({AssignComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
 }
 
 void RegisterComponents(Scene& scene)
@@ -251,14 +259,18 @@ s32 LoadScene(Scene& scene, std::string name)
 
 DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
 {
-    NameComponent* name = scene.Get<NameComponent>(ent);
-    DataEntry* data = new DataEntry(name->name);
+    NameComponent* nameComp = scene.Get<NameComponent>(ent);
+    DataEntry* data = new DataEntry(nameComp->name);
     ComponentMask mask = scene.entities[GetEntityIndex(ent)].mask;
     for (s32 i = 0; i < MAX_COMPONENTS; i++)
     {
         if (mask[i])
         {
-            data->structVal.push_back(compInfos[i].readFunc(scene, ent));
+            ComponentInfo& compInfo = compInfos[i];
+            if (compInfo.name != "NameComponent")
+            {
+                data->structVal.push_back(compInfo.readFunc(scene, ent));
+            }
         }
     }
     return data;
@@ -267,7 +279,7 @@ DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
 void SaveScene(Scene& scene, std::string name)
 {
     DataEntry* sceneData = new DataEntry("Scene");
-    for (EntityID ent : SceneView<>(scene))
+    for (EntityID ent : SceneView<NameComponent>(scene))
     {
         sceneData->structVal.push_back(ReadEntityToData(scene, ent));
     }

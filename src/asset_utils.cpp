@@ -201,6 +201,16 @@ PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
     }
 }
 
+void SaveDataToNode(DataEntry* data, toml::table* dest);
+
+void SaveDataToTable(std::vector<DataEntry*>& data, toml::table* dest)
+{
+    for (DataEntry* field : data)
+    {
+        SaveDataToNode(field, dest);
+    }
+}
+
 void SaveDataToNode(DataEntry* data, toml::table* dest)
 {
     switch (data->type)
@@ -222,10 +232,7 @@ void SaveDataToNode(DataEntry* data, toml::table* dest)
             break;
         case STRUCT_ENTRY:
             toml::table table;
-            for (DataEntry* field : data->structVal)
-            {
-                SaveDataToNode(field, &table);
-            }
+            SaveDataToTable(data->structVal, &table);
             dest->emplace(data->name, table);
             break;
     }
@@ -238,7 +245,7 @@ PLATFORM_WRITE_DATA_ASSET(WriteDataAsset)
         return -1;
     }
     toml::table file;
-    SaveDataToNode(data, &file);
+    SaveDataToTable(data->structVal, &file);
 
     std::ofstream output(path);
     output << file;
