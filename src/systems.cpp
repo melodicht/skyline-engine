@@ -605,9 +605,9 @@ private:
 
     // Only reads the data.
     // To be called inside of ImGui scope.
-    template<typename T>
-    void ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent)
+    bool ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent)
     {
+        bool changed = false;
         switch (dataEntry->type)
         {
           case INT_ENTRY:
@@ -620,10 +620,7 @@ private:
               ImGui::NextColumn();
               if (ImGui::InputInt(fieldName, &(dataEntry->intVal)))
               {
-                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
-                  {
-                      printf("Failed to write to component's field %s.", fieldName);
-                  }
+                  changed = true;
               }
               ImGui::NextColumn();
               break;
@@ -638,10 +635,7 @@ private:
               ImGui::NextColumn();
               if (ImGui::InputFloat(fieldName, &(dataEntry->floatVal)))
               {
-                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
-                  {
-                      printf("Failed to write to component's field %s.", fieldName);
-                  }
+                  changed = true;
               }
               ImGui::NextColumn();
               break;
@@ -656,10 +650,7 @@ private:
               ImGui::NextColumn();
               if (ImGui::Checkbox(fieldName, &(dataEntry->boolVal)))
               {
-                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
-                  {
-                      printf("Failed to write to component's field %s.", fieldName);
-                  }
+                  changed = true;
               }
               ImGui::NextColumn();
               break;
@@ -677,10 +668,8 @@ private:
               f32 xyz[3] = {vec.x, vec.y, vec.z};
               if (ImGui::InputFloat3(fieldName, xyz))
               {
-                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
-                  {
-                      printf("Failed to write to component's field %s.", fieldName);
-                  }
+                  dataEntry->vecVal = {xyz[0], xyz[1], xyz[2]};
+                  changed = true;
               }
               ImGui::NextColumn();
               break;
@@ -698,39 +687,39 @@ private:
               // NOTE(marvin): Pulled that number out of my ass.
               char buf[256];
               const char *fieldStringValue = dataEntry->stringVal.c_str();
-              strncpy_s(buf, fieldStringValue, sizeof(buf) - 1);
+              strncpy(buf, fieldStringValue, sizeof(buf) - 1);
               buf[sizeof(buf) - 1] = '\0';
               if (ImGui::InputText(fieldName, buf, sizeof(buf)))
               {
-                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
-                  {
-                      printf("Failed to write to component's field %s.", fieldName);
-                  }
+                  dataEntry->stringVal = buf;
+                  changed = true;
               }
               ImGui::NextColumn();
               break;
           }
           case STRUCT_ENTRY:
           {
-              this->ImguiDisplayStructDataEntry<T>(dataEntry->name, dataEntry->structVal, scene, ent);
+              changed = this->ImguiDisplayStructDataEntry(dataEntry->name, dataEntry->structVal, scene, ent);
               break;
           }
         }
+        return changed;
     }
 
     // Only reads from the data.
-    template<typename T>
-    void ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent)
+    bool ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent)
     {
         const char *nodeName = name.c_str();
+        bool changed = false;
         if (ImGui::TreeNode(nodeName))
         {
             for (DataEntry *dataEntry : dataEntries)
             {
-                this->ImguiDisplayDataEntry<T>(dataEntry, scene, ent);
+                changed |= this->ImguiDisplayDataEntry(dataEntry, scene, ent);
             }
             ImGui::TreePop();
         }
+        return changed;
     }
 
 public:
@@ -791,12 +780,20 @@ public:
         // First, A view for one component of one entity.
         // For test.toml, dirLight
 
-        for (EntityID ent : SceneView<CameraComponent>(*scene))
+        for (EntityID ent : SceneView<MeshComponent>(*scene))
         {
             // TODO(marvin): Integrate entity name into ID.
-            ImGui::PushID("CameraComponent");
-            DataEntry *dirLightDataEntry = ReadComponent<CameraComponent>(*scene, ent);
-            ImguiDisplayDataEntry<CameraComponent>(dirLightDataEntry, *scene, ent);
+            ImGui::PushID("MeshComponent");
+            DataEntry *dirLightDataEntry = ReadComponent<MeshComponent>(*scene, ent);
+            bool changed = ImguiDisplayDataEntry(dirLightDataEntry, *scene, ent);
+            if (changed)
+            {
+                s32 val = WriteComponent<MeshComponent>(*scene, ent, dirLightDataEntry);
+                if (val != 0)
+                {
+                    printf("failed to write component");
+                }
+            }
             delete dirLightDataEntry;
             ImGui::PopID();
             break;
