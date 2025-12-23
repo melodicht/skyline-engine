@@ -148,6 +148,10 @@ DataEntry* ReadToData<std::string>(std::string* src, std::string name)
 template <>
 DataEntry* ReadToData<MeshAsset*>(MeshAsset** src, std::string name)
 {
+    if ((*src) == nullptr)
+    {
+        return new DataEntry(name, std::string(""));
+    }
     return new DataEntry(name, (*src)->name);
 }
 

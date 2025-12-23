@@ -107,6 +107,10 @@ PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
     int width, height, channels;
 
     stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    if (imageData == nullptr)
+    {
+        return nullptr;
+    }
     std::vector<u32> pixels;
 
     pixels = std::vector<u32>((width * height * 4) / sizeof(u32));
