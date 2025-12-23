@@ -600,7 +600,138 @@ public:
 
 class EditorSystem : public System
 {
+private:
     EntityID editorCam;
+
+    // Only reads the data.
+    // To be called inside of ImGui scope.
+    template<typename T>
+    void ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent)
+    {
+        switch (dataEntry->type)
+        {
+          case INT_ENTRY:
+          {
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              if (ImGui::InputInt(fieldName, &(dataEntry->intVal)))
+              {
+                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
+                  {
+                      printf("Failed to write to component's field %s.", fieldName);
+                  }
+              }
+              ImGui::NextColumn();
+              break;
+          }
+          case FLOAT_ENTRY:
+          {
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              if (ImGui::InputFloat(fieldName, &(dataEntry->floatVal)))
+              {
+                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
+                  {
+                      printf("Failed to write to component's field %s.", fieldName);
+                  }
+              }
+              ImGui::NextColumn();
+              break;
+          }
+          case BOOL_ENTRY:
+          {
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              if (ImGui::Checkbox(fieldName, &(dataEntry->boolVal)))
+              {
+                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
+                  {
+                      printf("Failed to write to component's field %s.", fieldName);
+                  }
+              }
+              ImGui::NextColumn();
+              break;
+          }
+          case VEC_ENTRY:
+          {
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              // NOTE(marvin): I think glm stores the values contiguously, but rather play it safe.
+              glm::vec3 vec = dataEntry->vecVal;
+              f32 xyz[3] = {vec.x, vec.y, vec.z};
+              if (ImGui::InputFloat3(fieldName, xyz))
+              {
+                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
+                  {
+                      printf("Failed to write to component's field %s.", fieldName);
+                  }
+              }
+              ImGui::NextColumn();
+              break;
+          }
+          case STR_ENTRY:
+          {
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+
+              // TODO(marvin): Need to have temporary string buffer for string value.
+              // NOTE(marvin): Pulled that number out of my ass.
+              char buf[256];
+              const char *fieldStringValue = dataEntry->stringVal.c_str();
+              strncpy_s(buf, fieldStringValue, sizeof(buf) - 1);
+              buf[sizeof(buf) - 1] = '\0';
+              if (ImGui::InputText(fieldName, buf, sizeof(buf)))
+              {
+                  if (WriteComponent<T>(scene, ent, dataEntry) == -1)
+                  {
+                      printf("Failed to write to component's field %s.", fieldName);
+                  }
+              }
+              ImGui::NextColumn();
+              break;
+          }
+          case STRUCT_ENTRY:
+          {
+              this->ImguiDisplayStructDataEntry<T>(dataEntry->name, dataEntry->structVal, scene, ent);
+              break;
+          }
+        }
+    }
+
+    // Only reads from the data.
+    template<typename T>
+    void ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent)
+    {
+        const char *nodeName = name.c_str();
+        if (ImGui::TreeNode(nodeName))
+        {
+            for (DataEntry *dataEntry : dataEntries)
+            {
+                this->ImguiDisplayDataEntry<T>(dataEntry, scene, ent);
+            }
+            ImGui::TreePop();
+        }
+    }
 
 public:
     EditorSystem(EntityID editorCam)
@@ -639,5 +770,38 @@ public:
                 t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
             }
         }
+
+        // NOTE(marvin): Proof of concept for interactive tree view for components of a single entity
+
+        // Create a transparent, non-interactive overlay window
+        ImGuiWindowFlags window_flags = 
+        ImGuiWindowFlags_NoTitleBar | 
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoSavedSettings | 
+        ImGuiWindowFlags_NoBackground;
+
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->Pos);
+        ImGui::SetNextWindowSize(viewport->Size);
+
+        ImGui::Begin("Overlay", nullptr, window_flags);
+
+        // First, A view for one component of one entity.
+        // For test.toml, dirLight
+
+        for (EntityID ent : SceneView<CameraComponent>(*scene))
+        {
+            // TODO(marvin): Integrate entity name into ID.
+            ImGui::PushID("CameraComponent");
+            DataEntry *dirLightDataEntry = ReadComponent<CameraComponent>(*scene, ent);
+            ImguiDisplayDataEntry<CameraComponent>(dirLightDataEntry, *scene, ent);
+            delete dirLightDataEntry;
+            ImGui::PopID();
+            break;
+        }
+
+        ImGui::End();
     }
 };
