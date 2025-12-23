@@ -26,7 +26,7 @@ s32 WriteFromData<s32>(s32* dest, DataEntry* data)
 {
     if (data->type != INT_ENTRY)
     {
-        printf("entry must be int but instead is %d", data->type);
+        printf("entry must be int but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->intVal;
@@ -38,7 +38,7 @@ s32 WriteFromData<f32>(f32* dest, DataEntry* data)
 {
     if (data->type != FLOAT_ENTRY)
     {
-        printf("entry must be float but instead is %d", data->type);
+        printf("entry must be float but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->floatVal;
@@ -50,7 +50,7 @@ s32 WriteFromData<bool>(bool* dest, DataEntry* data)
 {
     if (data->type != BOOL_ENTRY)
     {
-        printf("entry must be bool but instead is %d", data->type);
+        printf("entry must be bool but instead is %d\n", data->type);
         return -1;
     }
 
@@ -63,7 +63,7 @@ s32 WriteFromData<glm::vec3>(glm::vec3* dest, DataEntry* data)
 {
     if (data->type != VEC_ENTRY)
     {
-        printf("entry must be vec3 but instead is %d", data->type);
+        printf("entry must be vec3 but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->vecVal;
@@ -75,7 +75,7 @@ s32 WriteFromData<std::string>(std::string* dest, DataEntry* data)
 {
     if (data->type != STR_ENTRY)
     {
-        printf("entry must be string but instead is %d", data->type);
+        printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->stringVal;
@@ -87,7 +87,7 @@ s32 WriteFromData<MeshAsset*>(MeshAsset** dest, DataEntry* data)
 {
     if (data->type != STR_ENTRY)
     {
-        printf("entry must be string but instead is %d", data->type);
+        printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
     *dest = globalPlatformAPI.platformLoadMeshAsset(data->stringVal);
@@ -99,7 +99,7 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
 {
     if (data->type != STR_ENTRY)
     {
-        printf("entry must be string but instead is %d", data->type);
+        printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
     if (data->stringVal != "")
@@ -186,7 +186,7 @@ s32 WriteComponent(Scene &scene, EntityID entity, DataEntry* compData)
     T* comp = scene.Get<T>(entity);
     if (comp == nullptr)
     {
-        printf("entity must have component but doesn't");
+        printf("entity must have component but doesn't\n");
         return -1;
     }
     return WriteFromData<T>(comp, compData);

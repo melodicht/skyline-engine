@@ -36,7 +36,7 @@
     { \
         if (data->type != STRUCT_ENTRY) \
         { \
-            printf("entry must be struct but instead is %d", data->type); \
+            printf("entry must be struct but instead is %d\n", data->type); \
             return -1; \
         } \
         s32 rv = 0; \
