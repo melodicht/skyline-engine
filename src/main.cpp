@@ -270,10 +270,12 @@ int main(int argc, char** argv)
     }
 
 
-    RenderInitInfo initDesc {
-            .window = window,
-            .startWidth = WINDOW_WIDTH,
-            .startHeight = WINDOW_HEIGHT
+    RenderInitInfo initDesc
+    {
+        .window = window,
+        .startWidth = WINDOW_WIDTH,
+        .startHeight = WINDOW_HEIGHT,
+        .editor = editor
     };
     InitRenderer(initDesc);
 

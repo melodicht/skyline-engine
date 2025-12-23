@@ -142,7 +142,7 @@ void UpdateRenderer(Scene& scene)
         MeshComponent *m = scene.Get<MeshComponent>(ent);
         MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
         TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
-        meshInstances.push_back({model, m->color, meshID, texID});
+        meshInstances.push_back({model, m->color, meshID, texID, GetEntityIndex(ent)});
     }
 
     RenderFrameInfo sendState{

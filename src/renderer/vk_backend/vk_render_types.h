@@ -108,6 +108,8 @@ struct FrameData
     AllocatedBuffer dirCascadeBuffer;
     AllocatedBuffer spotLightBuffer;
     AllocatedBuffer pointLightBuffer;
+    AllocatedBuffer idBuffer;
+    AllocatedBuffer idTransferBuffer;
 };
 
 struct LightEntry

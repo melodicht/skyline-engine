@@ -27,6 +27,7 @@ struct MeshRenderInfo {
     glm::vec3 rgbColor;
     MeshID mesh;
     TextureID texture;
+    u32 id;
 
     // Vulkan Specific
 

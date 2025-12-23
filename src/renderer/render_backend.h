@@ -23,6 +23,8 @@ struct RenderInitInfo {
     u32 startWidth;
     u32 startHeight;
 
+    bool editor;
+
     // Vulkan Specific 
 
     // WGPU Specific
