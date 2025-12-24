@@ -176,6 +176,7 @@ struct Scene
     template<typename T>
     T *Assign(EntityID id)
     {
+        T *result = nullptr;
         ComponentID componentId = GetComponentId<T>();
 
         if (numComponents <= componentId) // Invalid component
@@ -184,11 +185,21 @@ struct Scene
             exit(1);
         }
 
-        // Looks up the component in the pool, and initializes it with placement new
-        T *pComponent = new(componentPools[componentId]->get(GetEntityIndex(id))) T();
-
-        GetEntityEntry(id).mask.set(componentId);
-        return pComponent;
+        // Verify that the component doesn't already exist.
+        EntityEntry &entityEntry = GetEntityEntry(id);
+        ComponentMask &componentMask = entityEntry.mask;
+        b32 componentAlreadyExists = componentMask.test(componentId);
+        if (componentAlreadyExists)
+        {
+            puts("Attempted to add a component to an entity that already has the component, ignoring.");
+        }
+        else
+        {
+            // Looks up the component in the pool, and initializes it with placement new
+            result = new(componentPools[componentId]->get(GetEntityIndex(id))) T();
+            componentMask.set(componentId);
+        }
+        return result;
     }
 
     // Returns the pointer to the component instance on the entity
