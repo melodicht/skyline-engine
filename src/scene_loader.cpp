@@ -258,7 +258,7 @@ s32 LoadScene(Scene& scene, std::string name)
             {
                 return -1;
             }
-            s32 compIndex = stringToId[comp->name];
+            ComponentID compIndex = stringToId[comp->name];
             ComponentInfo& compInfo = compInfos[compIndex];
             compInfo.assignFunc(scene, id);
         }
@@ -269,7 +269,7 @@ s32 LoadScene(Scene& scene, std::string name)
         EntityID id = entityIds[entity->name];
         for (DataEntry* comp : entity->structVal)
         {
-            int compIndex = stringToId[comp->name];
+            ComponentID compIndex = stringToId[comp->name];
             ComponentInfo& compInfo = compInfos[compIndex];
             rv |= compInfo.writeFunc(scene, id, comp);
         }
@@ -283,16 +283,12 @@ DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
 {
     NameComponent* nameComp = scene.Get<NameComponent>(ent);
     DataEntry* data = new DataEntry(nameComp->name);
-    ComponentMask mask = scene.GetEntityEntry(ent).mask;
-    for (s32 i = 0; i < MAX_COMPONENTS; i++)
+    for (ComponentID comp : EntityView(scene, ent))
     {
-        if (mask[i])
+        ComponentInfo& compInfo = compInfos[comp];
+        if (compInfo.name != NAME_COMPONENT)
         {
-            ComponentInfo& compInfo = compInfos[i];
-            if (compInfo.name != NAME_COMPONENT)
-            {
-                data->structVal.push_back(compInfo.readFunc(scene, ent));
-            }
+            data->structVal.push_back(compInfo.readFunc(scene, ent));
         }
     }
     return data;
