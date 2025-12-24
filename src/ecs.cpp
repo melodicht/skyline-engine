@@ -112,7 +112,7 @@ void Scene::DestroyEntity(EntityID id)
 {
     // Increments EntityVersion at the deleted index
     EntityID newID = CreateEntityId((u32) (-1), GetEntityVersion(id) + 1);
-    EntityEntry entry = GetEntityEntry(id);
+    EntityEntry &entry = GetEntityEntry(id);
     entry.id = newID;
     entry.mask.reset();
     freeIndices.push_back(GetEntityIndex(id));
