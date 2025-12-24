@@ -202,7 +202,17 @@ target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${JoltPhysics_SOURCE_DIR})
 target_precompile_headers(game-module PRIVATE
-        <iostream>)
+        $<$<PLATFORM_ID:Windows>:<windows.h>>
+        <iostream>
+        <string>
+        <vector>
+        <glm/glm.hpp>
+        <glm/gtc/type_ptr.hpp>
+        <Jolt/Jolt.h>
+        <Jolt/Core/JobSystemThreadPool.h>
+        <Jolt/Physics/PhysicsSystem.h>
+        # <imgui.h>
+)
 
 #==============================================================================
 # PLATFORM
