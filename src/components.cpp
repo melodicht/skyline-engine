@@ -84,6 +84,8 @@ s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compDa
             comp->SetParent(parentTransform);
         }
     }
+
+    comp->dirty = true;
     return rv;
 }
 template <>
