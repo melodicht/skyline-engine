@@ -1,4 +1,3 @@
-#include <toml++/toml.hpp>
 #include <iostream>
 
 std::string currentSceneName = "";
