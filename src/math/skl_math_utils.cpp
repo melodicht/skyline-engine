@@ -137,7 +137,10 @@ void Transform3D::SetParent(Transform3D *newParent)
     }
 
     this->parent = newParent;
-    newParent->children.insert(this);
+    if (newParent != nullptr)
+    {
+        newParent->children.insert(this);
+    }
     MarkDirty();
 }
 

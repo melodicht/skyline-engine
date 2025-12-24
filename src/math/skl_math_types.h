@@ -19,7 +19,6 @@ public:
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale = glm::vec3(1);
-    bool dirty = true;
 
     glm::vec3 GetLocalPosition();
     void SetLocalPosition(glm::vec3 newPos);
@@ -37,13 +36,13 @@ public:
     void GetPointViews(glm::mat4 *views);
     void SetParent(Transform3D *newParent);
     Transform3D *GetParent();
+    void MarkDirty();
 
     ~Transform3D();
 
 private:
+    bool dirty = true;
     Transform3D *parent;
     std::unordered_set<Transform3D *> children;
     glm::mat4 worldTransform;
-
-    void MarkDirty();
 };
