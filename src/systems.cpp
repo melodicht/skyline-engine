@@ -602,16 +602,20 @@ class EditorSystem : public System
 {
 private:
     EntityID editorCam;
+    EntityID selectedEntityID;
 
+    // Diplays the data entry, and indicates whether any data has been changed.
     // Only reads the data.
     // To be called inside of ImGui scope.
-    bool ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent)
+    bool ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent, b32 isComponent)
     {
+        // TODO(marvin): Duplicate code between the non-recursive cases, the way to abstract is also not immediately obvious.
         bool changed = false;
         switch (dataEntry->type)
         {
           case INT_ENTRY:
           {
+              Assert(!isComponent);
               const char *fieldName = dataEntry->name.c_str();
               ImGui::Columns(2, nullptr, false);
               ImGui::SetColumnWidth(0, 150);
@@ -627,6 +631,7 @@ private:
           }
           case FLOAT_ENTRY:
           {
+              Assert(!isComponent);
               const char *fieldName = dataEntry->name.c_str();
               ImGui::Columns(2, nullptr, false);
               ImGui::SetColumnWidth(0, 150);
@@ -642,6 +647,7 @@ private:
           }
           case BOOL_ENTRY:
           {
+              Assert(!isComponent);
               const char *fieldName = dataEntry->name.c_str();
               ImGui::Columns(2, nullptr, false);
               ImGui::SetColumnWidth(0, 150);
@@ -657,6 +663,7 @@ private:
           }
           case VEC_ENTRY:
           {
+              Assert(!isComponent);
               const char *fieldName = dataEntry->name.c_str();
               ImGui::Columns(2, nullptr, false);
               ImGui::SetColumnWidth(0, 150);
@@ -676,6 +683,7 @@ private:
           }
           case STR_ENTRY:
           {
+              Assert(!isComponent);
               const char *fieldName = dataEntry->name.c_str();
               ImGui::Columns(2, nullptr, false);
               ImGui::SetColumnWidth(0, 150);
@@ -699,25 +707,38 @@ private:
           }
           case STRUCT_ENTRY:
           {
-              changed = this->ImguiDisplayStructDataEntry(dataEntry->name, dataEntry->structVal, scene, ent);
+              changed = this->ImguiDisplayStructDataEntry(dataEntry->name, dataEntry->structVal, scene, ent, isComponent);
               break;
           }
         }
         return changed;
     }
 
+    // Diplays the data entry for a struct, and indicates whether any data has been changed.
     // Only reads from the data.
-    bool ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent)
+    bool ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent, b32 isComponent)
     {
-        const char *nodeName = name.c_str();
         bool changed = false;
+
+        if (isComponent)
+        {
+            // TODO(marvin): Integrate entity name into ID.
+            ImGui::PushID(name.c_str());
+        }
+        
+        const char *nodeName = name.c_str();
         if (ImGui::TreeNode(nodeName))
         {
             for (DataEntry *dataEntry : dataEntries)
             {
-                changed |= this->ImguiDisplayDataEntry(dataEntry, scene, ent);
+                changed |= this->ImguiDisplayDataEntry(dataEntry, scene, ent, false);
             }
             ImGui::TreePop();
+        }
+
+        if (isComponent)
+        {
+            ImGui::PopID();
         }
         return changed;
     }
@@ -777,15 +798,45 @@ public:
 
         ImGui::Begin("Overlay", nullptr, window_flags);
 
-        // First, A view for one component of one entity.
-        // For test.toml, dirLight
+        if (ImGui::BeginListBox("Entities"))
+        {
+            for (Scene::EntityEntry entityEntry : scene->entities)
+            {
+                EntityID entityID = entityEntry.id;
+                NameComponent *maybeNameComponent = scene->Get<NameComponent>(entityID);
+                if (maybeNameComponent)
+                {
+                    NameComponent *nameComponent = maybeNameComponent;
+                    const char *entityName = nameComponent->name.c_str();
 
+                    const bool isSelected = (entityID == this->selectedEntityID);
+                    if (ImGui::Selectable(entityName, isSelected))
+                    {
+                        selectedEntityID = entityID;
+                    }
+                
+                    ImGui::IsItemHovered();
+
+                    if (isSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+            
+            }
+            ImGui::EndListBox();
+        }
+
+        // 1. Display the components of the active entity ID.
+        // 2. Get all the components of that entity.
+        // 3. Find the NameComponent, which must exist, for the entity name.
+        // 4. Display each component, passing down the entity name.
+
+        // NOTE(marvin): Code for getting the component view of one entity.
         for (EntityID ent : SceneView<MeshComponent>(*scene))
         {
-            // TODO(marvin): Integrate entity name into ID.
-            ImGui::PushID("MeshComponent");
             DataEntry *dirLightDataEntry = ReadComponent<MeshComponent>(*scene, ent);
-            bool changed = ImguiDisplayDataEntry(dirLightDataEntry, *scene, ent);
+            bool changed = ImguiDisplayDataEntry(dirLightDataEntry, *scene, ent, true);
             if (changed)
             {
                 s32 val = WriteComponent<MeshComponent>(*scene, ent, dirLightDataEntry);
@@ -795,7 +846,6 @@ public:
                 }
             }
             delete dirLightDataEntry;
-            ImGui::PopID();
             break;
         }
 

@@ -187,11 +187,18 @@ struct Scene
     template<typename T>
     T *Get(EntityID id)
     {
-        int componentId = GetComponentId<T>();
-        if (!entities[GetEntityIndex(id)].mask.test(componentId))
+        u32 componentId = GetComponentId<T>();
+        void *rawResult = this->GetWithComponentID(id, componentId);
+        T *result = static_cast<T *>(rawResult);
+        return result;
+    }
+
+    void *GetWithComponentID(EntityID entityId, u32 componentId)
+    {
+        if (!entities[GetEntityIndex(entityId)].mask.test(componentId))
             return nullptr;
 
-        T *pComponent = static_cast<T *>(componentPools[componentId]->get(GetEntityIndex(id)));
+        void *pComponent = componentPools[componentId]->get(GetEntityIndex(entityId));
         return pComponent;
     }
 

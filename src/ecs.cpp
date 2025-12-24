@@ -200,3 +200,11 @@ struct SceneView
     ComponentMask componentMask;
     bool all{false};
 };
+
+#if 0
+// Iterates through the components of a given entity.
+struct EntityView
+{
+    EntityView(Entity)
+}
+#endif
