@@ -1,6 +1,8 @@
 #include <toml++/toml.hpp>
 #include <iostream>
 
+std::string currentSceneName = "";
+
 struct NameComponent
 {
     std::string name;
@@ -224,6 +226,12 @@ void RegisterComponents(Scene& scene)
     }
 }
 
+inline std::string GetCurrentSceneName()
+{
+    std::string result = currentSceneName;
+    return result;
+}
+
 s32 LoadScene(Scene& scene, std::string name)
 {
     std::string filepath = "scenes/" + name + ".toml";
@@ -267,6 +275,7 @@ s32 LoadScene(Scene& scene, std::string name)
         }
     }
     delete data;
+    currentSceneName = name;
     return rv;
 }
 
@@ -300,4 +309,9 @@ void SaveScene(Scene& scene, std::string name)
     std::string filepath = "scenes/" + name + ".toml";
     globalPlatformAPI.platformWriteDataAsset(filepath, sceneData);
     delete sceneData;
+}
+
+void SaveCurrentScene(Scene& scene)
+{
+    SaveScene(scene, GetCurrentSceneName());
 }

@@ -850,6 +850,12 @@ public:
             }
             delete dataEntry;
         }
+
+        // NOTE(marvin): Save scene button
+        if (ImGui::Button("Save Scene"))
+        {
+            SaveCurrentScene(*scene);
+        }
         
         ImGui::End();
     }
