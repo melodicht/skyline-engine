@@ -5,6 +5,7 @@ struct NameComponent
 {
     std::string name;
 };
+const char *NAME_COMPONENT = "NameComponent";
 
 struct ComponentInfo
 {
@@ -273,13 +274,13 @@ DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
 {
     NameComponent* nameComp = scene.Get<NameComponent>(ent);
     DataEntry* data = new DataEntry(nameComp->name);
-    ComponentMask mask = scene.entities[GetEntityIndex(ent)].mask;
+    ComponentMask mask = scene.GetEntityEntry(ent).mask;
     for (s32 i = 0; i < MAX_COMPONENTS; i++)
     {
         if (mask[i])
         {
             ComponentInfo& compInfo = compInfos[i];
-            if (compInfo.name != "NameComponent")
+            if (compInfo.name != NAME_COMPONENT)
             {
                 data->structVal.push_back(compInfo.readFunc(scene, ent));
             }

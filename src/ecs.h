@@ -7,8 +7,10 @@
  * TYPE DEFINITIONS AND CONSTANTS
  */
 
+// Comparison via ==
 typedef u64 EntityID;
 typedef u32 ComponentID;
+
 constexpr u32 MAX_COMPONENTS = 32;
 typedef std::bitset<MAX_COMPONENTS> ComponentMask;
 constexpr u32 MAX_ENTITIES = 32768;
@@ -89,10 +91,13 @@ const char *compName;
 // from the struct. Honestly, could just integrate it.
 local std::unordered_map<std::string, ComponentID> stringToId;
 
+// Maps a new component ID to the given component name, and produces that component ID.
 local ComponentID MakeComponentId(std::string name)
 {
-    stringToId[name] = numComponents;
-    return numComponents++;
+    ComponentID result = numComponents;
+    stringToId[name] = result;
+    numComponents++;
+    return result;
 }
 
 template<typename T>
@@ -122,6 +127,8 @@ struct Scene
     {
         EntityID id; // though redundent with index in vector, required
         // for deleting entities,
+
+        // NOTE(marvin): Only to be used within ECS-specific code.
         ComponentMask mask;
     };
 
@@ -142,6 +149,8 @@ struct Scene
     // ID. Can only support 2^64 entities without ID conflicts.
     EntityID NewEntity();
 
+    EntityEntry &GetEntityEntry(EntityID id);
+
     // Removes a given entity from the scene and signals to the scene the free space that was left behind
     void DestroyEntity(EntityID id);
 
@@ -151,13 +160,13 @@ struct Scene
     void Remove(EntityID id)
     {
         // ensures you're not accessing an entity that has been deleted
-        if (entities[GetEntityIndex(id)].id != id)
+        if (GetEntityEntry(id).id != id)
             return;
 
         ComponentID componentId = GetComponentId<T>();
         // Finds location of component data within the entity component pool and
         // resets, thus removing the component from the entity
-        entities[GetEntityIndex(id)].mask.reset(componentId);
+        GetEntityEntry(id).mask.reset(componentId);
     }
 
     // Assigns the entity associated with the given entity ID in this
@@ -178,7 +187,7 @@ struct Scene
         // Looks up the component in the pool, and initializes it with placement new
         T *pComponent = new(componentPools[componentId]->get(GetEntityIndex(id))) T();
 
-        entities[GetEntityIndex(id)].mask.set(componentId);
+        GetEntityEntry(id).mask.set(componentId);
         return pComponent;
     }
 
@@ -189,15 +198,17 @@ struct Scene
     template<typename T>
     T *Get(EntityID id)
     {
-        ComponentID componentId = GetComponentId<T>();
-        void *rawResult = this->GetWithComponentID(id, componentId);
-        T *result = static_cast<T *>(rawResult);
-        return result;
+        int componentId = GetComponentId<T>();
+        if (!entities[GetEntityIndex(id)].mask.test(componentId))
+            return nullptr;
+
+        T *pComponent = static_cast<T *>(componentPools[componentId]->get(GetEntityIndex(id)));
+        return pComponent;
     }
 
     void *GetWithComponentID(EntityID entityId, ComponentID componentId)
     {
-        if (!entities[GetEntityIndex(entityId)].mask.test(componentId))
+        if (!GetEntityEntry(entityId).mask.test(componentId))
             return nullptr;
 
         void *pComponent = componentPools[componentId]->get(GetEntityIndex(entityId));
