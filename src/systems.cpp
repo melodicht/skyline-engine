@@ -809,8 +809,10 @@ public:
                 if (maybeNameComponent)
                 {
                     NameComponent *nameComponent = maybeNameComponent;
-                    const char *entityName = nameComponent->name.c_str();
-
+                    const char *entityName = (nameComponent->name).c_str();
+                    std::string entityIDString = std::to_string(entityID);
+                    
+                    ImGui::PushID(entityIDString.c_str());
                     const bool isSelected = (entityID == this->selectedEntityID);
                     if (ImGui::Selectable(entityName, isSelected))
                     {
@@ -823,10 +825,27 @@ public:
                     {
                         ImGui::SetItemDefaultFocus();
                     }
+                    ImGui::PopID();
                 }
             
             }
             ImGui::EndListBox();
+        }
+
+        // NOTE(marvin): Add new entity.
+        if (ImGui::Button("New Entity"))
+        {
+            // TODO(marvin): Probably want a helper that creates the entity through this ritual. Common with the one in scene_loader::LoadScene, but that one doesn't assign a Transform3D.
+            EntityID newEntityID = scene->NewEntity();
+
+            // TODO(marvin): Will there be problems if there is an entity with that name already?
+            std::string entityName = "New Entity";
+            entityIds[entityName] = newEntityID;
+            NameComponent* nameComp = scene->Assign<NameComponent>(newEntityID);
+            nameComp->name = entityName;
+            scene->Assign<Transform3D>(newEntityID);
+            
+            selectedEntityID = newEntityID;
         }
 
         // NOTE(marvin): Component interactive tree view
