@@ -8,6 +8,7 @@
  */
 
 typedef u64 EntityID;
+typedef u32 ComponentID;
 constexpr u32 MAX_COMPONENTS = 32;
 typedef std::bitset<MAX_COMPONENTS> ComponentMask;
 constexpr u32 MAX_ENTITIES = 32768;
@@ -82,19 +83,20 @@ local u32 numComponents = 0;
 template<typename T>
 const char *compName;
 
-// NOTE(marvin): The reason why this is separated out from the struct
-// is to mirror the prior implementation where it was also separated
-// out from the struct. Honestly, could just integrate it.
-local std::unordered_map<std::string, u32> stringToId;
+// NOTE(marvin): Maps component name to corresponding component
+// ID. The reason why this is separated out from the struct is to
+// mirror the prior implementation where it was also separated out
+// from the struct. Honestly, could just integrate it.
+local std::unordered_map<std::string, ComponentID> stringToId;
 
-local u32 MakeComponentId(std::string name)
+local ComponentID MakeComponentId(std::string name)
 {
     stringToId[name] = numComponents;
     return numComponents++;
 }
 
 template<typename T>
-local u32 GetComponentId()
+local ComponentID GetComponentId()
 {
     if (auto search = stringToId.find(compName<T>);
             search != stringToId.end())
@@ -152,7 +154,7 @@ struct Scene
         if (entities[GetEntityIndex(id)].id != id)
             return;
 
-        int componentId = GetComponentId<T>();
+        ComponentID componentId = GetComponentId<T>();
         // Finds location of component data within the entity component pool and
         // resets, thus removing the component from the entity
         entities[GetEntityIndex(id)].mask.reset(componentId);
@@ -165,7 +167,7 @@ struct Scene
     template<typename T>
     T *Assign(EntityID id)
     {
-        int componentId = GetComponentId<T>();
+        ComponentID componentId = GetComponentId<T>();
 
         if (numComponents <= componentId) // Invalid component
         {
@@ -187,13 +189,13 @@ struct Scene
     template<typename T>
     T *Get(EntityID id)
     {
-        u32 componentId = GetComponentId<T>();
+        ComponentID componentId = GetComponentId<T>();
         void *rawResult = this->GetWithComponentID(id, componentId);
         T *result = static_cast<T *>(rawResult);
         return result;
     }
 
-    void *GetWithComponentID(EntityID entityId, u32 componentId)
+    void *GetWithComponentID(EntityID entityId, ComponentID componentId)
     {
         if (!entities[GetEntityIndex(entityId)].mask.test(componentId))
             return nullptr;
