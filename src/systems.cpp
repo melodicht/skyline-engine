@@ -602,7 +602,7 @@ class EditorSystem : public System
 {
 private:
     EntityID editorCam;
-    EntityID selectedEntityID;
+    EntityID selectedEntityID = 0;
 
     // Diplays the data entry, and indicates whether any data has been changed.
     // Only reads the data.
@@ -670,7 +670,7 @@ private:
         
               ImGui::Text("%s", fieldName);
               ImGui::NextColumn();
-              // NOTE(marvin): I think glm stores the values contiguously, but rather play it safe.
+              
               glm::vec3 vec = dataEntry->vecVal;
               f32 xyz[3] = {vec.x, vec.y, vec.z};
               if (ImGui::InputFloat3(fieldName, xyz))
@@ -722,8 +722,8 @@ private:
 
         if (isComponent)
         {
-            // TODO(marvin): Integrate entity name into ID.
-            ImGui::PushID(name.c_str());
+            std::string entityComponentUniqueName = std::to_string(ent) + name;
+            ImGui::PushID(entityComponentUniqueName.c_str());
         }
         
         const char *nodeName = name.c_str();
@@ -798,6 +798,8 @@ public:
 
         ImGui::Begin("Overlay", nullptr, window_flags);
 
+        // TODO(marvin): Make name editable.
+        // NOTE(marvin): Entities list
         if (ImGui::BeginListBox("Entities"))
         {
             for (Scene::EntityEntry entityEntry : scene->entities)
@@ -827,28 +829,28 @@ public:
             ImGui::EndListBox();
         }
 
-        // 1. Display the components of the active entity ID.
-        // 2. Get all the components of that entity.
-        // 3. Find the NameComponent, which must exist, for the entity name.
-        // 4. Display each component, passing down the entity name.
-
-        // NOTE(marvin): Code for getting the component view of one entity.
-        for (EntityID ent : SceneView<MeshComponent>(*scene))
+        // NOTE(marvin): Component interactive tree view
+        for (ComponentID componentID : EntityView(*scene, selectedEntityID))
         {
-            DataEntry *dirLightDataEntry = ReadComponent<MeshComponent>(*scene, ent);
-            bool changed = ImguiDisplayDataEntry(dirLightDataEntry, *scene, ent, true);
+            ComponentInfo compInfo = compInfos[componentID];
+            if (compInfo.name == NAME_COMPONENT)
+            {
+                continue;
+            }
+
+            DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
+            bool changed = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
             if (changed)
             {
-                s32 val = WriteComponent<MeshComponent>(*scene, ent, dirLightDataEntry);
+                s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
                 if (val != 0)
                 {
                     printf("failed to write component");
                 }
             }
-            delete dirLightDataEntry;
-            break;
+            delete dataEntry;
         }
-
+        
         ImGui::End();
     }
 };
