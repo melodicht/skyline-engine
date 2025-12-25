@@ -39,7 +39,7 @@ public:
 
     virtual JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer objectLayer) const override
     {
-        Assert(objectLayer < this->GetNumBroadPhaseLayers);
+        Assert(objectLayer < this->GetNumBroadPhaseLayers());
         // NOTE(marvin): Layer and BroadPhaseLayer maps 1:1, which is why we can do this.
         return JPH::BroadPhaseLayer(objectLayer);
     }

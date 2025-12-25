@@ -107,7 +107,8 @@ endif()
 target_compile_definitions(SHARED_DEPENDENCIES
         INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
         INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
-        INTERFACE SKL_INTERNAL=${SKL_INTERNAL})
+        INTERFACE SKL_INTERNAL=${SKL_INTERNAL}
+        INTERFACE SKL_SLOW=${SKL_SLOW})
 
 #==============================================================================
 # IMGUI
