@@ -803,9 +803,8 @@ public:
         // NOTE(marvin): Entities list
         if (ImGui::BeginListBox("Entities"))
         {
-            for (Scene::EntityEntry entityEntry : scene->entities)
+            for (EntityID entityID : SceneView(*scene))
             {
-                EntityID entityID = entityEntry.id;
                 NameComponent *maybeNameComponent = scene->Get<NameComponent>(entityID);
                 if (maybeNameComponent)
                 {
@@ -844,6 +843,13 @@ public:
             ImGui::EndListBox();
         }
 
+        // NOTE(marvin): Destroy selected entity.
+        if (ImGui::Button("Destroy Selected Entity"))
+        {
+            scene->DestroyEntity(selectedEntityID);
+            selectedEntityID = INVALID_ENTITY;
+        }
+
         // NOTE(marvin): Add new entity.
         if (ImGui::Button("New Entity"))
         {
@@ -861,55 +867,57 @@ public:
         }
 
         // NOTE(marvin): Component interactive tree view
-        for (ComponentID componentID : EntityView(*scene, selectedEntityID))
+        if (IsEntityValid(selectedEntityID))
         {
-            ComponentInfo compInfo = compInfos[componentID];
-            if (compInfo.name == NAME_COMPONENT)
+            for (ComponentID componentID : EntityView(*scene, selectedEntityID))
             {
-                continue;
-            }
-
-            DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
-            bool changed = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
-            if (changed)
-            {
-                s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
-                if (val != 0)
+                ComponentInfo compInfo = compInfos[componentID];
+                if (compInfo.name == NAME_COMPONENT)
                 {
-                    printf("failed to write component");
+                    continue;
                 }
-            }
-            delete dataEntry;
-        }
 
-        // NOTE(marvin): Add component to current entity.
-        
-        if (!this->addingComponent)
-        {
-            if (ImGui::Button("Add Component"))
-            {
-                this->addingComponent = true;
-            }
-        }
-        else
-        {
-            if (ImGui::BeginListBox("Add which component?"))
-            {
-                for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
+                DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
+                bool changed = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
+                if (changed)
                 {
-                    ComponentInfo compInfo = compInfos[componentID];
-                    if (ImGui::Button(compInfo.name.c_str()))
+                    s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
+                    if (val != 0)
                     {
-                        compInfo.assignFunc(*scene, selectedEntityID);
+                        printf("failed to write component");
                     }
                 }
-                ImGui::EndListBox();
+                delete dataEntry;
             }
-            
-            if (ImGui::Button("Cancel"))
+            // NOTE(marvin): Add component to current entity.
+            if (!this->addingComponent)
             {
-                this->addingComponent = false;
+                if (ImGui::Button("Add Component"))
+                {
+                    this->addingComponent = true;
+                }
             }
+            else
+            {
+                if (ImGui::BeginListBox("Add which component?"))
+                {
+                    for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
+                    {
+                        ComponentInfo compInfo = compInfos[componentID];
+                        if (ImGui::Button(compInfo.name.c_str()))
+                        {
+                            compInfo.assignFunc(*scene, selectedEntityID);
+                        }
+                    }
+                    ImGui::EndListBox();
+                }
+            
+                if (ImGui::Button("Cancel"))
+                {
+                    this->addingComponent = false;
+                }
+            }
+
         }
 
         // NOTE(marvin): Save scene button

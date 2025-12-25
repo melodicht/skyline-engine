@@ -8,6 +8,7 @@
  */
 
 // Comparison via ==
+// Note the INVALID_ENTITY
 typedef u64 EntityID;
 typedef u32 ComponentID;
 
