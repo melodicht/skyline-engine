@@ -201,8 +201,8 @@ target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${JoltPhysics_SOURCE_DIR})
-target_precompile_headers(game-module PRIVATE
-        $<$<PLATFORM_ID:Windows>:<windows.h>>
+
+set(PCH_HEADERS
         <iostream>
         <string>
         <vector>
@@ -211,8 +211,15 @@ target_precompile_headers(game-module PRIVATE
         <Jolt/Jolt.h>
         <Jolt/Core/JobSystemThreadPool.h>
         <Jolt/Physics/PhysicsSystem.h>
+        # TODO(marvin): Precompiling imgui header causes problems.
         # <imgui.h>
 )
+
+if(WIN32)
+        list(APPEND PCH_HEADERS <windows.h>)
+endif()
+
+target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
 
 #==============================================================================
 # PLATFORM
