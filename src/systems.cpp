@@ -814,16 +814,27 @@ public:
                     
                     ImGui::PushID(entityIDString.c_str());
                     const bool isSelected = (entityID == this->selectedEntityID);
-                    if (ImGui::Selectable(entityName, isSelected))
-                    {
-                        selectedEntityID = entityID;
-                    }
-                
-                    ImGui::IsItemHovered();
 
                     if (isSelected)
                     {
-                        ImGui::SetItemDefaultFocus();
+                        // NOTE(marvin): Pulled this number out of my ass.
+                        char buf[256];
+                        strncpy(buf, entityName, sizeof(buf) - 1);
+                        buf[sizeof(buf) - 1] = '\0';
+
+                        if (ImGui::InputText(("##" + entityIDString).c_str(), buf, sizeof(buf)))
+                        {
+                            nameComponent->name = buf;
+                        }
+                    }
+                    else
+                    {
+                        if (ImGui::Selectable(entityName, isSelected))
+                        {
+                            selectedEntityID = entityID;
+                        }
+                
+                        ImGui::IsItemHovered();
                     }
                     ImGui::PopID();
                 }
