@@ -602,7 +602,7 @@ class EditorSystem : public System
 {
 private:
     EntityID editorCam;
-    EntityID selectedEntityID = 0;
+    EntityID selectedEntityID = INVALID_ENTITY;
     b32 addingComponent = false;
 
     // Diplays the data entry, and indicates whether any data has been changed.
@@ -844,7 +844,7 @@ public:
         }
 
         // NOTE(marvin): Destroy selected entity.
-        if (ImGui::Button("Destroy Selected Entity"))
+        if (IsEntityValid(selectedEntityID) && ImGui::Button("Destroy Selected Entity"))
         {
             scene->DestroyEntity(selectedEntityID);
             selectedEntityID = INVALID_ENTITY;
