@@ -605,13 +605,35 @@ private:
     EntityID selectedEntityID = INVALID_ENTITY;
     b32 addingComponent = false;
 
-    // Diplays the data entry, and indicates whether any data has been changed.
+    enum ComponentDataEntryAction : u32
+    {
+        NOTHING = 0b0,
+        REWRITE = 0b1,
+        REMOVE  = 0b10,
+    };
+
+    typedef u32 ComponentDataEntryActionOutcome;
+
+    b32 ShouldRewriteComponentDataEntry(ComponentDataEntryActionOutcome outcome)
+    {
+        b32 result = (outcome & REWRITE);
+        return result;
+    }
+
+    b32 ShouldRemoveComponentDataEntry(ComponentDataEntryActionOutcome outcome)
+    {
+        b32 result = (outcome & REMOVE);
+        return result;
+    }
+
+    // Diplays the data entry, and indicates whether any action must
+    // be taken on the component root data entry.
     // Only reads the data.
     // To be called inside of ImGui scope.
-    bool ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent, b32 isComponent)
+    ComponentDataEntryActionOutcome ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent, b32 isComponent)
     {
         // TODO(marvin): Duplicate code between the non-recursive cases, the way to abstract is also not immediately obvious.
-        bool changed = false;
+        ComponentDataEntryActionOutcome result = NOTHING;
         switch (dataEntry->type)
         {
           case INT_ENTRY:
@@ -625,7 +647,7 @@ private:
               ImGui::NextColumn();
               if (ImGui::InputInt(fieldName, &(dataEntry->intVal)))
               {
-                  changed = true;
+                  result = REWRITE;
               }
               ImGui::NextColumn();
               break;
@@ -641,7 +663,7 @@ private:
               ImGui::NextColumn();
               if (ImGui::InputFloat(fieldName, &(dataEntry->floatVal)))
               {
-                  changed = true;
+                  result = REWRITE;
               }
               ImGui::NextColumn();
               break;
@@ -657,7 +679,7 @@ private:
               ImGui::NextColumn();
               if (ImGui::Checkbox(fieldName, &(dataEntry->boolVal)))
               {
-                  changed = true;
+                  result = REWRITE;
               }
               ImGui::NextColumn();
               break;
@@ -677,7 +699,7 @@ private:
               if (ImGui::InputFloat3(fieldName, xyz))
               {
                   dataEntry->vecVal = {xyz[0], xyz[1], xyz[2]};
-                  changed = true;
+                  result = REWRITE;
               }
               ImGui::NextColumn();
               break;
@@ -701,25 +723,25 @@ private:
               if (ImGui::InputText(fieldName, buf, sizeof(buf)))
               {
                   dataEntry->stringVal = buf;
-                  changed = true;
+                  result = REWRITE;
               }
               ImGui::NextColumn();
               break;
           }
           case STRUCT_ENTRY:
           {
-              changed = this->ImguiDisplayStructDataEntry(dataEntry->name, dataEntry->structVal, scene, ent, isComponent);
+              result = this->ImguiDisplayStructDataEntry(dataEntry->name, dataEntry->structVal, scene, ent, isComponent);
               break;
           }
         }
-        return changed;
+        return result;
     }
 
     // Diplays the data entry for a struct, and indicates whether any data has been changed.
     // Only reads from the data.
-    bool ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent, b32 isComponent)
+    ComponentDataEntryActionOutcome ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent, b32 isComponent)
     {
-        bool changed = false;
+        ComponentDataEntryActionOutcome result = NOTHING;
 
         if (isComponent)
         {
@@ -730,9 +752,14 @@ private:
         const char *nodeName = name.c_str();
         if (ImGui::TreeNode(nodeName))
         {
+            if (ImGui::Button("Remove Component"))
+            {
+                result = REMOVE;
+            }
+            
             for (DataEntry *dataEntry : dataEntries)
             {
-                changed |= this->ImguiDisplayDataEntry(dataEntry, scene, ent, false);
+                result |= this->ImguiDisplayDataEntry(dataEntry, scene, ent, false);
             }
             ImGui::TreePop();
         }
@@ -741,7 +768,7 @@ private:
         {
             ImGui::PopID();
         }
-        return changed;
+        return result;
     }
 
 public:
@@ -866,9 +893,9 @@ public:
             selectedEntityID = newEntityID;
         }
 
-        // NOTE(marvin): Component interactive tree view
         if (IsEntityValid(selectedEntityID))
         {
+            // NOTE(marvin): Component interactive tree view
             for (ComponentID componentID : EntityView(*scene, selectedEntityID))
             {
                 ComponentInfo compInfo = compInfos[componentID];
@@ -877,15 +904,23 @@ public:
                     continue;
                 }
 
+                // NOTE(marvin): It's not possible to rewrite and
+                // remove at the same time, but rewrite is
+                // prioritised. Allowing both at the same time (if
+                // somehow possible) seems risky.
                 DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
-                bool changed = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
-                if (changed)
+                ComponentDataEntryActionOutcome componentOutcome = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
+                if (this->ShouldRewriteComponentDataEntry(componentOutcome))
                 {
                     s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
                     if (val != 0)
                     {
                         printf("failed to write component");
                     }
+                }
+                else if (this->ShouldRemoveComponentDataEntry(componentOutcome))
+                {
+                    compInfo.removeFunc(*scene, selectedEntityID);
                 }
                 delete dataEntry;
             }

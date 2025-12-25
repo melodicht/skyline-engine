@@ -11,6 +11,7 @@ const char *NAME_COMPONENT = "NameComponent";
 struct ComponentInfo
 {
     void (*assignFunc)(Scene&, EntityID);
+    void (*removeFunc)(Scene&, EntityID);
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
@@ -187,6 +188,12 @@ void AssignComponent(Scene &scene, EntityID entity)
 }
 
 template <typename T>
+void RemoveComponent(Scene &scene, EntityID entity)
+{
+    scene.Remove<T>(entity);
+}
+
+template <typename T>
 s32 WriteComponent(Scene &scene, EntityID entity, DataEntry* compData)
 {
     T* comp = scene.Get<T>(entity);
@@ -214,7 +221,7 @@ void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    compInfos.push_back({AssignComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
+    compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
 }
 
 // Runs in O(1), courtesy of std::vector.
