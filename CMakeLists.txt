@@ -116,7 +116,8 @@ endif()
 target_compile_definitions(SHARED_DEPENDENCIES
         INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
         INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
-        INTERFACE SKL_INTERNAL=${SKL_INTERNAL})
+        INTERFACE SKL_INTERNAL=${SKL_INTERNAL}
+        INTERFACE SKL_SLOW=${SKL_SLOW})
 
 #==============================================================================
 # RENDERING BACKEND
@@ -201,8 +202,8 @@ target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${JoltPhysics_SOURCE_DIR})
-target_precompile_headers(game-module PRIVATE
-        $<$<PLATFORM_ID:Windows>:<windows.h>>
+
+set(PCH_HEADERS
         <iostream>
         <string>
         <vector>
@@ -211,8 +212,15 @@ target_precompile_headers(game-module PRIVATE
         <Jolt/Jolt.h>
         <Jolt/Core/JobSystemThreadPool.h>
         <Jolt/Physics/PhysicsSystem.h>
+        # TODO(marvin): Precompiling imgui header causes problems.
         # <imgui.h>
 )
+
+if(WIN32)
+        list(APPEND PCH_HEADERS <windows.h>)
+endif()
+
+target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
 
 #==============================================================================
 # PLATFORM
