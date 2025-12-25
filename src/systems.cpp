@@ -603,6 +603,7 @@ class EditorSystem : public System
 private:
     EntityID editorCam;
     EntityID selectedEntityID = 0;
+    b32 addingComponent = false;
 
     // Diplays the data entry, and indicates whether any data has been changed.
     // Only reads the data.
@@ -879,6 +880,36 @@ public:
                 }
             }
             delete dataEntry;
+        }
+
+        // NOTE(marvin): Add component to current entity.
+        
+        if (!this->addingComponent)
+        {
+            if (ImGui::Button("Add Component"))
+            {
+                this->addingComponent = true;
+            }
+        }
+        else
+        {
+            if (ImGui::BeginListBox("Add which component?"))
+            {
+                for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
+                {
+                    ComponentInfo compInfo = compInfos[componentID];
+                    if (ImGui::Button(compInfo.name.c_str()))
+                    {
+                        compInfo.assignFunc(*scene, selectedEntityID);
+                    }
+                }
+                ImGui::EndListBox();
+            }
+            
+            if (ImGui::Button("Cancel"))
+            {
+                this->addingComponent = false;
+            }
         }
 
         // NOTE(marvin): Save scene button

@@ -217,6 +217,13 @@ void AddComponent(const char *name)
     compInfos.push_back({AssignComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
 }
 
+// Runs in O(1), courtesy of std::vector.
+u32 GetNumberOfDefinedComponents()
+{
+    u32 result = compInfos.size();
+    return result;
+}
+
 void RegisterComponents(Scene& scene)
 {
     for (ComponentInfo& compInfo : compInfos)

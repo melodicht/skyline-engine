@@ -209,6 +209,7 @@ struct SceneView
 };
 
 // Iterates through the components of a given entity.
+// NOTE(marvin): Could use GetNumberOfDefinedComponents() instead of MAX_COMPONENTS. Playing the safe route.
 struct EntityView
 {
 private:
@@ -268,3 +269,66 @@ public:
     }
 };
 
+// TODO(marvin): GetNumberOfDefinedComponents is currently defined in scene_loader, because it relies on the book-keeping of the scene editor functionality, and the entity view and entity complement view are also really used for scene editor functionality... would they ever be used for non scene editor things?
+
+u32 GetNumberOfDefinedComponents();
+
+// Iterates through the components that don't exist on a given entity.
+struct EntityComplementView
+{
+private:
+    ComponentMask componentMask;
+
+public:
+    EntityComplementView(Scene &scene, EntityID entityID)
+    {
+        this->componentMask = scene.GetEntityEntry(entityID).mask;
+    }
+
+    struct Iterator
+    {
+        Iterator(ComponentID index, ComponentMask mask) : index(index), mask(mask) {}
+
+        ComponentID operator*() const
+        {
+            return index;
+        }
+
+        bool operator==(const Iterator &other) const
+        {
+            return (index == other.index) || (!ValidIndex() && !other.ValidIndex());
+        }
+
+        bool operator!=(const Iterator &other) const
+        {
+            return (index != other.index) && (ValidIndex() || other.ValidIndex());
+        }
+
+        bool ValidIndex() const
+        {
+            return index < GetNumberOfDefinedComponents();
+        }
+
+        Iterator &operator++()
+        {
+            do
+            {
+                index++;
+            } while (ValidIndex() && mask.test(index));
+            return *this;
+        }
+
+        u32 index;
+        ComponentMask mask;
+    };
+
+    const Iterator begin() const
+    {
+        return Iterator(0, componentMask);
+    }
+
+    const Iterator end() const
+    {
+        return Iterator(GetNumberOfDefinedComponents(), componentMask);
+    }
+};
