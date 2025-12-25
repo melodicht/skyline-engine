@@ -25,6 +25,10 @@ MeshID UploadMesh(RenderUploadMeshInfo& desc) {
     return wgpuRenderer.UploadMesh(desc.vertSize, desc.vertData, desc.idxSize, desc.idxData);
 }
 
+TextureID UploadTexture(RenderUploadTextureInfo& desc) {
+    return 0;
+}
+
 void DestroyMesh(RenderDestroyMeshInfo& desc) {
     wgpuRenderer.DestroyMesh(desc.meshID);
 }
@@ -33,3 +37,24 @@ void DestroyMesh(RenderDestroyMeshInfo& desc) {
 void RenderUpdate(RenderFrameInfo& state) {
     wgpuRenderer.RenderUpdate(state);
 }
+
+LightID AddDirLight() {
+    return wgpuRenderer.AddDirLight();
+}
+LightID AddSpotLight() {
+    return wgpuRenderer.AddSpotLight();
+}
+LightID AddPointLight() {
+    return wgpuRenderer.AddPointLight();
+}
+
+void DestroyDirLight(LightID lightID) {
+    wgpuRenderer.DestroyDirLight(lightID);
+}
+void DestroySpotLight(LightID lightID) {
+    wgpuRenderer.DestroySpotLight(lightID);
+}
+void DestroyPointLight(LightID lightID) {
+    wgpuRenderer.DestroyPointLight(lightID);
+}
+
