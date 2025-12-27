@@ -25,7 +25,7 @@
 #include "vulkan/vma_no_warnings.h"
 #include <iostream>
 
-#include <backends/imgui_impl_vulkan.h>
+#include <imgui_impl_vulkan.h>
 
 #include "asset_types.h"
 #include "renderer/render_backend.h"
@@ -1254,16 +1254,10 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .depthAttachmentFormat = depthFormat
     };
 
-    VkPipelineRenderingCreateInfo imguiRenderInfo = colorRenderInfo;
-
     VkPipelineColorBlendAttachmentState idBlendAttachment
     {
         .blendEnable = VK_FALSE,
-        .colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT
-            | VK_COLOR_COMPONENT_G_BIT
-            | VK_COLOR_COMPONENT_B_BIT
-            | VK_COLOR_COMPONENT_A_BIT
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT
     };
 
     VkPipelineColorBlendAttachmentState blendAttachments[2] = {colorBlendAttachment, idBlendAttachment};
@@ -1353,9 +1347,10 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .MinImageCount = 2,
         .ImageCount = 2,
         .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+        .Editor = editor,
         .DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 1,
         .UseDynamicRendering = true,
-        .PipelineRenderingCreateInfo = imguiRenderInfo
+        .PipelineRenderingCreateInfo = colorRenderInfo
     };
     ImGui_ImplVulkan_Init(&imGuiInfo);
 

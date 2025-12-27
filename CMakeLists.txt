@@ -157,7 +157,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         add_library(vulkan-backend SHARED
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
-                ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
+                ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
                 Vulkan::Headers)
@@ -167,8 +167,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
-                ${CMAKE_CURRENT_SOURCE_DIR}/src
-                $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+                ${CMAKE_CURRENT_SOURCE_DIR}/src)
         target_compile_definitions(vulkan-backend PRIVATE VK_NO_PROTOTYPES)
         target_compile_definitions(RENDERING_BACKEND INTERFACE
                 SKL_RENDERER=0
