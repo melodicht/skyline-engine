@@ -257,6 +257,7 @@ int main()
     PlatformAPI platformAPI = {};
     platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
     platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
+    platformAPI.platformLoadSkyboxAsset = &LoadSkyboxAsset;
 
     Scene scene;
     gameCode.gameInitialize(scene, gameMemory, platformAPI);

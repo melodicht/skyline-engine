@@ -14,7 +14,7 @@
 class WGPUBackendBaseDynamicShadowMapArray : public WGPUBackendBindGroup::IWGPUBackendUniformEntry {
 private:
     WGPUBindGroupEntry m_currentBindGroupEntry;
-    std::vector<std::reference_wrapper<WGPUBackendBindGroup>> m_bindGroups;
+    std::vector<WGPUBackendBindGroup*> m_bindGroups;
     std::vector<WGPUTextureView> m_arrayLayerViews;
     WGPUTextureView m_wholeTextureDataView;
     WGPUTexture m_textureData;
@@ -57,7 +57,6 @@ public:
         std::string label,
         std::string wholeViewLabel,
         std::string layerViewLabel, 
-        u16 binding,
         bool cubeMapView);
     // Completely clears all previous data and remakes shadow map
     void Reset(
@@ -69,7 +68,6 @@ public:
         std::string label,
         std::string wholeViewLabel,
         std::string layerViewLabel,
-        u16 binding,
         bool cubeMapView);
 
     // Ensures no copy is made to avoid wgpu object reference conflicts
@@ -84,8 +82,8 @@ public:
     void UnregisterShadow();
 
     // Used to update bind group on shadow texture resizing
-    WGPUBindGroupEntry GetEntry() override;
-    void RegisterBindGroup(WGPUBackendBindGroup& bindGroup) override;
+    WGPUBindGroupEntry GetEntry(u32 binding) override;
+    void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) override;
 
     WGPUTextureView GetView(u16 shadowIndex);
 };

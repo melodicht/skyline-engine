@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <string>
 #include <set>
+#include <array>
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
@@ -35,10 +36,14 @@ typedef PLATFORM_LOAD_MESH_ASSET(platform_load_mesh_asset_t);
 #define PLATFORM_LOAD_TEXTURE_ASSET(proc) TextureAsset* proc(std::string name)
 typedef PLATFORM_LOAD_TEXTURE_ASSET(platform_load_texture_asset_t);
 
+#define PLATFORM_LOAD_SKYBOX_ASSET(proc) void proc(std::array<std::string,6> names)
+typedef PLATFORM_LOAD_SKYBOX_ASSET(platform_load_skybox_asset_t);
+
 struct PlatformAPI
 {
     platform_load_mesh_asset_t *platformLoadMeshAsset;
     platform_load_texture_asset_t *platformLoadTextureAsset;
+    platform_load_skybox_asset_t *platformLoadSkyboxAsset;
 };
 
 // NOTE(marvin): Game platform only needs to know about scene, and only system needs to know about game input. Maybe separate out scene.h?

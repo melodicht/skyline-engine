@@ -26,7 +26,14 @@ MeshID UploadMesh(RenderUploadMeshInfo& desc) {
 }
 
 TextureID UploadTexture(RenderUploadTextureInfo& desc) {
-    return 0;
+        return 0;
+}
+
+void SetSkyboxTexture(RenderSetSkyboxInfo& info) {
+    wgpuRenderer.SetSkybox(
+        info.width, 
+        info.height, 
+        info.cubemapData);
 }
 
 void DestroyMesh(RenderDestroyMeshInfo& desc) {

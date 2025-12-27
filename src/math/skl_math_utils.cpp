@@ -76,29 +76,14 @@ glm::mat4 Transform3D::GetWorldTransform()
     return this->worldTransform;
 }
 
-glm::vec3 GetForwardVector(const glm::mat4x4& rotMat)
-{
-    return rotMat * glm::vec4(1.0, 0.0, 0.0, 0.0);
-}
-
 glm::vec3 Transform3D::GetForwardVector()
 {
-    return ::GetForwardVector(GetWorldTransform());
-}
-
-glm::vec3 GetRightVector(const glm::mat4x4& rotMat)
-{
-    return rotMat * glm::vec4(0.0, 1.0, 0.0, 0.0);
+    return GetWorldTransform() * glm::vec4(1.0, 0.0, 0.0, 0.0);
 }
 
 glm::vec3 Transform3D::GetRightVector()
 {
-    return ::GetRightVector(GetWorldTransform());
-}
-
-glm::vec3 GetUpVector(const glm::mat4x4& rotMat)
-{
-    return rotMat * glm::vec4(0.0, 0.0, 1.0, 0.0);
+    return GetWorldTransform() * glm::vec4(0.0, 1.0, 0.0, 0.0);
 }
 
 glm::vec3 Transform3D::GetUpVector()
@@ -196,9 +181,9 @@ glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec) {
   }
 }
 
-glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right) {
+glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& left) {
   return glm::mat4x4(
-    glm::vec4(right, 0.0f),
+    glm::vec4(left, 0.0f),
     glm::vec4(up, 0.0f),
     glm::vec4(forward, 0.0f),
     glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)

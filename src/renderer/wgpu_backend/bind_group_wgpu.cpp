@@ -16,12 +16,14 @@ WGPUBackendBindGroup::~WGPUBackendBindGroup() {
     }
 }
 
-void WGPUBackendBindGroup::InitOrUpdateBindGroup(const WGPUDevice& device) {
+void WGPUBackendBindGroup::UpdateBindGroup(const WGPUDevice& device) {
     m_inited = true;
 
     std::vector<WGPUBindGroupEntry> bindGroups;
-    for (IWGPUBackendUniformEntry& entry : m_bindGroupEntryDescriptors) {
-        bindGroups.push_back(entry.GetEntry());
+    for (u32 entryIter = 0 ; entryIter < m_bindGroupEntryDescriptors.size() ; entryIter++) {
+        IWGPUBackendUniformEntry* entry = m_bindGroupEntryDescriptors[entryIter];
+        u32 binding = m_bindGroupEntryBinding[entryIter];
+        bindGroups.push_back(entry->GetEntry(binding));
     }
 
     WGPUBindGroupDescriptor bindGroupDesc {
@@ -35,7 +37,7 @@ void WGPUBackendBindGroup::InitOrUpdateBindGroup(const WGPUDevice& device) {
     m_bindGroupDat = wgpuDeviceCreateBindGroup(device, &bindGroupDesc);
 }
 
-void WGPUBackendBindGroup::BindToRenderPass(WGPURenderPassEncoder& renderPass) {
+void WGPUBackendBindGroup::BindToRenderPass(WGPURenderPassEncoder& renderPass) const {
     if(!m_inited) {
         // TODO: Make sure assert is only hit in debug
         assert(true);
@@ -45,7 +47,8 @@ void WGPUBackendBindGroup::BindToRenderPass(WGPURenderPassEncoder& renderPass) {
     wgpuRenderPassEncoderSetBindGroup(renderPass, 0, m_bindGroupDat, 0, nullptr);
 }
 
-void WGPUBackendBindGroup::AddEntryToBindingGroup(IWGPUBackendUniformEntry& entry) {
-    m_bindGroupEntryDescriptors.push_back(std::reference_wrapper<IWGPUBackendUniformEntry>(entry));
-    entry.RegisterBindGroup(*this);
+void WGPUBackendBindGroup::AddEntryToBindingGroup(IWGPUBackendUniformEntry* entry, u32 binding) {
+    m_bindGroupEntryDescriptors.push_back(entry);
+    m_bindGroupEntryBinding.push_back(binding);
+    entry->RegisterBindGroup(this);
 }

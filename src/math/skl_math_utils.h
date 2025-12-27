@@ -15,25 +15,6 @@ glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec);
 
 glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right);
 
-glm::mat4 GetRotationMatrix(Transform3D *transform);
-
-glm::mat4 GetTransformMatrix(Transform3D *transform);
-
-glm::vec3 GetForwardVector(const glm::mat4x4& rotMat);
-
-glm::vec3 GetForwardVector(Transform3D *transform);
-
-glm::vec3 GetRightVector(const glm::mat4x4& rotMat);
-
-glm::vec3 GetRightVector(Transform3D *transform);
-
-glm::vec3 GetUpVector(const glm::mat4x4& rotMat);
-
-glm::vec3 GetUpVector(Transform3D *transform);
-
-glm::mat4 GetViewMatrix(Transform3D *transform);
-
-void GetPointViews(Transform3D *transform, glm::mat4 *views);
 
 // Generates a random float in the inclusive range of the two given
 // floats.

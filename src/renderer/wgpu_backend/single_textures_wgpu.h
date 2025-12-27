@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/skl_math_consts.h"
+#include "math/skl_math_types.h"
 #include "renderer/wgpu_backend/utils_wgpu.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
 #include "renderer/wgpu_backend/bind_group_wgpu.h"
@@ -13,58 +13,53 @@
 class WebGPUBackendCubemapTextureBuffer : public WGPUBackendBindGroup::IWGPUBackendUniformEntry {
 private:
     WGPUBindGroupEntry m_currentBindGroupEntry;
-    std::vector<std::reference_wrapper<WGPUBackendBindGroup>> bindGroups;
-    WGPUTextureView m_wholeTextureDataView;
-    WGPUTexture m_textureBuffer;
-
-    WebGPUBackendCubemapTextureBuffer();
+    std::vector<WGPUBackendBindGroup*> m_bindGroups;
+    std::string m_label;
+    std::string m_viewLabel;
+    WGPUTexture m_textureData;
+    WGPUTextureView m_textureCubemapView;
+    u32 m_width;
+    u32 m_height;
+    bool m_inited;
 
     void ClearBuffers();
-
-    void UpdateBindGroups();
+    
+    void UpdateBindGroups(const WGPUDevice& device);
 
 public:
+    WebGPUBackendCubemapTextureBuffer();
     virtual ~WebGPUBackendCubemapTextureBuffer();
 
+    bool GetInitiated();
+
     // Directly takes in cubemap data
-    // TODO: Ideally the renderer should not be handling this logic so directly, find a more encapsulated way of dealing with such data
     void Init(
         const WGPUDevice& device, 
-        u32 arrayLayerWidth, 
-        u32 arrayLayerHeight, 
-        u16 maxTextureDepth, 
+        u32 texturesWidth, 
+        u32 texturesHeight, 
         std::string&& label,
-        std::string&& wholeViewLabel,
-        std::string&& layerViewLabel, 
-        std::string&& frontPath,
-        std::string&& leftPath,
-        std::string&& rightPath,
-        std::string&& upPath,
-        std::string&& downPath,
-        std::string&& backPath,
-        u16 binding);
+        std::string&& viewLabel);
 
     void Reinit(
         const WGPUDevice& device, 
-        u32 arrayLayerWidth, 
-        u32 arrayLayerHeight, 
-        u16 maxTextureDepth, 
+        u32 texturesWidth, 
+        u32 texturesHeight, 
         std::string&& label,
-        std::string&& wholeViewLabel,
-        std::string&& layerViewLabel, 
-        std::string&& frontPath,
-        std::string&& leftPath,
-        std::string&& rightPath,
-        std::string&& upPath,
-        std::string&& downPath,
-        std::string&& backPath,
-        u16 binding);
+        std::string&& viewLabel);
+
+
+    void Insert(
+        const WGPUDevice& device, 
+        const WGPUQueue& queue,
+        u32 texturesWidth, 
+        u32 texturesHeight, 
+        std::array<u32*,6> faceData);
 
     WGPUTextureView getView();
     
     // Used to update bind group on underlying texture change
-    WGPUBindGroupEntry GetEntry() override;
-    void RegisterBindGroup(WGPUBackendBindGroup& bindGroup) override;
+    WGPUBindGroupEntry GetEntry(u32 binding) override;
+    void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) override;
 
     // Ensures no copy is made to avoid wgpu object reference conflicts
     WebGPUBackendCubemapTextureBuffer(const WebGPUBackendCubemapTextureBuffer&) = delete;

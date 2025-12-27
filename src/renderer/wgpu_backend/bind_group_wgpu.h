@@ -19,8 +19,8 @@ public:
     // Encapsulates the data stored in a single uniform entry
     class IWGPUBackendUniformEntry {
     public:
-        virtual WGPUBindGroupEntry GetEntry() = 0 ;
-        virtual void RegisterBindGroup(WGPUBackendBindGroup& bindGroup) = 0;
+        virtual WGPUBindGroupEntry GetEntry(u32 binding) = 0 ;
+        virtual void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) = 0;
 
         virtual ~IWGPUBackendUniformEntry() {}
     };
@@ -30,8 +30,9 @@ protected:
     WGPUBindGroup m_bindGroupDat;
     WGPUBindGroupLayout m_bindGroupLayout;
     // Entries to handle bind group recreations
-    std::vector<std::reference_wrapper<IWGPUBackendUniformEntry>> m_bindGroupEntryDescriptors;
-    // Ensures that InitOrUpdateBindGroup gets called
+    std::vector<IWGPUBackendUniformEntry*> m_bindGroupEntryDescriptors;
+    std::vector<u32> m_bindGroupEntryBinding;
+    // Ensures that UpdateBindGroup gets called
     bool m_inited;
     WGPUStringView m_bindGroupLabel;
 
@@ -50,14 +51,14 @@ public:
 
     // Uses current entries to recreate binding groups
     // Needs to be called once before initialization
-    void InitOrUpdateBindGroup(const WGPUDevice& device);
+    void UpdateBindGroup(const WGPUDevice& device);
 
     // Applies bind group to render pass
     // Needs to be inited beforehand
-    void BindToRenderPass(WGPURenderPassEncoder& renderPass);
+    void BindToRenderPass(WGPURenderPassEncoder& renderPass) const;
 
     // Inserts a uniform entry into a binding group
-    void AddEntryToBindingGroup(IWGPUBackendUniformEntry& entry);
+    void AddEntryToBindingGroup(IWGPUBackendUniformEntry* entry, u32 binding);
 };
 
 template <typename BufferStruct>
@@ -249,7 +250,7 @@ public:
 template <typename StorageStruct>
 class WGPUBackendSingleStorageArrayBuffer : public WGPUBackendArrayBuffer<StorageStruct>, public WGPUBackendBindGroup::IWGPUBackendUniformEntry {
 private:
-    std::vector<std::reference_wrapper<WGPUBackendBindGroup>> m_bindGroups{ };
+    std::vector<WGPUBackendBindGroup*> m_bindGroups{ };
     WGPUBindGroupEntry m_currentBindGroupEntry{ };
 
     void UpdateRegisteredBindGroups(const WGPUDevice& device, const WGPUQueue& queue) {
@@ -258,17 +259,18 @@ private:
         m_currentBindGroupEntry.size = WGPUBackendArrayBuffer<StorageStruct>::m_currentBufferAllocatedSize * sizeof(StorageStruct);
 
         // Recreates binding group
-        for (std::reference_wrapper<WGPUBackendBindGroup> bindGroup : m_bindGroups) {
-            bindGroup.get().InitOrUpdateBindGroup(device);
+        for (WGPUBackendBindGroup* bindGroup : m_bindGroups) {
+            bindGroup->UpdateBindGroup(device);
         }
     }
 
 protected:
-    WGPUBindGroupEntry GetEntry() override {
+    WGPUBindGroupEntry GetEntry(u32 binding) override {
+        m_currentBindGroupEntry.binding = binding;
         return m_currentBindGroupEntry;
     }
 
-    void RegisterBindGroup(WGPUBackendBindGroup& bindGroup) override {
+    void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) override {
         m_bindGroups.push_back(bindGroup);
     }
 
@@ -293,11 +295,10 @@ public:
     WGPUBackendSingleStorageArrayBuffer() { }
 
     // For now begin size and size limits describe amount of given struct that can be, not the byte size
-    void Init(const WGPUDevice& device, const char* bufferLabel, u32 binding, u32 sizeLimit) {
+    void Init(const WGPUDevice& device, const char* bufferLabel, u32 sizeLimit) {
         WGPUBackendArrayBuffer<StorageStruct>::Init(device, WGPUBufferUsage_Storage, bufferLabel, sizeLimit);
         m_currentBindGroupEntry = WGPUBindGroupEntry {
             .nextInChain = nullptr,
-            .binding = binding,
             .buffer = WGPUBackendArrayBuffer<StorageStruct>::m_bufferDat,
             .offset = 0,
             .size = sizeof(StorageStruct)
@@ -321,18 +322,19 @@ private:
     WGPUBuffer m_bufferDat;
     WGPUBindGroupEntry m_currentBindGroupEntry;
 
-    WGPUBindGroupEntry GetEntry() override {
+    WGPUBindGroupEntry GetEntry(u32 binding) override {
+        m_currentBindGroupEntry.binding = binding;
         return m_currentBindGroupEntry;
     }
 
     // No need to update bind group therefore no change
-    void RegisterBindGroup(WGPUBackendBindGroup& bindGroup) override { }
+    void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) override { }
 
 public:
     // Uninitialized uniform buffer
     WGPUBackendSingleUniformBuffer() { }
 
-    void Init(const WGPUDevice& device, const char* bufferLabel, u32 binding) {
+    void Init(const WGPUDevice& device, const char* bufferLabel) {
         WGPUBufferDescriptor bufferDesc {
             .nextInChain = nullptr,
             .label = WGPUBackendUtils::wgpuStr(bufferLabel),
@@ -345,7 +347,6 @@ public:
 
         m_currentBindGroupEntry = WGPUBindGroupEntry {
             .nextInChain = nullptr,
-            .binding = binding,
             .buffer = m_bufferDat,
             .offset = 0,
             .size = sizeof(UniformStruct)
@@ -375,20 +376,23 @@ private:
     // Encapsulated sampler data
     WGPUSampler m_samplerData = nullptr;
     WGPUBindGroupEntry m_currentBindGroupEntry;
-    std::vector<std::reference_wrapper<WGPUBackendBindGroup>> m_bindGroups;
+    std::vector<WGPUBackendBindGroup*> m_bindGroups;
     bool m_inited = false;
 
     void UpdateRegisteredBindGroups(const WGPUDevice& device, const WGPUQueue& queue) {
         // Recreates binding group
-        for (std::reference_wrapper<WGPUBackendBindGroup> bindGroup : m_bindGroups) {
-            bindGroup.get().InitOrUpdateBindGroup(device);
+        for (WGPUBackendBindGroup* bindGroup : m_bindGroups) {
+            bindGroup->UpdateBindGroup(device);
         }
     }
 
     // No need to update bind group therefore no change
-    void RegisterBindGroup(WGPUBackendBindGroup& bindGroup) override { m_bindGroups.push_back(bindGroup); }
+    void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) override { 
+        m_bindGroups.push_back(bindGroup); 
+    }
 
-    WGPUBindGroupEntry GetEntry() override {
+    WGPUBindGroupEntry GetEntry(u32 binding) override {
+        m_currentBindGroupEntry.binding = binding;
         return m_currentBindGroupEntry;
     }
 
@@ -412,8 +416,7 @@ public:
         float greatestMipMap,
         WGPUCompareFunction compareFunction,
         u16 maxAnisotropy,
-        const std::string& label,
-        u32 binding
+        const std::string& label
         ) {
         WGPUSamplerDescriptor samplerDesc {
             .nextInChain = nullptr,
@@ -433,7 +436,6 @@ public:
         m_samplerData = wgpuDeviceCreateSampler(device, &samplerDesc);
 
         m_currentBindGroupEntry = {
-            .binding = binding,
             .sampler = m_samplerData
         };
 

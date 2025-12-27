@@ -239,18 +239,7 @@ void WGPURenderBackend::DrawObjects(std::map<MeshID, u32>& meshCounts) {
 }
 
 void WGPURenderBackend::BeginColorPass() {
-  assert(!m_renderPassActive);
-
-  m_renderPassActive = true;
-
-  // Create a command encoder for the draw call
-  WGPUCommandEncoderDescriptor encoderDesc = {
-    .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Color Encoder Descriptor")
-  };
-  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
-
-  WGPURenderPassColorAttachment startPass {
+  WGPURenderPassColorAttachment baseColorPassAttachment {
     .view = m_surfaceTextureView,
     .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
     .resolveTarget = nullptr,
@@ -267,37 +256,44 @@ void WGPURenderBackend::BeginColorPass() {
     .stencilReadOnly = true,
   };
 
-  WGPURenderPassDescriptor colorPassDescriptor {
-    .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Color Pass Descriptor"),
-    .colorAttachmentCount = 1,
-    .colorAttachments = &startPass,
-    .depthStencilAttachment = &depthStencilAttachment,
-    .timestampWrites = nullptr,
+  BeginPass(
+    &baseColorPassAttachment,
+    &depthStencilAttachment,
+    "Color Pass Command Encoder",
+    "Color Pass",
+    m_colorPassBindGroup,
+    m_defaultPipeline);
+  SetupVandIBO();
+}
+
+void WGPURenderBackend::BeginSkyboxPass() {
+  WGPURenderPassColorAttachment skyboxPassAttachment {
+    .view = m_surfaceTextureView,
+    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+    .resolveTarget = nullptr,
+    .loadOp = WGPULoadOp_Load,
+    .storeOp = WGPUStoreOp_Store,
+    .clearValue = WGPUColor{ 0.0, 0.0, 0.0, 1.0 }
   };
-    
-  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &colorPassDescriptor);
 
-  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_defaultPipeline);
+  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+    .nextInChain = nullptr,
+    .view = m_depthTexture.m_textureView,
+    .depthClearValue = 1.0f,
+    .depthReadOnly = true,
+    .stencilReadOnly = true,
+  };
 
-  m_bindGroup.BindToRenderPass(m_renderPassEncoder);
-
-  m_meshVertexBuffer.BindToRenderPassAsVertexBuffer(m_renderPassEncoder);
-  m_meshIndexBuffer.BindToRenderPassAsIndexBuffer(m_renderPassEncoder); 
+  BeginPass(
+    &skyboxPassAttachment,
+    &depthStencilAttachment,
+    "Skybox Pass Command Encoder",
+    "Skybox Pass",
+    m_skyboxBindGroup,
+    m_skyboxPipeline);
 }
 
 void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
-  assert(!m_renderPassActive);
-
-  m_renderPassActive = true;
-
-  // Create a command encoder for the draw call
-  WGPUCommandEncoderDescriptor encoderDesc = {
-    .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Depth Encoder Descriptor")
-  };
-  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
-
   WGPURenderPassDepthStencilAttachment depthStencilAttachment {
     .nextInChain = nullptr,
     .view = depthTexture,
@@ -308,36 +304,17 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
     .stencilReadOnly = true,
   };
 
-  WGPURenderPassDescriptor depthPassDescriptor {
-    .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Depth Pass Descriptor"),
-    .colorAttachmentCount = 0,
-    .colorAttachments = nullptr,
-    .depthStencilAttachment = &depthStencilAttachment,
-    .timestampWrites = nullptr,
-  };
-
-  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &depthPassDescriptor);
-
-  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_depthPipeline);
-
-  m_depthBindGroup.BindToRenderPass(m_renderPassEncoder);
-  m_meshVertexBuffer.BindToRenderPassAsVertexBuffer(m_renderPassEncoder);
-  m_meshIndexBuffer.BindToRenderPassAsIndexBuffer(m_renderPassEncoder);
+  BeginPass(
+    nullptr,
+    &depthStencilAttachment,
+    "Depth Pass Command Encoder",
+    "Depth Pass",
+    m_depthBindGroup,
+    m_depthPipeline);
+  SetupVandIBO();
 }
 
 void WGPURenderBackend::BeginPointDepthPass(WGPUTextureView depthTexture) {
-  assert(!m_renderPassActive);
-
-  m_renderPassActive = true;
-
-  // Create a command encoder for the draw call
-  WGPUCommandEncoderDescriptor encoderDesc = {
-    .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Point Depth Encoder Descriptor")
-  };
-  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
-
   WGPURenderPassDepthStencilAttachment depthStencilAttachment {
     .nextInChain = nullptr,
     .view = depthTexture,
@@ -348,24 +325,55 @@ void WGPURenderBackend::BeginPointDepthPass(WGPUTextureView depthTexture) {
     .stencilReadOnly = true,
   };
 
-  WGPURenderPassDescriptor depthPassDescriptor {
+  BeginPass(
+    nullptr,
+    &depthStencilAttachment,
+    "Point Depth Command Encoder",
+    "Point Depth Pass",
+    m_pointDepthBindGroup,
+    m_pointDepthPipeline);
+  SetupVandIBO();
+}
+
+void WGPURenderBackend::BeginPass(
+  const WGPURenderPassColorAttachment* colorPassAttachment,
+  const WGPURenderPassDepthStencilAttachment* depthStencilAttachment,
+  std::string&& encoderLabel,
+  std::string&& passLabel,
+  const WGPUBackendBindGroup& bindGroup,
+  const WGPURenderPipeline& pipeline) {
+  // Ensures that no two passes should be active at the same time 
+  assert(!m_renderPassActive);
+
+  m_renderPassActive = true;
+
+  // Creates command encoder
+  WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Point Depth Pass Descriptor"),
-    .colorAttachmentCount = 0,
-    .colorAttachments = nullptr,
-    .depthStencilAttachment = &depthStencilAttachment,
+    .label = WGPUBackendUtils::wgpuStr(encoderLabel.c_str())
+  };
+  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
+
+  // Sets up pass encoder
+  WGPURenderPassDescriptor passDescriptor {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr(passLabel.c_str()),
+    .colorAttachmentCount = colorPassAttachment != nullptr,
+    .colorAttachments = colorPassAttachment,
+    .depthStencilAttachment = depthStencilAttachment,
     .timestampWrites = nullptr,
   };
+  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &passDescriptor);
 
-  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &depthPassDescriptor);
+  // Sets render pass as fitting to certain pipeline
+  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, pipeline);
+  bindGroup.BindToRenderPass(m_renderPassEncoder);
+}
 
-  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_pointDepthPipeline);
-
-  m_pointDepthBindGroup.BindToRenderPass(m_renderPassEncoder);
+void WGPURenderBackend::SetupVandIBO() {
   m_meshVertexBuffer.BindToRenderPassAsVertexBuffer(m_renderPassEncoder);
   m_meshIndexBuffer.BindToRenderPassAsIndexBuffer(m_renderPassEncoder);
 }
-
 void WGPURenderBackend::EndPass() {
   m_renderPassActive = false;
 
@@ -547,7 +555,6 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
 
   // Creates vertex/index buffers
   m_meshVertexBuffer.Init(m_wgpuCore.m_device, WGPUBufferUsage_Vertex, "WGPUBackendMeshIdx Vertex Buffer", m_maxMeshVertSize);
-
   m_meshIndexBuffer.Init(m_wgpuCore.m_device, WGPUBufferUsage_Index, "WGPUBackendMeshIdx Vertex Buffer", m_maxMeshIndexSize);
 
   // Creates depth texture 
@@ -629,31 +636,11 @@ void WGPURenderBackend::InitPipelines()
   WGPUShaderModule depthShaderModule = loadShader(m_wgpuCore.m_device, "shaders/depth_shader.wgsl", "Depth Pass Shader");
 
   WGPUShaderModule pointDepthShaderModule = loadShader(m_wgpuCore.m_device, "shaders/point_depth_shader.wgsl", "Point Depth Pass Shader");
-  // Configures z-buffer
-  WGPUDepthStencilState depthStencilReadOnlyState {
-    .nextInChain = nullptr,
-    .format = m_wgpuDepthTextureFormat,
-    .depthWriteEnabled = WGPUOptionalBool_False,
-    .depthCompare = WGPUCompareFunction_LessEqual,
-    .stencilFront {
-      .compare = WGPUCompareFunction_Always,
-      .failOp = WGPUStencilOperation_Keep,
-      .depthFailOp = WGPUStencilOperation_Keep,
-      .passOp = WGPUStencilOperation_Keep
-    },
-    .stencilBack {
-      .compare = WGPUCompareFunction_Always,
-      .failOp = WGPUStencilOperation_Keep,
-      .depthFailOp = WGPUStencilOperation_Keep,
-      .passOp = WGPUStencilOperation_Keep
-    },
-    .stencilReadMask = 0,
-    .stencilWriteMask = 0,
-    .depthBias = 0,
-    .depthBiasSlopeScale = 0,
-    .depthBiasClamp = 0,
-  };
 
+  WGPUShaderModule skyboxShaderModule = loadShader(m_wgpuCore.m_device, "shaders/skybox_shader.wgsl", "Skybox Pass Shader");
+
+  // Configures z-buffer
+  
   WGPUDepthStencilState depthStencilState {
     .nextInChain = nullptr,
     .format = m_wgpuDepthTextureFormat,
@@ -677,7 +664,10 @@ void WGPURenderBackend::InitPipelines()
     .depthBiasSlopeScale = 0,
     .depthBiasClamp = 0,
   };
-
+  
+  WGPUDepthStencilState depthStencilReadOnlyState = depthStencilState;
+  depthStencilReadOnlyState.depthWriteEnabled = WGPUOptionalBool_False;
+  
   WGPUBlendState blendState {
     .color {
       .operation = WGPUBlendOperation_Add,
@@ -716,9 +706,19 @@ void WGPURenderBackend::InitPipelines()
     .targets = nullptr,
   };
 
+  WGPUFragmentState skyboxFragState {
+    .module = skyboxShaderModule,
+    .entryPoint = WGPUBackendUtils::wgpuStr("fsMain"),
+    .constantCount = 0,
+    .constants = nullptr,
+    .targetCount = 1,
+    .targets = &colorTarget,
+  };
+  
   std::vector<WGPUVertexAttribute> vertexAttributes{ };
   std::vector<WGPUVertexAttribute> depthVertexAttributes{ };
   std::vector<WGPUVertexAttribute> pointDepthVertexAttributes{ };
+  std::vector<WGPUVertexAttribute> skyboxVertexAttributes{ };
 
   WGPUVertexAttribute posVertAttribute {
     .nextInChain = nullptr,
@@ -756,6 +756,7 @@ void WGPURenderBackend::InitPipelines()
   };
   vertexAttributes.push_back(uvYVertAttribute);
 
+  // Set up layout (maybe we want to abstract this later)
 
   WGPUVertexBufferLayout bufferLayout {
     .nextInChain = nullptr,
@@ -781,71 +782,57 @@ void WGPURenderBackend::InitPipelines()
     .attributes = pointDepthVertexAttributes.data(),
   };
 
-  std::vector<WGPUBindGroupLayoutEntry> bindEntities;
-  std::vector<WGPUBindGroupLayoutEntry> depthBindEntities;
-  std::vector<WGPUBindGroupLayoutEntry> pointDepthBindEntities;
+  WGPUVertexBufferLayout skyboxBufferLayout {
+    .nextInChain = nullptr,
+    .stepMode = WGPUVertexStepMode_Vertex,
+    .arrayStride = sizeof(glm::vec4),
+    .attributeCount = pointDepthVertexAttributes.size(),
+    .attributes = pointDepthVertexAttributes.data(),
+  };
   
   WGPUBindGroupLayoutEntry fixedColorPassBind = DefaultBindLayoutEntry();
   fixedColorPassBind.binding = 0;
   fixedColorPassBind.visibility = WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
   fixedColorPassBind.buffer.type = WGPUBufferBindingType_Uniform;
   fixedColorPassBind.buffer.minBindingSize = sizeof(WGPUBackendColorPassFixedData);
-  bindEntities.push_back( fixedColorPassBind );
 
   WGPUBindGroupLayoutEntry cameraSpaceBind = DefaultBindLayoutEntry();
   cameraSpaceBind.binding = 0;
-  cameraSpaceBind.visibility = WGPUShaderStage_Vertex;
+  cameraSpaceBind.visibility = WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
   cameraSpaceBind.buffer.type = WGPUBufferBindingType_Uniform;
   cameraSpaceBind.buffer.minBindingSize = sizeof(glm::mat4x4);
-  depthBindEntities.push_back( cameraSpaceBind );
-  pointDepthBindEntities.push_back( cameraSpaceBind );
 
   WGPUBindGroupLayoutEntry objDatBind = DefaultBindLayoutEntry();
-  objDatBind.binding = 1;
   objDatBind.visibility = WGPUShaderStage_Vertex;
   objDatBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   objDatBind.buffer.minBindingSize = sizeof(WGPUBackendObjectData);
-  bindEntities.push_back( objDatBind );
-  depthBindEntities.push_back( objDatBind );
-  pointDepthBindEntities.push_back( objDatBind );
 
   WGPUBindGroupLayoutEntry fixedPointDepthPassBind = DefaultBindLayoutEntry();
-  fixedPointDepthPassBind.binding = 2;
   fixedPointDepthPassBind.visibility = WGPUShaderStage_Fragment;
   fixedPointDepthPassBind.buffer.type = WGPUBufferBindingType_Uniform;
   fixedPointDepthPassBind.buffer.minBindingSize = sizeof(WGPUBackendPointDepthPassFixedData);
-  pointDepthBindEntities.push_back( fixedPointDepthPassBind );
 
   WGPUBindGroupLayoutEntry dynamicShadowedDirLightBind = DefaultBindLayoutEntry();
-  dynamicShadowedDirLightBind.binding = 2;
   dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Fragment;
   dynamicShadowedDirLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData);
-  bindEntities.push_back( dynamicShadowedDirLightBind );
 
   WGPUBindGroupLayoutEntry dynamicShadowedPointLightBind = DefaultBindLayoutEntry();
-  dynamicShadowedPointLightBind.binding = 3;
   dynamicShadowedPointLightBind.visibility = WGPUShaderStage_Fragment;
   dynamicShadowedPointLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicShadowedPointLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedPointLightData);
-  bindEntities.push_back( dynamicShadowedPointLightBind );
 
   WGPUBindGroupLayoutEntry dynamicShadowedSpotLightBind = DefaultBindLayoutEntry();
-  dynamicShadowedSpotLightBind.binding = 4;
   dynamicShadowedSpotLightBind.visibility = WGPUShaderStage_Fragment;
   dynamicShadowedSpotLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicShadowedSpotLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedSpotLightData);
-  bindEntities.push_back( dynamicShadowedSpotLightBind );
 
   WGPUBindGroupLayoutEntry dynamicShadowLightSpacesBind = DefaultBindLayoutEntry();
-  dynamicShadowLightSpacesBind.binding = 5;
   dynamicShadowLightSpacesBind.visibility = WGPUShaderStage_Fragment;
   dynamicShadowLightSpacesBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicShadowLightSpacesBind.buffer.minBindingSize = sizeof(glm::mat4x4);
-  bindEntities.push_back( dynamicShadowLightSpacesBind );
 
   WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
-  dynamicDirLightShadowMapBind.binding = 6;
   dynamicDirLightShadowMapBind.visibility = WGPUShaderStage_Fragment;
   dynamicDirLightShadowMapBind.texture = {
     .nextInChain = nullptr,
@@ -853,10 +840,8 @@ void WGPURenderBackend::InitPipelines()
     .viewDimension = WGPUTextureViewDimension_2DArray,
     .multisampled = false
   };
-  bindEntities.push_back( dynamicDirLightShadowMapBind );
 
   WGPUBindGroupLayoutEntry dynamicPointLightShadowMapBind = DefaultBindLayoutEntry();
-  dynamicPointLightShadowMapBind.binding = 7;
   dynamicPointLightShadowMapBind.visibility = WGPUShaderStage_Fragment;
   dynamicPointLightShadowMapBind.texture = {
     .nextInChain = nullptr,
@@ -864,29 +849,69 @@ void WGPURenderBackend::InitPipelines()
     .viewDimension = WGPUTextureViewDimension_CubeArray,
     .multisampled = false
   };
-  bindEntities.push_back( dynamicPointLightShadowMapBind );
 
   WGPUBindGroupLayoutEntry dynamicDirLightCascadeRatiosBind = DefaultBindLayoutEntry();
-  dynamicDirLightCascadeRatiosBind.binding = 8;
   dynamicDirLightCascadeRatiosBind.visibility = WGPUShaderStage_Fragment;
   dynamicDirLightCascadeRatiosBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicDirLightCascadeRatiosBind.buffer.minBindingSize = sizeof(float);
-  bindEntities.push_back( dynamicDirLightCascadeRatiosBind );
 
   WGPUBindGroupLayoutEntry shadowMapSamplerMapBind = DefaultBindLayoutEntry();
-  shadowMapSamplerMapBind.binding = 9;
   shadowMapSamplerMapBind.visibility = WGPUShaderStage_Fragment;
   shadowMapSamplerMapBind.sampler = {
     .nextInChain = nullptr,
     .type = WGPUSamplerBindingType_Comparison
   };
-  bindEntities.push_back( shadowMapSamplerMapBind );
+
+  WGPUBindGroupLayoutEntry skyboxTextureBind = DefaultBindLayoutEntry();
+  skyboxTextureBind.visibility = WGPUShaderStage_Fragment;
+  skyboxTextureBind.texture = {
+    .nextInChain = nullptr,
+    .sampleType = WGPUTextureSampleType_Float,
+    .viewDimension = WGPUTextureViewDimension_Cube,
+    .multisampled = false
+  };
+
+  WGPUBindGroupLayoutEntry skyboxSamplerBind = DefaultBindLayoutEntry();
+  skyboxSamplerBind.visibility = WGPUShaderStage_Fragment;
+  skyboxSamplerBind.sampler = {
+    .nextInChain = nullptr,
+    .type = WGPUSamplerBindingType_NonFiltering
+  };
+
+
+  std::vector<WGPUBindGroupLayoutEntry> colorBindEntries;
+  std::vector<WGPUBindGroupLayoutEntry> depthBindEntities;
+  std::vector<WGPUBindGroupLayoutEntry> pointDepthBindEntities;
+  std::vector<WGPUBindGroupLayoutEntry> skyboxBindEntities;
+
+  InsertEntry(colorBindEntries,fixedColorPassBind,0);
+  InsertEntry(colorBindEntries, objDatBind, 1);
+  InsertEntry(colorBindEntries, dynamicShadowedDirLightBind, 2);
+  InsertEntry(colorBindEntries, dynamicShadowedPointLightBind, 3);
+  InsertEntry(colorBindEntries, dynamicShadowedSpotLightBind, 4);
+  InsertEntry(colorBindEntries, dynamicShadowLightSpacesBind, 5);
+  InsertEntry(colorBindEntries, dynamicDirLightShadowMapBind, 6);
+  InsertEntry(colorBindEntries, dynamicPointLightShadowMapBind, 7);
+  InsertEntry(colorBindEntries, dynamicDirLightCascadeRatiosBind, 8);   
+  InsertEntry(colorBindEntries, shadowMapSamplerMapBind, 9);  
+
+  InsertEntry(depthBindEntities, cameraSpaceBind, 0);
+  InsertEntry(depthBindEntities, objDatBind, 1);
+
+  InsertEntry(pointDepthBindEntities, cameraSpaceBind, 0);
+  InsertEntry(pointDepthBindEntities, objDatBind, 1);
+  InsertEntry(pointDepthBindEntities, fixedPointDepthPassBind, 2);
+
+  InsertEntry(skyboxBindEntities, cameraSpaceBind, 0);
+  InsertEntry(skyboxBindEntities, skyboxTextureBind, 1);
+  InsertEntry(skyboxBindEntities, skyboxSamplerBind, 2);
+
 
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("Color Pass Bind Layout"),
-    .entryCount = bindEntities.size(), 
-    .entries = bindEntities.data(),
+    .entryCount = colorBindEntries.size(), 
+    .entries = colorBindEntries.data(),
   };
 
   WGPUBindGroupLayoutDescriptor depthBindLayoutDescriptor {
@@ -903,10 +928,18 @@ void WGPURenderBackend::InitPipelines()
     .entries = pointDepthBindEntities.data(),
   };
 
+  WGPUBindGroupLayoutDescriptor skyboxBindLayoutDescriptor {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr("Skybox Pass Bind Layout"),
+    .entryCount = skyboxBindEntities.size(),
+    .entries = skyboxBindEntities.data(),
+  };
+
   WGPUBindGroupLayout bindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &bindLayoutDescriptor);
   WGPUBindGroupLayout depthBindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &depthBindLayoutDescriptor);
   WGPUBindGroupLayout pointDepthBindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &pointDepthBindLayoutDescriptor);
-
+  WGPUBindGroupLayout skyboxBindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &skyboxBindLayoutDescriptor);
+  
   WGPUPipelineLayoutDescriptor pipelineLayoutConstructor {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("Color Pass Pipeline Layout"),
@@ -921,20 +954,55 @@ void WGPURenderBackend::InitPipelines()
     .bindGroupLayouts = &depthBindLayout,
   };
 
-    WGPUPipelineLayoutDescriptor pointDepthPipelineLayoutConstructor {
+  WGPUPipelineLayoutDescriptor pointDepthPipelineLayoutConstructor {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("Depth Pipeline Layout"),
     .bindGroupLayoutCount = 1,
     .bindGroupLayouts = &pointDepthBindLayout,
   };
 
+  WGPUPipelineLayoutDescriptor skyboxPipelineLayoutConstructor {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr("Skybox Pipeline Layout"),
+    .bindGroupLayoutCount = 1,
+    .bindGroupLayouts = &skyboxBindLayout,
+  };
+
   WGPUPipelineLayout pipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuCore.m_device, &pipelineLayoutConstructor);
   WGPUPipelineLayout depthPipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuCore.m_device, &depthPipelineLayoutConstructor);
-  WGPUPipelineLayout pointDepthPipelineLayout =  wgpuDeviceCreatePipelineLayout(m_wgpuCore.m_device, &pointDepthPipelineLayoutConstructor);
+  WGPUPipelineLayout pointDepthPipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuCore.m_device, &pointDepthPipelineLayoutConstructor);
+  WGPUPipelineLayout skyboxPipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuCore.m_device, &skyboxPipelineLayoutConstructor);
+
+  WGPURenderPipelineDescriptor skyboxPipelineDesc {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr("Skybox Pipeline"),
+    .layout = skyboxPipelineLayout,
+    .vertex {
+      .module = skyboxShaderModule,
+      .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
+      .constantCount = 0,
+      .constants = nullptr,
+      .bufferCount = 0,
+      .buffers = &skyboxBufferLayout
+    },
+    .primitive {
+      .topology = WGPUPrimitiveTopology_TriangleList,
+      .stripIndexFormat = WGPUIndexFormat_Undefined,
+      .frontFace = WGPUFrontFace_CCW,
+      .cullMode = WGPUCullMode_Back
+    },
+    .depthStencil = &depthStencilReadOnlyState,
+    .multisample {
+      .count = 1,
+      .mask = ~0u,
+      .alphaToCoverageEnabled = false,
+    },
+    .fragment = &skyboxFragState,
+  };
 
   WGPURenderPipelineDescriptor pointDepthPipelineDesc {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Point Depth Pipeline Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Point Depth Pipeline "),
     .layout = pointDepthPipelineLayout,
     .vertex {
       .module = pointDepthShaderModule,
@@ -961,7 +1029,7 @@ void WGPURenderBackend::InitPipelines()
 
   WGPURenderPipelineDescriptor depthPipelineDesc {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Depth Pipeline Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Depth Pipeline"),
     .layout = depthPipelineLayout,
     .vertex {
       .module = depthShaderModule,
@@ -988,7 +1056,7 @@ void WGPURenderBackend::InitPipelines()
 
   WGPURenderPipelineDescriptor pipelineDesc {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Default Pipeline Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Color Pipeline"),
     .layout = pipelineLayout,
     .vertex {
       .module = shaderModule,
@@ -1016,38 +1084,18 @@ void WGPURenderBackend::InitPipelines()
   m_defaultPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &pipelineDesc);
   m_depthPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &depthPipelineDesc);
   m_pointDepthPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &pointDepthPipelineDesc);
+  m_skyboxPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &skyboxPipelineDesc); 
 
-  m_bindGroup.Init("Color Pass Pipeline Bind Group", bindLayout);
-  m_depthBindGroup.Init("Depth Pipeline Pass Bind Group", depthBindLayout);
-  m_pointDepthBindGroup.Init("Point Depth Pass Bind Group", pointDepthBindLayout);
-
-  m_cameraSpaceBuffer.Init(m_wgpuCore.m_device, "Camera Space Buffer", 0);
-  m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraSpaceBuffer));
-  m_pointDepthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraSpaceBuffer));
-
-  m_fixedColorPassDatBuffer.Init(m_wgpuCore.m_device, "Color Pass Fixed Data Buffer", 0);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_fixedColorPassDatBuffer));
-
-  m_instanceDatBuffer.Init(m_wgpuCore.m_device, "Instance Buffer", 1, m_maxObjArraySize);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
-  m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
-  m_pointDepthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
-
-  m_fixedPointDepthPassDatBuffer.Init(m_wgpuCore.m_device, "Point Depth Pass Fixed Data Buffer", 2);
-  m_pointDepthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_fixedPointDepthPassDatBuffer));
-
-  m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", 2, m_maxDynamicShadowedDirLights);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightBuffer));
-
-  m_dynamicShadowedPointLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Point Light Buffer", 3, m_maxDynamicShadowedPointLights);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedPointLightBuffer));
-
-  m_dynamicShadowedSpotLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Dir Light Buffer", 4, m_maxDynamicShadowedSpotLights);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedSpotLightBuffer));
-
-  m_dynamicShadowLightSpaces.Init(m_wgpuCore.m_device, "Dynamic Shadow Light Spaces", 5, m_maxDynamicShadowLightSpaces);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowLightSpaces));
-
+  m_cameraSpaceBuffer.Init(m_wgpuCore.m_device, "Camera Space Buffer");
+  m_fixedColorPassDatBuffer.Init(m_wgpuCore.m_device, "Color Pass Fixed Data Buffer");
+  m_instanceDatBuffer.Init(m_wgpuCore.m_device, "Instance Buffer", m_maxObjArraySize);
+  m_fixedPointDepthPassDatBuffer.Init(m_wgpuCore.m_device, "Point Depth Pass Fixed Data Buffer");
+  m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", m_maxDynamicShadowedDirLights);
+  m_dynamicShadowedPointLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Point Light Buffer", m_maxDynamicShadowedPointLights);
+  m_dynamicShadowedSpotLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Dir Light Buffer", m_maxDynamicShadowedSpotLights);
+  m_dynamicShadowLightSpaces.Init(m_wgpuCore.m_device, "Dynamic Shadow Light Spaces", m_maxDynamicShadowLightSpaces);
+  m_dynamicShadowedDirLightCascadeRatiosBuffer.Init(m_wgpuCore.m_device, "Shadowed Dynamic Directional Light Cascade Ratios", DefaultCascadeCount);
+  
   // TODO: Replace placeholder 1000 x 1000 dimensions and limit
   m_dynamicDirLightShadowMapTexture.Init(
     m_wgpuCore.m_device, 
@@ -1057,11 +1105,8 @@ void WGPURenderBackend::InitPipelines()
     DefaultCascadeCount, 
     "Dynamic Direction Light Shadow Maps", 
     "Dynamic Direction Light Shadow Maps Whole", 
-    "Dynamic Direction Light Shadow Maps Layer", 
-    6,
+    "Dynamic Direction Light Shadow Maps Layer",
     false);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicDirLightShadowMapTexture));
-
   m_dynamicPointLightShadowMapTexture.Init(
     m_wgpuCore.m_device, 
     1000, 
@@ -1070,16 +1115,8 @@ void WGPURenderBackend::InitPipelines()
     6,
     "Dynamic Point Light Shadow Maps", 
     "Dynamic Point Light Shadow Maps Cube Arrays", 
-    "Dynamic Point Light Shadow Maps Texture Layer", 
-    7,
-    true
-  );
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicPointLightShadowMapTexture));
-
-
-  m_dynamicShadowedDirLightCascadeRatiosBuffer.Init(m_wgpuCore.m_device, "Shadowed Dynamic Directional Light Cascade Ratios", 8, DefaultCascadeCount);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightCascadeRatiosBuffer));
-
+    "Dynamic Point Light Shadow Maps Texture Layer",
+    true);
   m_shadowMapSampler.InitOrUpdate(
     m_wgpuCore.m_device, 
     m_wgpuQueue, 
@@ -1091,20 +1128,69 @@ void WGPURenderBackend::InitPipelines()
     0.0, 
     WGPUCompareFunction_Less, 
     1, 
-    "Shadow Map Sampler", 
-    9);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_shadowMapSampler));
+    "Shadow Map Sampler");
+  m_skyboxTexture.Init(
+    m_wgpuCore.m_device,
+    1000,
+    1000,
+    "Skybox Texture",
+    "Skybox Texture Cubemap View"
+  );
+  m_skyboxSampler.InitOrUpdate(
+    m_wgpuCore.m_device, 
+    m_wgpuQueue, 
+    WGPUAddressMode_ClampToEdge, 
+    WGPUFilterMode_Nearest, 
+    WGPUFilterMode_Nearest, 
+    WGPUMipmapFilterMode_Nearest, 
+    0.0, 
+    0.0, 
+    WGPUCompareFunction_Undefined, 
+    1, 
+    "Skybox Sampler"
+  );
+
+  m_colorPassBindGroup.Init("Color Pass Pipeline Bind Group", bindLayout);
+  m_depthBindGroup.Init("Depth Pipeline Pass Bind Group", depthBindLayout);
+  m_pointDepthBindGroup.Init("Point Depth Pass Bind Group", pointDepthBindLayout);
+  m_skyboxBindGroup.Init("Skybox pass bind group", skyboxBindLayout);
+
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_fixedColorPassDatBuffer, 0);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_instanceDatBuffer, 1);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_dynamicShadowedDirLightBuffer, 2);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_dynamicShadowedPointLightBuffer, 3);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_dynamicShadowedSpotLightBuffer, 4);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_dynamicShadowLightSpaces, 5);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_dynamicDirLightShadowMapTexture, 6);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_dynamicPointLightShadowMapTexture, 7);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_dynamicShadowedDirLightCascadeRatiosBuffer, 8);
+  m_colorPassBindGroup.AddEntryToBindingGroup(&m_shadowMapSampler, 9);
+
+  m_depthBindGroup.AddEntryToBindingGroup(&m_cameraSpaceBuffer, 0);
+  m_depthBindGroup.AddEntryToBindingGroup(&m_instanceDatBuffer, 1);
+
+  m_pointDepthBindGroup.AddEntryToBindingGroup(&m_cameraSpaceBuffer, 0);
+  m_pointDepthBindGroup.AddEntryToBindingGroup(&m_instanceDatBuffer, 1);
+  m_pointDepthBindGroup.AddEntryToBindingGroup(&m_fixedPointDepthPassDatBuffer, 2);
+
+  m_skyboxBindGroup.AddEntryToBindingGroup(&m_cameraSpaceBuffer, 0);
+  m_skyboxBindGroup.AddEntryToBindingGroup(&m_skyboxTexture, 1);
+  m_skyboxBindGroup.AddEntryToBindingGroup(&m_skyboxSampler, 2);
   
-  m_bindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
-  m_depthBindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
-  m_pointDepthBindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
+  m_colorPassBindGroup.UpdateBindGroup(m_wgpuCore.m_device);
+  m_depthBindGroup.UpdateBindGroup(m_wgpuCore.m_device);
+  m_pointDepthBindGroup.UpdateBindGroup(m_wgpuCore.m_device);
+  m_skyboxBindGroup.UpdateBindGroup(m_wgpuCore.m_device);
     
+  wgpuPipelineLayoutRelease(skyboxPipelineLayout);
   wgpuPipelineLayoutRelease(pointDepthPipelineLayout);
   wgpuPipelineLayoutRelease(depthPipelineLayout);
   wgpuPipelineLayoutRelease(pipelineLayout);
+  wgpuShaderModuleRelease(skyboxShaderModule);
   wgpuShaderModuleRelease(pointDepthShaderModule);
   wgpuShaderModuleRelease(depthShaderModule);
   wgpuShaderModuleRelease(shaderModule);
+  wgpuBindGroupLayoutRelease(skyboxBindLayout);
   wgpuBindGroupLayoutRelease(pointDepthBindLayout);
   wgpuBindGroupLayoutRelease(depthBindLayout);
   wgpuBindGroupLayoutRelease(bindLayout);
@@ -1145,6 +1231,10 @@ void WGPURenderBackend::DestroyMesh(MeshID meshID) {
 
   // Removes mesh cpu side descriptors
   m_meshStore.erase(meshID);
+}
+
+void WGPURenderBackend::SetSkybox(u32 width, u32 height, const std::array<u32*,6>& faceData) {
+  m_skyboxTexture.Insert(m_wgpuCore.m_device, m_wgpuQueue, width, height, faceData);
 }
 
 void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
@@ -1219,7 +1309,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
       EndPass();
     }
   }
-  std::cout << "CHECK " << shadowedPointLightData.size() << std::endl;
+
   // Edits cascade ratios to be put in world space
   float camNearFarDiff = state.cameraFar - state.cameraNear;
   for (float& ratio : cascadeRatios) {
@@ -1260,37 +1350,42 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   DrawObjects(meshCounts);
   EndPass();
 
+  m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, glm::inverse(mainCamProj * glm::mat4x4(glm::mat3x3(mainCamView))));
+  BeginSkyboxPass();
+  wgpuRenderPassEncoderDraw(m_renderPassEncoder, 3, 1, 0, 0);
+  EndPass();
+
   DrawImGui();
   EndFrame();
 }
 
-  // Adds dynamic lights into scene
-  LightID WGPURenderBackend::AddDirLight() {
-    LightID lightID = m_dynamicShadowedDirLightNextID;
-    m_dynamicShadowedDirLightNextID++;
-    m_dynamicDirLightShadowMapTexture.RegisterShadow(m_wgpuCore.m_device, m_wgpuQueue);
-    return lightID;
-  }
-  LightID WGPURenderBackend::AddSpotLight() {
-    LightID lightID = m_dynamicShadowedSpotLightNextID;
-    m_dynamicShadowedSpotLightNextID++;
-    return lightID;
-  }
-  LightID WGPURenderBackend::AddPointLight() {
-    LightID lightID = m_dynamicShadowedPointLightNextID;
-    m_dynamicShadowedPointLightNextID++;
-    m_dynamicPointLightShadowMapTexture.RegisterShadow(m_wgpuCore.m_device, m_wgpuQueue);
-    return lightID;
-  }
+// Adds dynamic lights into scene
+LightID WGPURenderBackend::AddDirLight() {
+  LightID lightID = m_dynamicShadowedDirLightNextID;
+  m_dynamicShadowedDirLightNextID++;
+  m_dynamicDirLightShadowMapTexture.RegisterShadow(m_wgpuCore.m_device, m_wgpuQueue);
+  return lightID;
+}
+LightID WGPURenderBackend::AddSpotLight() {
+  LightID lightID = m_dynamicShadowedSpotLightNextID;
+  m_dynamicShadowedSpotLightNextID++;
+  return lightID;
+}
+LightID WGPURenderBackend::AddPointLight() {
+  LightID lightID = m_dynamicShadowedPointLightNextID;
+  m_dynamicShadowedPointLightNextID++;
+  m_dynamicPointLightShadowMapTexture.RegisterShadow(m_wgpuCore.m_device, m_wgpuQueue);
+  return lightID;
+}
 
-  void WGPURenderBackend::DestroyDirLight(LightID lightID) {
-    m_dynamicDirLightShadowMapTexture.UnregisterShadow();
-  }
-  // TODO Actually implement
-  void WGPURenderBackend::DestroySpotLight(LightID lightID) {
-    
-  }
-  void WGPURenderBackend::DestroyPointLight(LightID lightID) {
-    m_dynamicPointLightShadowMapTexture.UnregisterShadow();
-  }
+void WGPURenderBackend::DestroyDirLight(LightID lightID) {
+  m_dynamicDirLightShadowMapTexture.UnregisterShadow();
+}
+// TODO Actually implement
+void WGPURenderBackend::DestroySpotLight(LightID lightID) {
+  
+}
+void WGPURenderBackend::DestroyPointLight(LightID lightID) {
+  m_dynamicPointLightShadowMapTexture.UnregisterShadow();
+}
 #pragma endregion

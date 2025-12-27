@@ -3,8 +3,8 @@
 #include <algorithm>
 
 void WGPUBackendBaseDynamicShadowMapArray::UpdateAttachedBindGroups(const WGPUDevice& device) {
-    for (WGPUBackendBindGroup& group : m_bindGroups) {
-        group.InitOrUpdateBindGroup(device);
+    for (WGPUBackendBindGroup* group : m_bindGroups) {
+        group->UpdateBindGroup(device);
     }
 }
 
@@ -130,7 +130,6 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     std::string label,
     std::string wholeViewLabel,
     std::string layerViewLabel, 
-    u16 binding,
     bool cubeMapView) {
     // TODO: Prevent this from running in final build
     assert( !m_inited );
@@ -188,7 +187,6 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     // Creates bind group entry
     m_currentBindGroupEntry = {
         .nextInChain = nullptr,
-        .binding = binding,
         .buffer = nullptr,
         .offset = 0,
         .size = 0,
@@ -206,10 +204,10 @@ void WGPUBackendBaseDynamicShadowMapArray::Reset(
     std::string label,
     std::string wholeViewLabel,
     std::string layerViewLabel,
-    u16 binding,
     bool cubeMapView) {
     Clear();
-    Init(device, arrayLayerWidth, arrayLayerHeight, maxTextureDepth, depthPerShadow, label, wholeViewLabel, layerViewLabel, binding, cubeMapView);
+    m_inited = false;
+    Init(device, arrayLayerWidth, arrayLayerHeight, maxTextureDepth, depthPerShadow, label, wholeViewLabel, layerViewLabel, cubeMapView);
 }
 
 void WGPUBackendBaseDynamicShadowMapArray::RegisterShadow(const WGPUDevice& device, const WGPUQueue& queue) {
@@ -229,10 +227,11 @@ void WGPUBackendBaseDynamicShadowMapArray::UnregisterShadow() {
     m_arraySize -= m_depthPerShadow;
 }
 
-WGPUBindGroupEntry WGPUBackendBaseDynamicShadowMapArray::GetEntry() {
+WGPUBindGroupEntry WGPUBackendBaseDynamicShadowMapArray::GetEntry(u32 binding) {
+    m_currentBindGroupEntry.binding = binding;
     return m_currentBindGroupEntry;
 }
-void WGPUBackendBaseDynamicShadowMapArray::RegisterBindGroup(WGPUBackendBindGroup& bindGroup) {
+void WGPUBackendBaseDynamicShadowMapArray::RegisterBindGroup(WGPUBackendBindGroup* bindGroup) {
     m_bindGroups.push_back(bindGroup);
 }
 

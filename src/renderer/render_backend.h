@@ -53,13 +53,25 @@ struct RenderUploadMeshInfo {
 };
 MeshID UploadMesh(RenderUploadMeshInfo& info);
 
+// Moves a texture to the GPU,
 struct RenderUploadTextureInfo {
+    // Shared
     u32 width;
     u32 height;
     u32* pixelData;
 };
-
 TextureID UploadTexture(RenderUploadTextureInfo& info);
+
+// Moves a texture to the renderer, immediately replacing Skybox with new one
+// Assumes that all given images will have same dimensions
+struct RenderSetSkyboxInfo {
+    // Shared
+    u32 width;
+    u32 height;
+    // In order of posX, negX, posY, negY, posZ, negZ
+    std::array<u32*,6> cubemapData;
+};
+void SetSkyboxTexture(RenderSetSkyboxInfo& info);
 
 LightID AddDirLight();
 LightID AddSpotLight();

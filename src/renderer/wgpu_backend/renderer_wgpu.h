@@ -7,6 +7,7 @@
 #include "renderer/wgpu_backend/utils_wgpu.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
 #include "renderer/wgpu_backend/dynamic_shadow_array.h"
+#include "renderer/wgpu_backend/single_textures_wgpu.h"
 
 #include "math/skl_math_types.h"
 
@@ -54,7 +55,7 @@ private:
 
     // Defines final color pass pipeline
     WGPURenderPipeline m_defaultPipeline{ };
-    WGPUBackendBindGroup m_bindGroup{ };
+    WGPUBackendBindGroup m_colorPassBindGroup{ };
 
     // Defines depth pipeline
     WGPURenderPipeline m_depthPipeline{ };
@@ -63,6 +64,10 @@ private:
     // Defines point depth pipeline
     WGPURenderPipeline m_pointDepthPipeline{ };
     WGPUBackendBindGroup m_pointDepthBindGroup{ };
+
+    // Defines skybox pipeline
+    WGPURenderPipeline m_skyboxPipeline{ };
+    WGPUBackendBindGroup m_skyboxBindGroup{ };
 
     // Defines general light vars
     u32 m_nextLightSpace = 0;
@@ -87,9 +92,13 @@ private:
     WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_dynamicShadowLightSpaces{ };
     WGPUBackendSingleStorageArrayBuffer<float> m_dynamicShadowedDirLightCascadeRatiosBuffer{ };
     WGPUBackendSampler m_shadowMapSampler{ };
+    WebGPUBackendCubemapTextureBuffer m_skyboxTexture{ };
+    WGPUBackendSampler m_skyboxSampler{ };
 
+    // Vertex buffers
     WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
     WGPUBackendArrayBuffer<u32> m_meshIndexBuffer{ };
+
     u32 m_meshTotalVertices{ 0 };
     u32 m_meshTotalIndices{ 0 };
     // Currently mesh deletion logic requires that meshes with greater MeshID's to correspond to older mesh stores
@@ -120,13 +129,24 @@ private:
     // Begins the final color pass that renders frame to color pass
     void BeginColorPass();
 
+    // Begins the skybox pass that renders background of visuals
+    void BeginSkyboxPass();
+
     // Populates depth buffer from view of camera buffer
     void BeginDepthPass(WGPUTextureView depthTexture);
 
     // Populates depth buffer from the view of camera buffer
     void BeginPointDepthPass(WGPUTextureView depthTexture);
 
-    // Populates depth buffer with 
+    // Handles some shared code between render passes
+    void BeginPass(
+        const WGPURenderPassColorAttachment* colorPassAttachment,
+        const WGPURenderPassDepthStencilAttachment* depthStencilAttachment,
+        std::string&& encoderLabel,
+        std::string&& passLabel,
+        const WGPUBackendBindGroup& bindGroup,
+        const WGPURenderPipeline& pipeline);
+    void SetupVandIBO();
     
     // Stops the current pass
     void EndPass();
@@ -140,6 +160,12 @@ private:
 
     // Ends the current pass and present it to the screen
     void EndFrame();
+
+    // Inserts copy of bind group entry at specific binding
+    inline void InsertEntry(std::vector<WGPUBindGroupLayoutEntry>& bindGroupList, WGPUBindGroupLayoutEntry entry, u32 binding) {
+        entry.binding = binding;
+        bindGroupList.push_back(std::move(entry)); 
+    }
 public:
     // No logic needed
     WGPURenderBackend() { }
@@ -160,10 +186,13 @@ public:
 
     // Moves mesh to the GPU, 
     // Returns a uint that represents the mesh's ID
-    MeshID UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices);
+    MeshID UploadMesh(u32 vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices);
 
     // Removes mesh from GPU and render's mesh ID invalid
     void DestroyMesh(MeshID meshID);
+
+    // Moves set of skybox textures to the GPU
+    void SetSkybox(u32 width, u32 height, const std::array<u32*,6>& faceData);
 
     // Adds dynamic lights into scene
     LightID AddDirLight();

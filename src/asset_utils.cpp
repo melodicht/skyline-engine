@@ -1,8 +1,11 @@
 #include "asset_types.h"
+#include "meta_definitions.h"
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
+
+#include <array>
 
 template <>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};
@@ -92,6 +95,27 @@ PLATFORM_LOAD_MESH_ASSET(LoadMeshAsset)
     return &meshAssets[name];
 }
 
+struct ImageData {
+    u32 width;
+    u32 height;
+    std::vector<u32> data;
+};
+
+ImageData LoadImage(std::filesystem::path path) {
+    int width, height, channels;
+
+    stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    ImageData info{};
+    info.data = std::vector<u32>((width * height * 4) / sizeof(u32));
+
+    memcpy(info.data.data(), imageData, info.data.size() * sizeof(u32));
+    stbi_image_free(imageData);
+
+    info.width = width;
+    info.height = height;
+    return info;
+}
+
 PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
 {
     if (texAssets.contains(name))
@@ -100,27 +124,44 @@ PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
     }
 
     std::filesystem::path path = "textures/" + name + ".png";
-
-    int width, height, channels;
-
-    stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
-    std::vector<u32> pixels;
-
-    pixels = std::vector<u32>((width * height * 4) / sizeof(u32));
-
-    memcpy(pixels.data(), imageData, pixels.size() * sizeof(u32));
-    stbi_image_free(imageData);
-
-    RenderUploadTextureInfo info{};
-    info.width = width;
-    info.height = height;
-    info.pixelData = pixels.data();
+    ImageData info = LoadImage(path);
 
     TextureAsset asset;
-    asset.width = width;
-    asset.height = height;
-    asset.id = UploadTexture(info);
+    asset.width = info.width;
+    asset.height = info.height;
+    RenderUploadTextureInfo uploadInfo ={info.width, info.height, info.data.data()};
+    asset.id = UploadTexture(uploadInfo);
     texAssets[name] = asset;
-
+    
     return &texAssets[name];
+}
+
+PLATFORM_LOAD_SKYBOX_ASSET(LoadSkyboxAsset)
+{
+    std::array<std::vector<u32>,6> cubemapData;
+    std::filesystem::path firstPath = "textures/" + names[0] + ".png";
+    ImageData firstInfo = LoadImage(firstPath);
+    u32 firstWidth = firstInfo.width;
+    u32 firstHeight = firstInfo.height;
+    cubemapData[0] = std::move(firstInfo.data);
+    for (u32 i = 1 ; i < 6 ; i ++) {
+        std::filesystem::path path = "textures/" + names[i] + ".png";
+        ImageData info = LoadImage(path);
+        if (info.width != firstWidth || info.height != firstHeight ) {
+            LOG_ERROR("Images provided for cubemap do not have uniform dimensions");
+            return;
+        }
+        cubemapData[i] = std::move(info.data);
+    }
+
+    std::array<u32*,6> setData;
+    for (u32 i = 0 ; i < 6 ; i++) {
+        setData[i] = cubemapData[i].data();
+    }
+    
+    RenderSetSkyboxInfo setInfo;
+    setInfo.width = firstWidth;
+    setInfo.height = firstHeight;
+    setInfo.cubemapData = setData;
+    SetSkyboxTexture(setInfo);
 }
