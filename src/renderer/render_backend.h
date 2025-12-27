@@ -64,6 +64,8 @@ PLATFORM_RENDERER_DESTROY_LIGHT(DestroyDirLight);
 PLATFORM_RENDERER_DESTROY_LIGHT(DestroySpotLight);
 PLATFORM_RENDERER_DESTROY_LIGHT(DestroyPointLight);
 
+PLATFORM_RENDERER_GET_INDEX_AT_CURSOR(GetIndexAtCursor);
+
 // Destroy the mesh at the given MeshID
 struct RenderDestroyMeshInfo {
     // Shared 

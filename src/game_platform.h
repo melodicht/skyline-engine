@@ -19,10 +19,12 @@
 
 struct GameInput
 {
-  f32 mouseDeltaX;
-  f32 mouseDeltaY;
+    s32 mouseDeltaX;
+    s32 mouseDeltaY;
+    u32 mouseX;
+    u32 mouseY;
 
-  std::set<std::string> keysDown;
+    std::set<std::string> keysDown;
 };
 
 struct GameMemory
@@ -58,6 +60,7 @@ struct PlatformAPI
     platform_renderer_destroy_light_t *rendererDestroyDirLight;
     platform_renderer_destroy_light_t *rendererDestroySpotLight;
     platform_renderer_destroy_light_t *rendererDestroyPointLight;
+    platform_renderer_get_index_at_cursor_t *rendererGetIndexAtCursor;
     platform_renderer_render_update_t *rendererRenderUpdate;
 };
 

@@ -49,6 +49,9 @@ global_variable std::set<std::string> keysDown;
 global_variable f32 mouseDeltaX = 0;
 global_variable f32 mouseDeltaY = 0;
 
+global_variable f32 mouseX = 0;
+global_variable f32 mouseY = 0;
+
 local const char *SDLGetGameCodeSrcFilePath()
 {
     const char *result;
@@ -196,6 +199,7 @@ void updateLoop(void* appInfo) {
     }
 
     SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
+    SDL_GetMouseState(&mouseX, &mouseY);
 
     s32 windowWidth = WINDOW_WIDTH;
     s32 windowHeight = WINDOW_HEIGHT;
@@ -207,9 +211,17 @@ void updateLoop(void* appInfo) {
     ImGui::NewFrame();
     #endif
 
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse)
+    {
+        keysDown.erase("Mouse 1");
+    }
+
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
     gameInput.mouseDeltaY = mouseDeltaY;
+    gameInput.mouseX = mouseX;
+    gameInput.mouseY = mouseY;
     gameInput.keysDown = keysDown;
     gameCode.gameUpdateAndRender(info->scene, gameInput, deltaTime);
 
@@ -294,6 +306,7 @@ int main(int argc, char** argv)
     platformAPI.rendererDestroyDirLight = &DestroyDirLight;
     platformAPI.rendererDestroySpotLight = &DestroySpotLight;
     platformAPI.rendererDestroyPointLight = &DestroyPointLight;
+    platformAPI.rendererGetIndexAtCursor = &GetIndexAtCursor;
     platformAPI.rendererRenderUpdate = &RenderUpdate;
 
     Scene scene;

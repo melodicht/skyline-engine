@@ -817,14 +817,19 @@ public:
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoSavedSettings | 
-        ImGuiWindowFlags_NoBackground;
+        ImGuiWindowFlags_NoSavedSettings;
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->Pos);
-        ImGui::SetNextWindowSize(viewport->Size);
+        ImGui::SetNextWindowSize({viewport->Size.x, 0});
 
         ImGui::Begin("Overlay", nullptr, window_flags);
+
+        if (input->keysDown.contains("Mouse 1"))
+        {
+            u32 cursorEntityIndex = globalPlatformAPI.rendererGetIndexAtCursor();
+            selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
+        }
 
         // TODO(marvin): Make name editable.
         // NOTE(marvin): Entities list

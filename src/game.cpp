@@ -80,7 +80,7 @@ GAME_INITIALIZE(GameInitialize)
     scene.InitSystems();
 }
 
-void UpdateRenderer(Scene& scene)
+void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
 {
     if (currentCamera == -1)
     {
@@ -156,7 +156,8 @@ void UpdateRenderer(Scene& scene)
         .pointLights = pointLights,
         .cameraFov = camera->fov,
         .cameraNear = camera->nearPlane,
-        .cameraFar = camera->farPlane
+        .cameraFar = camera->farPlane,
+        .cursorPos = {input.mouseX, input.mouseY}
     };
 
     globalPlatformAPI.rendererRenderUpdate(sendState);
@@ -171,7 +172,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     scene.UpdateSystems(&input, deltaTime);
 
-    UpdateRenderer(scene);
+    UpdateRenderer(scene, input, deltaTime);
 
     LogDebugRecords();
 }

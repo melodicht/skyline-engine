@@ -114,6 +114,7 @@ u32 currentCamIndex;
 u32 mainCamIndex;
 
 bool editor;
+u32 cursorEntityIndex = UINT32_MAX;
 
 // Upload a mesh to the gpu
 MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
@@ -538,6 +539,11 @@ void DestroyPointLight(LightID lightID)
 
 }
 
+u32 GetIndexAtCursor()
+{
+    return cursorEntityIndex;
+}
+
 // Create swapchain or recreate to change size
 void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 {
@@ -598,7 +604,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
     {
         idImage = CreateImage(allocator,
                               VK_FORMAT_R32_UINT, 0,
-                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                               imageExtent, 1,
                               VMA_MEMORY_USAGE_GPU_ONLY,
                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -1401,6 +1407,12 @@ bool InitFrame()
     vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        sizeof(VkDeviceAddress), sizeof(VkDeviceAddress), &frames[frameNum].objectBuffer.address);
 
+    if (editor)
+    {
+        void* idData = frames[frameNum].idTransferBuffer.allocation->GetMappedData();
+        memcpy(&cursorEntityIndex, idData, sizeof(u32));
+    }
+
     return true;
 }
 
@@ -1805,12 +1817,15 @@ void DrawObjects(int count, int startIndex)
 }
 
 // End the frame and present it to the screen
-void EndFrame()
+void EndFrame(glm::ivec2 cursorPos)
 {
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     VkImageMemoryBarrier2 imageBarrier = ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    VkImageMemoryBarrier2 idBarrier = ImageBarrier(idImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+    VkImageMemoryBarrier2 barriers[2] = {imageBarrier, idBarrier};
 
     VkDependencyInfo depInfo{};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -1819,7 +1834,33 @@ void EndFrame()
     depInfo.imageMemoryBarrierCount = 1;
     depInfo.pImageMemoryBarriers = &imageBarrier;
 
+    if (editor)
+    {
+        depInfo.imageMemoryBarrierCount = 2;
+        depInfo.pImageMemoryBarriers = barriers;
+    }
+
     vkCmdPipelineBarrier2(cmd, &depInfo);
+
+    if (editor)
+    {
+        VkBufferImageCopy idCopy
+        {
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .imageSubresource
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+            .imageOffset = {cursorPos.x, cursorPos.y, 0},
+            .imageExtent = {1, 1, 1}
+        };
+
+        vkCmdCopyImageToBuffer(cmd, idImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, frames[frameNum].idTransferBuffer.buffer, 1, &idCopy);
+    }
 
     VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -2114,5 +2155,5 @@ void RenderUpdate(RenderFrameInfo& info)
     DrawImGui();
 #endif
     EndPass();
-    EndFrame();
+    EndFrame(info.cursorPos);
 }
