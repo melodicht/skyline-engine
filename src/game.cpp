@@ -140,9 +140,12 @@ void UpdateRenderer(Scene& scene)
         Transform3D *t = scene.Get<Transform3D>(ent);
         glm::mat4 model = t->GetWorldTransform();
         MeshComponent *m = scene.Get<MeshComponent>(ent);
-        MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
-        TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
-        meshInstances.push_back({model, m->color, meshID, texID, GetEntityIndex(ent)});
+        if (m->mesh != nullptr)
+        {
+            MeshID meshID = m->mesh->id;
+            TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
+            meshInstances.push_back({model, m->color, meshID, texID, GetEntityIndex(ent)});
+        }
     }
 
     RenderFrameInfo sendState{

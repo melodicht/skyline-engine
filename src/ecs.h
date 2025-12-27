@@ -7,7 +7,11 @@
  * TYPE DEFINITIONS AND CONSTANTS
  */
 
+// Comparison via ==
+// Note the INVALID_ENTITY
 typedef u64 EntityID;
+typedef u32 ComponentID;
+
 constexpr u32 MAX_COMPONENTS = 32;
 typedef std::bitset<MAX_COMPONENTS> ComponentMask;
 constexpr u32 MAX_ENTITIES = 32768;
@@ -82,19 +86,23 @@ local u32 numComponents = 0;
 template<typename T>
 const char *compName;
 
-// NOTE(marvin): The reason why this is separated out from the struct
-// is to mirror the prior implementation where it was also separated
-// out from the struct. Honestly, could just integrate it.
-local std::unordered_map<std::string, u32> stringToId;
+// NOTE(marvin): Maps component name to corresponding component
+// ID. The reason why this is separated out from the struct is to
+// mirror the prior implementation where it was also separated out
+// from the struct. Honestly, could just integrate it.
+local std::unordered_map<std::string, ComponentID> stringToId;
 
-local u32 MakeComponentId(std::string name)
+// Maps a new component ID to the given component name, and produces that component ID.
+local ComponentID MakeComponentId(std::string name)
 {
-    stringToId[name] = numComponents;
-    return numComponents++;
+    ComponentID result = numComponents;
+    stringToId[name] = result;
+    numComponents++;
+    return result;
 }
 
 template<typename T>
-local u32 GetComponentId()
+local ComponentID GetComponentId()
 {
     if (auto search = stringToId.find(compName<T>);
             search != stringToId.end())
@@ -120,6 +128,8 @@ struct Scene
     {
         EntityID id; // though redundent with index in vector, required
         // for deleting entities,
+
+        // NOTE(marvin): Only to be used within ECS-specific code.
         ComponentMask mask;
     };
 
@@ -140,6 +150,8 @@ struct Scene
     // ID. Can only support 2^64 entities without ID conflicts.
     EntityID NewEntity();
 
+    EntityEntry &GetEntityEntry(EntityID id);
+
     // Removes a given entity from the scene and signals to the scene the free space that was left behind
     void DestroyEntity(EntityID id);
 
@@ -149,13 +161,13 @@ struct Scene
     void Remove(EntityID id)
     {
         // ensures you're not accessing an entity that has been deleted
-        if (entities[GetEntityIndex(id)].id != id)
+        if (GetEntityEntry(id).id != id)
             return;
 
-        int componentId = GetComponentId<T>();
+        ComponentID componentId = GetComponentId<T>();
         // Finds location of component data within the entity component pool and
         // resets, thus removing the component from the entity
-        entities[GetEntityIndex(id)].mask.reset(componentId);
+        GetEntityEntry(id).mask.reset(componentId);
     }
 
     // Assigns the entity associated with the given entity ID in this
@@ -165,7 +177,8 @@ struct Scene
     template<typename T>
     T *Assign(EntityID id)
     {
-        int componentId = GetComponentId<T>();
+        T *result = nullptr;
+        ComponentID componentId = GetComponentId<T>();
 
         if (numComponents <= componentId) // Invalid component
         {
@@ -173,11 +186,21 @@ struct Scene
             exit(1);
         }
 
-        // Looks up the component in the pool, and initializes it with placement new
-        T *pComponent = new(componentPools[componentId]->get(GetEntityIndex(id))) T();
-
-        entities[GetEntityIndex(id)].mask.set(componentId);
-        return pComponent;
+        // Verify that the component doesn't already exist.
+        EntityEntry &entityEntry = GetEntityEntry(id);
+        ComponentMask &componentMask = entityEntry.mask;
+        b32 componentAlreadyExists = componentMask.test(componentId);
+        if (componentAlreadyExists)
+        {
+            puts("Attempted to add a component to an entity that already has the component, ignoring.");
+        }
+        else
+        {
+            // Looks up the component in the pool, and initializes it with placement new
+            result = new(componentPools[componentId]->get(GetEntityIndex(id))) T();
+            componentMask.set(componentId);
+        }
+        return result;
     }
 
     // Returns the pointer to the component instance on the entity
@@ -192,6 +215,15 @@ struct Scene
             return nullptr;
 
         T *pComponent = static_cast<T *>(componentPools[componentId]->get(GetEntityIndex(id)));
+        return pComponent;
+    }
+
+    void *GetWithComponentID(EntityID entityId, ComponentID componentId)
+    {
+        if (!GetEntityEntry(entityId).mask.test(componentId))
+            return nullptr;
+
+        void *pComponent = componentPools[componentId]->get(GetEntityIndex(entityId));
         return pComponent;
     }
 

@@ -1,14 +1,17 @@
-#include <toml++/toml.hpp>
 #include <iostream>
+
+std::string currentSceneName = "";
 
 struct NameComponent
 {
     std::string name;
 };
+const char *NAME_COMPONENT = "NameComponent";
 
 struct ComponentInfo
 {
     void (*assignFunc)(Scene&, EntityID);
+    void (*removeFunc)(Scene&, EntityID);
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
@@ -26,6 +29,7 @@ s32 WriteFromData<s32>(s32* dest, DataEntry* data)
 {
     if (data->type != INT_ENTRY)
     {
+        printf("entry must be int but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->intVal;
@@ -37,6 +41,7 @@ s32 WriteFromData<f32>(f32* dest, DataEntry* data)
 {
     if (data->type != FLOAT_ENTRY)
     {
+        printf("entry must be float but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->floatVal;
@@ -48,6 +53,7 @@ s32 WriteFromData<bool>(bool* dest, DataEntry* data)
 {
     if (data->type != BOOL_ENTRY)
     {
+        printf("entry must be bool but instead is %d\n", data->type);
         return -1;
     }
 
@@ -60,6 +66,7 @@ s32 WriteFromData<glm::vec3>(glm::vec3* dest, DataEntry* data)
 {
     if (data->type != VEC_ENTRY)
     {
+        printf("entry must be vec3 but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->vecVal;
@@ -71,6 +78,7 @@ s32 WriteFromData<std::string>(std::string* dest, DataEntry* data)
 {
     if (data->type != STR_ENTRY)
     {
+        printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
     *dest = data->stringVal;
@@ -82,6 +90,7 @@ s32 WriteFromData<MeshAsset*>(MeshAsset** dest, DataEntry* data)
 {
     if (data->type != STR_ENTRY)
     {
+        printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
     *dest = globalPlatformAPI.platformLoadMeshAsset(data->stringVal);
@@ -93,6 +102,7 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
 {
     if (data->type != STR_ENTRY)
     {
+        printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
     if (data->stringVal != "")
@@ -141,6 +151,10 @@ DataEntry* ReadToData<std::string>(std::string* src, std::string name)
 template <>
 DataEntry* ReadToData<MeshAsset*>(MeshAsset** src, std::string name)
 {
+    if ((*src) == nullptr)
+    {
+        return new DataEntry(name, std::string(""));
+    }
     return new DataEntry(name, (*src)->name);
 }
 
@@ -174,11 +188,18 @@ void AssignComponent(Scene &scene, EntityID entity)
 }
 
 template <typename T>
+void RemoveComponent(Scene &scene, EntityID entity)
+{
+    scene.Remove<T>(entity);
+}
+
+template <typename T>
 s32 WriteComponent(Scene &scene, EntityID entity, DataEntry* compData)
 {
     T* comp = scene.Get<T>(entity);
     if (comp == nullptr)
     {
+        printf("entity must have component but doesn't\n");
         return -1;
     }
     return WriteFromData<T>(comp, compData);
@@ -200,7 +221,14 @@ void AddComponent(const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    compInfos.push_back({AssignComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
+    compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
+}
+
+// Runs in O(1), courtesy of std::vector.
+u32 GetNumberOfDefinedComponents()
+{
+    u32 result = compInfos.size();
+    return result;
 }
 
 void RegisterComponents(Scene& scene)
@@ -209,6 +237,12 @@ void RegisterComponents(Scene& scene)
     {
         scene.AddComponentPool(compInfo.size);
     }
+}
+
+inline std::string GetCurrentSceneName()
+{
+    std::string result = currentSceneName;
+    return result;
 }
 
 s32 LoadScene(Scene& scene, std::string name)
@@ -237,7 +271,7 @@ s32 LoadScene(Scene& scene, std::string name)
             {
                 return -1;
             }
-            s32 compIndex = stringToId[comp->name];
+            ComponentID compIndex = stringToId[comp->name];
             ComponentInfo& compInfo = compInfos[compIndex];
             compInfo.assignFunc(scene, id);
         }
@@ -248,12 +282,13 @@ s32 LoadScene(Scene& scene, std::string name)
         EntityID id = entityIds[entity->name];
         for (DataEntry* comp : entity->structVal)
         {
-            int compIndex = stringToId[comp->name];
+            ComponentID compIndex = stringToId[comp->name];
             ComponentInfo& compInfo = compInfos[compIndex];
             rv |= compInfo.writeFunc(scene, id, comp);
         }
     }
     delete data;
+    currentSceneName = name;
     return rv;
 }
 
@@ -261,16 +296,12 @@ DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
 {
     NameComponent* nameComp = scene.Get<NameComponent>(ent);
     DataEntry* data = new DataEntry(nameComp->name);
-    ComponentMask mask = scene.entities[GetEntityIndex(ent)].mask;
-    for (s32 i = 0; i < MAX_COMPONENTS; i++)
+    for (ComponentID comp : EntityView(scene, ent))
     {
-        if (mask[i])
+        ComponentInfo& compInfo = compInfos[comp];
+        if (compInfo.name != NAME_COMPONENT)
         {
-            ComponentInfo& compInfo = compInfos[i];
-            if (compInfo.name != "NameComponent")
-            {
-                data->structVal.push_back(compInfo.readFunc(scene, ent));
-            }
+            data->structVal.push_back(compInfo.readFunc(scene, ent));
         }
     }
     return data;
@@ -287,4 +318,9 @@ void SaveScene(Scene& scene, std::string name)
     std::string filepath = "scenes/" + name + ".toml";
     globalPlatformAPI.platformWriteDataAsset(filepath, sceneData);
     delete sceneData;
+}
+
+void SaveCurrentScene(Scene& scene)
+{
+    SaveScene(scene, GetCurrentSceneName());
 }

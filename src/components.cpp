@@ -36,6 +36,7 @@
     { \
         if (data->type != STRUCT_ENTRY) \
         { \
+            printf("entry must be struct but instead is %d\n", data->type); \
             return -1; \
         } \
         s32 rv = 0; \
@@ -67,22 +68,27 @@ s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compDa
         {
             if (entry->type != STR_ENTRY)
             {
+                printf("entry must be string but instead is %d\n", entry->type);
                 return -1;
             }
             std::string parentName = entry->stringVal;
             if (!entityIds.contains(parentName))
             {
-                return -1;
+                comp->SetParent(nullptr);
+                return rv;
             }
             EntityID parent = entityIds[parentName];
             Transform3D* parentTransform = scene.Get<Transform3D>(parent);
             if (parentTransform == nullptr)
             {
-                return -1;
+                comp->SetParent(nullptr);
+                return rv;
             }
             comp->SetParent(parentTransform);
         }
     }
+
+    comp->MarkDirty();
     return rv;
 }
 template <>
@@ -96,6 +102,10 @@ DataEntry* ReadComponent<Transform3D>(Scene &scene, EntityID entity)
         EntityID parentEnt = scene.GetOwner<Transform3D>(parent);
         NameComponent* nameComp = scene.Get<NameComponent>(parentEnt);
         data->structVal.push_back(new DataEntry("parent", nameComp->name));
+    }
+    else
+    {
+        data->structVal.push_back(new DataEntry("parent", std::string{""}));
     }
     return data;
 }
