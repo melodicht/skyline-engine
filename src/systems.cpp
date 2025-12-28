@@ -650,6 +650,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case FLOAT_ENTRY:
@@ -666,6 +667,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case BOOL_ENTRY:
@@ -682,6 +684,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case VEC_ENTRY:
@@ -702,6 +705,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case STR_ENTRY:
@@ -726,6 +730,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case STRUCT_ENTRY:
