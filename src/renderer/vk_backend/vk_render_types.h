@@ -93,6 +93,13 @@ struct ShadowPushConstants
     float farPlane;
 };
 
+struct IconPushConstants
+{
+    VkDeviceAddress objectAddress;
+    VkDeviceAddress cameraAddress;
+    glm::vec2 iconScale;
+};
+
 // Represents the data for a single frame in flight of rendering
 struct FrameData
 {
@@ -110,6 +117,7 @@ struct FrameData
     AllocatedBuffer pointLightBuffer;
     AllocatedBuffer idBuffer;
     AllocatedBuffer idTransferBuffer;
+    AllocatedBuffer iconBuffer;
 };
 
 struct LightEntry
@@ -123,4 +131,11 @@ struct LightCascade
 {
     glm::mat4 lightSpace;
     f32 maxDepth;
+};
+
+struct IconData
+{
+    glm::vec3 pos;
+    TextureID texID;
+    u32 id;
 };

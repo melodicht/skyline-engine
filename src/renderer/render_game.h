@@ -37,6 +37,12 @@ struct MeshRenderInfo {
     // WGPU Specific
 };
 
+struct IconRenderInfo {
+    glm::vec3 pos;
+    TextureID texture;
+    u32 id;
+};
+
 struct DirLightRenderInfo {
     // Shared
     LightID lightID;
@@ -94,7 +100,9 @@ struct RenderFrameInfo {
     float cameraNear;
     float cameraFar;
 
+    // Editor stuff
     glm::ivec2 cursorPos;
+    std::vector<IconRenderInfo>& icons;
 
     // Vulkan Specific
 
