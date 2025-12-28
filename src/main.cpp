@@ -23,6 +23,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "renderer/render_backend.h"
+#include "renderer/render_game.h"
 #include "game_platform.h"
 
 #if SKL_ENABLED_EDITOR
@@ -258,6 +259,14 @@ int main()
     platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
     platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
     platformAPI.platformLoadSkyboxAsset = &LoadSkyboxAsset;
+    platformAPI.rendererInitPipelines = &InitPipelines;
+    platformAPI.rendererAddDirLight = &AddDirLight;
+    platformAPI.rendererAddSpotLight = &AddSpotLight;
+    platformAPI.rendererAddPointLight = &AddPointLight;
+    platformAPI.rendererDestroyDirLight = &DestroyDirLight;
+    platformAPI.rendererDestroySpotLight = &DestroySpotLight;
+    platformAPI.rendererDestroyPointLight = &DestroyPointLight;
+    platformAPI.rendererRenderUpdate = &RenderUpdate;
 
     Scene scene;
     gameCode.gameInitialize(scene, gameMemory, platformAPI);

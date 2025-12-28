@@ -34,8 +34,6 @@ class RenderSystem : public System
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
-        NAMED_TIMED_BLOCK(RenderSystem);
-
         // Get the main camera view
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -53,7 +51,7 @@ class RenderSystem : public System
             DirLight *l = scene->Get<DirLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = AddDirLight();
+                l->lightID = globalPlatformAPI.rendererAddDirLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -67,7 +65,7 @@ class RenderSystem : public System
             SpotLight *l = scene->Get<SpotLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = AddSpotLight();
+                l->lightID = globalPlatformAPI.rendererAddSpotLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -82,8 +80,7 @@ class RenderSystem : public System
             PointLight *l = scene->Get<PointLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = AddPointLight();
-                std::cout << l->lightID << std::endl;
+                l->lightID = globalPlatformAPI.rendererAddPointLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -114,7 +111,7 @@ class RenderSystem : public System
                 .cameraFar = camera->farPlane
         };
 
-        RenderUpdate(sendState);
+        globalPlatformAPI.rendererRenderUpdate(sendState);
     }
 };
 
@@ -184,7 +181,6 @@ public:
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
-        NAMED_TIMED_BLOCK(CharacterControllerSystem);
         SceneView<PlayerCharacter, Transform3D> playerView = SceneView<PlayerCharacter, Transform3D>(*scene);
         if (playerView.begin() == playerView.end())
         {
@@ -228,7 +224,6 @@ class MovementSystem : public System
 {
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
-        NAMED_TIMED_BLOCK(MovementSystem);
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
