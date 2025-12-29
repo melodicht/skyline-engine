@@ -1978,7 +1978,7 @@ void DrawIcons(std::vector<IconRenderInfo>& icons)
     memcpy(objectData, icons.data(), sizeof(IconData) * icons.size());
 
     f32 aspect = (f32)swapExtent.height / swapExtent.width;
-    glm::vec2 iconScale = {0.1 * aspect, 0.1};
+    glm::vec2 iconScale = {0.0625 * aspect, 0.0625};
 
     FrameData& frame = frames[frameNum];
     IconPushConstants pushConstants
