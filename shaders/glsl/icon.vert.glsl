@@ -63,6 +63,6 @@ void main()
 
     uv = uvs[gl_VertexIndex];
 
-    gl_Position = centerPos + vec4(offsets[gl_VertexIndex] * pcs.iconSize, 0, 0);
+    gl_Position = centerPos + vec4(offsets[gl_VertexIndex] * pcs.iconSize * centerPos.w, 0, 0);
     instance = gl_InstanceIndex;
 }
