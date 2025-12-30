@@ -25,6 +25,17 @@ MeshID UploadMesh(RenderUploadMeshInfo& desc) {
     return wgpuRenderer.UploadMesh(desc.vertSize, desc.vertData, desc.idxSize, desc.idxData);
 }
 
+TextureID UploadTexture(RenderUploadTextureInfo& desc) {
+        return 0;
+}
+
+void SetSkyboxTexture(RenderSetSkyboxInfo& info) {
+    wgpuRenderer.SetSkybox(
+        info.width, 
+        info.height, 
+        info.cubemapData);
+}
+
 void DestroyMesh(RenderDestroyMeshInfo& desc) {
     wgpuRenderer.DestroyMesh(desc.meshID);
 }
@@ -32,4 +43,29 @@ void DestroyMesh(RenderDestroyMeshInfo& desc) {
 // This compiles information from scene to be plugged into renderer
 void RenderUpdate(RenderFrameInfo& state) {
     wgpuRenderer.RenderUpdate(state);
+}
+
+LightID AddDirLight() {
+    return wgpuRenderer.AddDirLight();
+}
+LightID AddSpotLight() {
+    return wgpuRenderer.AddSpotLight();
+}
+LightID AddPointLight() {
+    return wgpuRenderer.AddPointLight();
+}
+
+void DestroyDirLight(LightID lightID) {
+    wgpuRenderer.DestroyDirLight(lightID);
+}
+void DestroySpotLight(LightID lightID) {
+    wgpuRenderer.DestroySpotLight(lightID);
+}
+void DestroyPointLight(LightID lightID) {
+    wgpuRenderer.DestroyPointLight(lightID);
+}
+
+u32 GetIndexAtCursor()
+{
+    return 0;
 }

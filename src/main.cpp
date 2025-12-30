@@ -230,7 +230,7 @@ void updateLoop(void* appInfo) {
 
     f32 msPerFrame =  1000.0f * deltaTime;
     f32 fps = 1 / deltaTime;
-    // printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+    printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     return;
 }
 
@@ -299,6 +299,7 @@ int main(int argc, char** argv)
     platformAPI.platformLoadDataAsset = &LoadDataAsset;
     platformAPI.platformWriteDataAsset = &WriteDataAsset;
 
+    platformAPI.platformLoadSkyboxAsset = &LoadSkyboxAsset;
     platformAPI.rendererInitPipelines = &InitPipelines;
     platformAPI.rendererAddDirLight = &AddDirLight;
     platformAPI.rendererAddSpotLight = &AddSpotLight;

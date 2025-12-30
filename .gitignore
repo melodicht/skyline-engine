@@ -418,6 +418,7 @@ build/*
 
 
 /SkylineEngine_XCode
+/test
 /subprojects
 /webbuild
 /xcodebuild

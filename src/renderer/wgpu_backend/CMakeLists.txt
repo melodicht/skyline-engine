@@ -7,10 +7,37 @@ if(UNIX)
     set(USE_WAYLAND ON)
 endif()
 
+# Dawn options
+set(DAWN_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+set(DAWN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(DAWN_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+
+# Tint options (Dawn's shader compiler)
+set(TINT_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+set(TINT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(TINT_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+set(TINT_BUILD_CMD_TOOLS OFF CACHE BOOL "" FORCE)
+
+# Abseil options (Dawn dependency)
+set(ABSL_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+# Google Test (pulled in by Dawn)
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
 set(DAWN_FETCH_DEPENDENCIES ON)
 if(EMSCRIPTEN)
-        add_library(wgpu-backend STATIC ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp)
-        target_include_directories(wgpu-backend PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
+        add_library(wgpu-backend SHARED 
+                ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp 
+                ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_light_converter.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/single_textures_wgpu.cpp)
+        target_include_directories(wgpu-backend PRIVATE 
+                ${CMAKE_SOURCE_DIR}/include 
+                ${CMAKE_SOURCE_DIR}/src)
 
         add_library(webgpu INTERFACE)
         # Fetches emscripten Dawn port
@@ -24,16 +51,32 @@ if(EMSCRIPTEN)
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
                 --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
         target_compile_options(webgpu INTERFACE 
-                --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py)
+                --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
+                -DDAWN_DEBUG_BREAK_ON_ERROR=1)
         set_property(TARGET webgpu APPEND PROPERTY LINK_DEPENDS 
                 ../notes.txt
         )
 else()
         if(${SKL_ENABLE_EDITOR_MODE})
-                add_library(wgpu-backend STATIC ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
+                add_library(wgpu-backend SHARED 
+                        ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp 
+                        ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp 
+                        ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
+                        ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_light_converter.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/single_textures_wgpu.cpp)
                 target_include_directories(wgpu-backend PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
         else()
-                add_library(wgpu-backend STATIC ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp)
+                add_library(wgpu-backend SHARED 
+                        ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp 
+                        ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_light_converter.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/single_textures_wgpu.cpp)
                 target_include_directories(wgpu-backend PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
         endif()
 
@@ -42,10 +85,10 @@ else()
         target_compile_definitions(wgpu-backend PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_DAWN ON)
 
         # Fetches Dawn
-        CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
-
-        target_link_libraries(webgpu INTERFACE 
-                dawn::webgpu_dawn)
+        # set(DAWN_FETCH_DEPENDENCIES ON)
+        # set(DAWN_BUILD_MONOLITHIC_LIBRARY SHARED)
+        CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/chromium/7285.tar.gz")
+        target_link_libraries(webgpu INTERFACE dawn::webgpu_dawn)
 endif()
 
 target_compile_definitions(wgpu-backend PRIVATE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})

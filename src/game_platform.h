@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <string>
 #include <set>
+#include <array>
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
@@ -38,6 +39,9 @@ typedef PLATFORM_LOAD_MESH_ASSET(platform_load_mesh_asset_t);
 #define PLATFORM_LOAD_TEXTURE_ASSET(proc) TextureAsset* proc(std::string name)
 typedef PLATFORM_LOAD_TEXTURE_ASSET(platform_load_texture_asset_t);
 
+#define PLATFORM_LOAD_SKYBOX_ASSET(proc) void proc(std::array<std::string,6> names)
+typedef PLATFORM_LOAD_SKYBOX_ASSET(platform_load_skybox_asset_t);
+
 #define PLATFORM_LOAD_DATA_ASSET(proc) DataEntry* proc(std::string path)
 typedef PLATFORM_LOAD_DATA_ASSET(platform_load_data_asset_t);
 
@@ -51,6 +55,7 @@ struct PlatformAPI
     platform_load_texture_asset_t *platformLoadTextureAsset;
     platform_load_data_asset_t *platformLoadDataAsset;
     platform_write_data_asset_t *platformWriteDataAsset;
+    platform_load_skybox_asset_t *platformLoadSkyboxAsset;
 
     // Renderer
     platform_renderer_init_pipelines_t *rendererInitPipelines;

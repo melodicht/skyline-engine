@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.22)
 project("skyline-engine")
 
 set(CMAKE_CXX_STANDARD 20)
@@ -14,7 +14,7 @@ set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 set(GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game.cpp)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
-CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
+CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
@@ -111,6 +111,14 @@ if(NOT DEFINED SKL_ENABLE_ASSERTS)
                         message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
                 endif()
         endif()
+endif()
+
+if(NOT DEFINED SKL_INTERNAL)
+        set(SKL_INTERNAL 1)
+endif()
+
+if(NOT DEFINED SKL_SLOW)
+        set(SKL_SLOW 1)
 endif()
 
 target_compile_definitions(SHARED_DEPENDENCIES
@@ -262,7 +270,7 @@ if(NOT EMSCRIPTEN)
                 # This makes the assumption that if SKL_ENABLE_DEBUGGING is true, xcode is also running in debug mode
                 # This behavior needs to be enforced by XCODE
                 if(SKL_ENABLE_DEBUGGING)
-                        set(BUILD_DIR ${CMAKE_BINARY_DIR}/Debug)
+                       set(BUILD_DIR ${CMAKE_BINARY_DIR}/Debug)
                 endif()
         endif()
 

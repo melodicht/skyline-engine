@@ -29,6 +29,11 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
 
 class RenderSystem : public System
 {
+    void OnStart(Scene *scene)
+    {
+        globalPlatformAPI.platformLoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
+    }
+
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         // Get the main camera view
