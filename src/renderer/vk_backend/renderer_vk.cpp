@@ -2158,3 +2158,8 @@ void RenderUpdate(RenderFrameInfo& info)
     EndPass();
     EndFrame(info.cursorPos);
 }
+
+void SetSkyboxTexture(RenderSetSkyboxInfo& info)
+{
+
+}

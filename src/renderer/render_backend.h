@@ -7,6 +7,7 @@
 #include <SDL3/SDL.h>
 
 #include <map>
+#include <array>
 
 // Common interface between renderers for systems to call.
 // The interfaces take in Info objects in order to allow for 
