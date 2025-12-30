@@ -66,11 +66,8 @@ struct VkPointLightData
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    f32 constant;
-    f32 linear;
-    f32 quadratic;
-
-    f32 maxRange;
+    f32 radius;
+    f32 falloff;
 };
 
 // Represents the direction of the skylight, and the descriptor id of the shadowmap (CPU->GPU)

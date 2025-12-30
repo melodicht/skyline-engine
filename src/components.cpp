@@ -141,9 +141,9 @@ COMPONENT(StaticBox)
 
 struct CameraComponent
 {
-    float fov = 90;
-    float nearPlane = 0.01;
-    float farPlane = 1000;
+    f32 fov = 90;
+    f32 nearPlane = 0.01;
+    f32 farPlane = 1000;
 };
 SERIALIZE(CameraComponent, fov, nearPlane, farPlane)
 COMPONENT(CameraComponent, "gizmos/camera")
@@ -151,8 +151,8 @@ COMPONENT(CameraComponent, "gizmos/camera")
 
 struct FlyingMovement
 {
-    float moveSpeed = 5;
-    float turnSpeed = 0.1;
+    f32 moveSpeed = 5;
+    f32 turnSpeed = 0.1;
 };
 SERIALIZE(FlyingMovement, moveSpeed, turnSpeed)
 COMPONENT(FlyingMovement)
@@ -174,8 +174,8 @@ COMPONENT(VerticalLook)
 
 struct Plane
 {
-    float width = 1;
-    float length = 1;
+    f32 width = 1;
+    f32 length = 1;
 };
 SERIALIZE(Plane, width, length)
 COMPONENT(Plane)
@@ -197,9 +197,9 @@ struct SpotLight
     glm::vec3 specular = glm::vec3{1};
     LightID lightID = -1;
 
-    float innerCone = 30;
-    float outerCone = 45;
-    float range = 100;
+    f32 innerCone = 30;
+    f32 outerCone = 45;
+    f32 range = 100;
 };
 SERIALIZE(SpotLight, diffuse, specular, innerCone, outerCone, range)
 COMPONENT(SpotLight, "gizmos/spot_light")
@@ -211,13 +211,10 @@ struct PointLight
     glm::vec3 specular = glm::vec3{1};
     LightID lightID = -1;
 
-    float constant = 1;
-    float linear = 0.25;
-    float quadratic = 0.2;
-
-    float maxRange = 20;
+    f32 radius;
+    f32 falloff;
 };
-SERIALIZE(PointLight, diffuse, specular, constant, linear, quadratic, maxRange)
+SERIALIZE(PointLight, diffuse, specular, radius, falloff)
 COMPONENT(PointLight, "gizmos/point_light")
 
 

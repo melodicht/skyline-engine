@@ -2178,7 +2178,7 @@ void RenderUpdate(RenderFrameInfo& info)
         {
             CameraData pointCamData[6];
 
-            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, pointInfo.maxRange);
+            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, pointInfo.radius);
             glm::mat4 pointViews[6];
 
             pointTransform->GetPointViews(pointViews);
@@ -2193,7 +2193,7 @@ void RenderUpdate(RenderFrameInfo& info)
             SetCamera(lightEntry.cameraIndex);
             UpdateCamera(6, pointCamData);
 
-            SetShadowInfo(pointPos, pointInfo.maxRange);
+            SetShadowInfo(pointPos, pointInfo.radius);
 
             startIndex = 0;
             for (std::pair<MeshID, u32> pair: meshCounts)
@@ -2208,8 +2208,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
         pointLightData.push_back({pointPos, lightEntry.shadowMap.descriptorIndex,
                                   pointInfo.diffuse, pointInfo.specular,
-                                  pointInfo.constant, pointInfo.linear, pointInfo.quadratic,
-                                  pointInfo.maxRange});
+                                  pointInfo.radius, pointInfo.falloff});
     }
 
     BeginDepthPass(CullMode::BACK);

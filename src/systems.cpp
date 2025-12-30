@@ -327,10 +327,8 @@ public:
                         f32 red = RandInBetween(0.8, 1.0);
                         pointLightComponent->diffuse = {red, 0.6, 0.25};
                         pointLightComponent->specular = {red, 0.6, 0.25};
-                        pointLightComponent->constant = 1;
-                        pointLightComponent->linear = 0.0005;
-                        pointLightComponent->quadratic = 0.00005;
-                        pointLightComponent->maxRange = 1000;
+                        pointLightComponent->radius = 500.0f;
+                        pointLightComponent->falloff = 2.0f;
 
                         pointLightCount++;
                     }

@@ -40,7 +40,7 @@ GAME_INITIALIZE(GameInitialize)
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.rendererInitPipelines(initDesc);
 
-    globalPlatformAPI.platformLoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
+//    globalPlatformAPI.platformLoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
     RegisterComponents(scene, editor);
 
@@ -135,7 +135,9 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
 
         pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                  l->constant, l->linear, l->quadratic, l->maxRange, true});
+                                  l->radius, l->falloff, true,
+                                  // Temporary for webgpu
+                                  1, 0.0005, 0.00005, 1000});
     }
 
     std::vector<IconRenderInfo> icons;
