@@ -53,7 +53,17 @@ typedef s32 b32;
 #define ArrayCount(Expression) (sizeof(Expression)/sizeof((Expression)[0]))
 
 #if SKL_SLOW
-#define Assert(Expression) if(!(Expression)) {*(int *)0 = 0; }
+
+#if defined(_MSC_VER)
+#define DEBUG_BREAK() __debugbreak()
+#elif defined(__GNUC__) || defined(__clang__)
+#define DEBUG_BREAK() __builtin_trap()
+#else
+#define DEBUG_BREAK() (*(volatile int*)0 = 0)
+#endif
+
+#define Assert(Expression) if(!(Expression)) { DEBUG_BREAK(); }
+
 #else
 #define Assert(Expression)
 #endif

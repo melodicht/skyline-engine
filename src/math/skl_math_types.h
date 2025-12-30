@@ -8,6 +8,8 @@
 
 #include <unordered_set>
 
+#include "../meta_definitions.h"
+
 // This represents constants/typedefs often used throughout program
 // Really any compile time math concept
 
@@ -46,14 +48,14 @@ public:
     glm::mat4 GetViewMatrix();
     void GetPointViews(glm::mat4 *views);
     void SetParent(Transform3D *newParent);
+    Transform3D *GetParent();
+    void MarkDirty();
 
     ~Transform3D();
 
 private:
+    bool dirty = true;
     Transform3D *parent;
     std::unordered_set<Transform3D *> children;
     glm::mat4 worldTransform;
-    bool dirty = true;
-
-    void MarkDirty();
 };

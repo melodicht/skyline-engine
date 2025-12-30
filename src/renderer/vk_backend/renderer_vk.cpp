@@ -25,7 +25,7 @@
 #include "vulkan/vma_no_warnings.h"
 #include <iostream>
 
-#include <backends/imgui_impl_vulkan.h>
+#include <imgui_impl_vulkan.h>
 
 #include "asset_types.h"
 #include "renderer/render_backend.h"
@@ -58,6 +58,9 @@ VmaAllocator allocator;
 VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
 AllocatedImage depthImage;
 VkImageView depthImageView;
+
+AllocatedImage idImage;
+VkImageView idImageView;
 
 VkFormat swapchainFormat;
 VkSwapchainKHR swapchain;
@@ -109,6 +112,9 @@ VkSampler textureSampler;
 
 u32 currentCamIndex;
 u32 mainCamIndex;
+
+bool editor;
+u32 cursorEntityIndex = UINT32_MAX;
 
 // Upload a mesh to the gpu
 MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
@@ -533,6 +539,11 @@ void DestroyPointLight(LightID lightID)
 
 }
 
+u32 GetIndexAtCursor()
+{
+    return cursorEntityIndex;
+}
+
 // Create swapchain or recreate to change size
 void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 {
@@ -557,19 +568,19 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 
     // Create the depth buffer
 
-    VkExtent3D depthImageExtent
+    VkExtent3D imageExtent
     {
-        swapExtent.width,
-        swapExtent.height,
+        width,
+        height,
         1
     };
 
     depthImage = CreateImage(allocator,
                              depthFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                             depthImageExtent, 1,
+                             imageExtent, 1,
                              VMA_MEMORY_USAGE_GPU_ONLY,
-                             VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     VkImageViewCreateInfo depthViewInfo
     {
@@ -588,10 +599,44 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
     };
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImageView));
+
+    if (editor)
+    {
+        idImage = CreateImage(allocator,
+                              VK_FORMAT_R32_UINT, 0,
+                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                              imageExtent, 1,
+                              VMA_MEMORY_USAGE_GPU_ONLY,
+                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        VkImageViewCreateInfo idViewInfo
+            {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .image = idImage.image,
+                .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                .format = VK_FORMAT_R32_UINT,
+                .subresourceRange
+                    {
+                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .baseMipLevel = 0,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1
+                    }
+            };
+
+        VK_CHECK(vkCreateImageView(device, &idViewInfo, nullptr, &idImageView));
+    }
 }
 
 void DestroySwapResources()
 {
+    if (editor)
+    {
+        vkDestroyImageView(device, idImageView, nullptr);
+        DestroyImage(allocator, idImage);
+    }
+
     vkDestroyImageView(device, depthImageView, nullptr);
     DestroyImage(allocator, depthImage);
 
@@ -631,6 +676,8 @@ SDL_WindowFlags GetRenderWindowFlags()
 // Initialize the rendering API
 void InitRenderer(RenderInitInfo& info)
 {
+    editor = info.editor;
+
     volkInitializeCustom((PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr());
 
     // Create Vulkan instance
@@ -652,6 +699,11 @@ void InitRenderer(RenderInitInfo& info)
     SDL_Vulkan_CreateSurface(info.window, instance, vkbInstance.allocation_callbacks, &surface);
 
     VkPhysicalDeviceFeatures feat10{.depthClamp = true, .shaderInt64 = true};
+
+    if (editor)
+    {
+        feat10.independentBlend = true;
+    }
 
     VkPhysicalDeviceVulkan11Features feat11{.multiview = true, .shaderDrawParameters = true};
 
@@ -829,6 +881,17 @@ void InitPipelines(RenderPipelineInitInfo& info)
                                                   VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].idBuffer = CreateBuffer(device, allocator,
+                                          sizeof(u32) * 4096,
+                                          VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                          VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                          | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].idTransferBuffer = CreateBuffer(device, allocator,
+                                                  32, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
+                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     }
 
     mainCamIndex = CreateCameraBuffer(1);
@@ -851,9 +914,11 @@ void InitPipelines(RenderPipelineInitInfo& info)
     
     VkShaderModule shadowVertShader = CreateShaderModuleFromFile("shaders/shadow.vert.spv");
     VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.frag.spv");
+
+    const char* colorFragPath = editor ? "shaders/editor.frag.spv" : "shaders/color.frag.spv";
     
     VkShaderModule colorVertShader = CreateShaderModuleFromFile("shaders/color.vert.spv");
-    VkShaderModule colorFragShader = CreateShaderModuleFromFile("shaders/color.frag.spv");
+    VkShaderModule colorFragShader = CreateShaderModuleFromFile(colorFragPath);
 
     VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile("shaders/dirshadow.frag.spv");
 #endif
@@ -997,6 +1062,11 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .size = 3 * sizeof(VkDeviceAddress) + sizeof(FragPushConstants)
     };
 
+    if (editor)
+    {
+        pushConstants.size += sizeof(VkDeviceAddress);
+    }
+
     VkPushConstantRange shadowPushConstants
     {
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -1114,7 +1184,7 @@ void InitPipelines(RenderPipelineInitInfo& info)
             VK_COLOR_COMPONENT_R_BIT
             | VK_COLOR_COMPONENT_G_BIT
             | VK_COLOR_COMPONENT_B_BIT
-            | VK_COLOR_COMPONENT_A_BIT,
+            | VK_COLOR_COMPONENT_A_BIT
     };
 
     VkPipelineColorBlendStateCreateInfo colorBlending
@@ -1123,6 +1193,15 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .logicOp = VK_LOGIC_OP_COPY,
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment,
+        .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}
+    };
+
+    VkPipelineColorBlendStateCreateInfo depthBlending
+    {
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 0,
+        .pAttachments = nullptr,
         .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}
     };
 
@@ -1181,6 +1260,25 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .depthAttachmentFormat = depthFormat
     };
 
+    VkPipelineColorBlendAttachmentState idBlendAttachment
+    {
+        .blendEnable = VK_FALSE,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT
+    };
+
+    VkPipelineColorBlendAttachmentState blendAttachments[2] = {colorBlendAttachment, idBlendAttachment};
+    VkFormat colorFormats[2] = {swapchainFormat, VK_FORMAT_R32_UINT};
+
+    if (editor)
+    {
+        colorBlending.attachmentCount = 2;
+        colorBlending.pAttachments = blendAttachments;
+
+        colorRenderInfo.colorAttachmentCount = 2;
+
+        colorRenderInfo.pColorAttachmentFormats = colorFormats;
+    }
+
     VkGraphicsPipelineCreateInfo depthPipelineInfo
     {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -1193,7 +1291,7 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .pRasterizationState = &rasterizer,
         .pMultisampleState = &multisampling,
         .pDepthStencilState = &preDepthStencil,
-        .pColorBlendState = &colorBlending,
+        .pColorBlendState = &depthBlending,
         .pDynamicState = &dynamicState,
         .layout = depthPipelineLayout,
         .renderPass = VK_NULL_HANDLE, // No renderpass necessary because we are using dynamic rendering
@@ -1221,6 +1319,7 @@ void InitPipelines(RenderPipelineInitInfo& info)
     colorPipelineInfo.stageCount = 2;
     colorPipelineInfo.pStages = colorShaderStages;
     colorPipelineInfo.pDepthStencilState = &colorDepthStencil;
+    colorPipelineInfo.pColorBlendState = &colorBlending;
     colorPipelineInfo.layout = colorPipelineLayout;
 
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
@@ -1252,8 +1351,9 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .QueueFamily = graphicsQueueFamily,
         .Queue = graphicsQueue,
         .MinImageCount = 2,
-        .ImageCount = (u32)swapImages.size(),
+        .ImageCount = 2,
         .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+        .Editor = editor,
         .DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 1,
         .UseDynamicRendering = true,
         .PipelineRenderingCreateInfo = colorRenderInfo
@@ -1303,6 +1403,15 @@ bool InitFrame()
     };
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
+
+    vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       sizeof(VkDeviceAddress), sizeof(VkDeviceAddress), &frames[frameNum].objectBuffer.address);
+
+    if (editor)
+    {
+        void* idData = frames[frameNum].idTransferBuffer.allocation->GetMappedData();
+        memcpy(&cursorEntityIndex, idData, sizeof(u32));
+    }
 
     return true;
 }
@@ -1495,15 +1604,6 @@ void BeginColorPass(CullMode cullMode)
 
     imageBarriers.push_back(ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
 
-    VkDependencyInfo depInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .imageMemoryBarrierCount = (u32)imageBarriers.size(),
-        .pImageMemoryBarriers = imageBarriers.data()
-    };
-
-    vkCmdPipelineBarrier2(cmd, &depInfo);
-
     //set dynamic viewport and scissor
     VkViewport viewport
     {
@@ -1530,6 +1630,7 @@ void BeginColorPass(CullMode cullMode)
     vkCmdSetDepthBiasEnable(cmd, false);
 
     VkClearValue clearValue{.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkClearValue idClearValue{.color = {.uint32 = {UINT32_MAX, 0, 0, 0}}};
 
     VkRenderingAttachmentInfo colorAttachment
     {
@@ -1564,6 +1665,38 @@ void BeginColorPass(CullMode cullMode)
         .pDepthAttachment = &depthAttachment,
         .pStencilAttachment = nullptr
     };
+
+    VkRenderingAttachmentInfo idAttachment
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = idImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = idClearValue
+        };
+
+    VkRenderingAttachmentInfo attachments[2] = {colorAttachment, idAttachment};
+
+    if (editor)
+    {
+        renderInfo.colorAttachmentCount = 2;
+        renderInfo.pColorAttachments = attachments;
+
+        imageBarriers.push_back(ImageBarrier(idImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
+
+        vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                           3 * sizeof(VkDeviceAddress), sizeof(VkDeviceAddress), &frames[frameNum].idBuffer.address);
+    }
+
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = (u32)imageBarriers.size(),
+        .pImageMemoryBarriers = imageBarriers.data()
+    };
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 
     vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -1641,20 +1774,25 @@ void SetLights(glm::vec3 ambientLight,
                                        dirCount, NUM_CASCADES, spotCount, pointCount,
                                        ambientLight};
 
+    u32 offset = editor ? 4 : 3;
+
     vkCmdPushConstants(cmd, colorPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       3 * sizeof(VkDeviceAddress), sizeof(FragPushConstants), &pushConstants);
+                       offset * sizeof(VkDeviceAddress), sizeof(FragPushConstants), &pushConstants);
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
-void SetObjectData(std::vector<ObjectData>& objects)
+void SetObjectData(std::vector<ObjectData>& objects, std::vector<u32>& ids)
 {
     AllocatedBuffer& objectBuffer = frames[frameNum].objectBuffer;
     void* objectData = objectBuffer.allocation->GetMappedData();
     memcpy(objectData, objects.data(), sizeof(ObjectData) * objects.size());
-    // Send addresses to instance buffer as a push constant
-    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-    vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       sizeof(VkDeviceAddress), sizeof(VkDeviceAddress), &objectBuffer.address);
+
+    if (editor)
+    {
+        AllocatedBuffer& idBuffer = frames[frameNum].idBuffer;
+        void* idData = idBuffer.allocation->GetMappedData();
+        memcpy(idData, ids.data(), sizeof(u32) * ids.size());
+    }
 }
 
 // Set the mesh currently being rendered (Must be called between InitFrame and EndFrame)
@@ -1679,12 +1817,15 @@ void DrawObjects(int count, int startIndex)
 }
 
 // End the frame and present it to the screen
-void EndFrame()
+void EndFrame(glm::ivec2 cursorPos)
 {
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     VkImageMemoryBarrier2 imageBarrier = ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    VkImageMemoryBarrier2 idBarrier = ImageBarrier(idImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+    VkImageMemoryBarrier2 barriers[2] = {imageBarrier, idBarrier};
 
     VkDependencyInfo depInfo{};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -1693,7 +1834,33 @@ void EndFrame()
     depInfo.imageMemoryBarrierCount = 1;
     depInfo.pImageMemoryBarriers = &imageBarrier;
 
+    if (editor)
+    {
+        depInfo.imageMemoryBarrierCount = 2;
+        depInfo.pImageMemoryBarriers = barriers;
+    }
+
     vkCmdPipelineBarrier2(cmd, &depInfo);
+
+    if (editor)
+    {
+        VkBufferImageCopy idCopy
+        {
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .imageSubresource
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+            .imageOffset = {cursorPos.x, cursorPos.y, 0},
+            .imageExtent = {1, 1, 1}
+        };
+
+        vkCmdCopyImageToBuffer(cmd, idImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, frames[frameNum].idTransferBuffer.buffer, 1, &idCopy);
+    }
 
     VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -1739,6 +1906,8 @@ void EndFrame()
 
 void RenderUpdate(RenderFrameInfo& info)
 {
+    currentLayout = &depthPipelineLayout;
+
     if (!InitFrame())
     {
         return;
@@ -1762,6 +1931,7 @@ void RenderUpdate(RenderFrameInfo& info)
     }
 
     std::vector<ObjectData> objects(totalCount);
+    std::vector<u32> ids(totalCount);
 
     // 4. Iterate through scene view once more and fill in the fixed size array.
     for (MeshRenderInfo meshInfo : info.meshes)
@@ -1771,11 +1941,11 @@ void RenderUpdate(RenderFrameInfo& info)
         TextureID tex = meshInfo.texture;
         glm::vec3 color = meshInfo.rgbColor;
 
-        objects[offsets[mesh]++] = {model, tex, glm::vec4(color.r, color.g, color.b, 1.0f)};
+        objects[offsets[mesh]] = {model, tex, glm::vec4(color.r, color.g, color.b, 1.0f)};
+        ids[offsets[mesh]++] = meshInfo.id;
     }
 
-    currentLayout = &depthPipelineLayout;
-    SetObjectData(objects);
+    SetObjectData(objects, ids);
 
     Transform3D* cameraTransform = info.cameraTransform;
     glm::mat4 view = cameraTransform->GetViewMatrix();
@@ -1985,5 +2155,5 @@ void RenderUpdate(RenderFrameInfo& info)
     DrawImGui();
 #endif
     EndPass();
-    EndFrame();
+    EndFrame(info.cursorPos);
 }

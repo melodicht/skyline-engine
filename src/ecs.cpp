@@ -48,6 +48,11 @@ inline void *ComponentPool::get(size_t index)
     return pData + index * elementSize;
 }
 
+inline EntityID ComponentPool::getOwner(u8 *ptr)
+{
+    return ((size_t)(ptr - pData)) / elementSize;
+}
+
 /*
  * SCENE FUNCTIONALITY
  */
@@ -97,12 +102,19 @@ EntityID Scene::NewEntity()
     return entities.back().id;
 }
 
+Scene::EntityEntry &Scene::GetEntityEntry(EntityID id)
+{
+    Scene::EntityEntry &result = entities[GetEntityIndex(id)];
+    return result;
+}
+
 void Scene::DestroyEntity(EntityID id)
 {
     // Increments EntityVersion at the deleted index
     EntityID newID = CreateEntityId((u32) (-1), GetEntityVersion(id) + 1);
-    entities[GetEntityIndex(id)].id = newID;
-    entities[GetEntityIndex(id)].mask.reset();
+    EntityEntry &entry = GetEntityEntry(id);
+    entry.id = newID;
+    entry.mask.reset();
     freeIndices.push_back(GetEntityIndex(id));
 }
 
@@ -194,4 +206,129 @@ struct SceneView
     Scene *pScene{nullptr};
     ComponentMask componentMask;
     bool all{false};
+};
+
+// Iterates through the components of a given entity.
+// NOTE(marvin): Could use GetNumberOfDefinedComponents() instead of MAX_COMPONENTS. Playing the safe route.
+struct EntityView
+{
+private:
+    ComponentMask componentMask;
+
+public:
+    EntityView(Scene &scene, EntityID entityID)
+    {
+        this->componentMask = scene.GetEntityEntry(entityID).mask;
+    }
+
+    struct Iterator
+    {
+        Iterator(ComponentID index, ComponentMask mask) : index(index), mask(mask) {}
+
+        ComponentID operator*() const
+        {
+            return index;
+        }
+
+        bool operator==(const Iterator &other) const
+        {
+            return (index == other.index) || (!ValidIndex() && !other.ValidIndex());
+        }
+
+        bool operator!=(const Iterator &other) const
+        {
+            return (index != other.index) && (ValidIndex() || other.ValidIndex());
+        }
+
+        bool ValidIndex() const
+        {
+            return index < MAX_COMPONENTS;
+        }
+
+        Iterator &operator++()
+        {
+            do
+            {
+                index++;
+            } while (ValidIndex() && !mask.test(index));
+            return *this;
+        }
+
+        u32 index;
+        ComponentMask mask;
+    };
+
+    const Iterator begin() const
+    {
+        return Iterator(0, componentMask);
+    }
+
+    const Iterator end() const
+    {
+        return Iterator(MAX_COMPONENTS, componentMask);
+    }
+};
+
+// TODO(marvin): GetNumberOfDefinedComponents is currently defined in scene_loader, because it relies on the book-keeping of the scene editor functionality, and the entity view and entity complement view are also really used for scene editor functionality... would they ever be used for non scene editor things?
+
+u32 GetNumberOfDefinedComponents();
+
+// Iterates through the components that don't exist on a given entity.
+struct EntityComplementView
+{
+private:
+    ComponentMask componentMask;
+
+public:
+    EntityComplementView(Scene &scene, EntityID entityID)
+    {
+        this->componentMask = scene.GetEntityEntry(entityID).mask;
+    }
+
+    struct Iterator
+    {
+        Iterator(ComponentID index, ComponentMask mask) : index(index), mask(mask) {}
+
+        ComponentID operator*() const
+        {
+            return index;
+        }
+
+        bool operator==(const Iterator &other) const
+        {
+            return (index == other.index) || (!ValidIndex() && !other.ValidIndex());
+        }
+
+        bool operator!=(const Iterator &other) const
+        {
+            return (index != other.index) && (ValidIndex() || other.ValidIndex());
+        }
+
+        bool ValidIndex() const
+        {
+            return index < GetNumberOfDefinedComponents();
+        }
+
+        Iterator &operator++()
+        {
+            do
+            {
+                index++;
+            } while (ValidIndex() && mask.test(index));
+            return *this;
+        }
+
+        u32 index;
+        ComponentMask mask;
+    };
+
+    const Iterator begin() const
+    {
+        return Iterator(0, componentMask);
+    }
+
+    const Iterator end() const
+    {
+        return Iterator(GetNumberOfDefinedComponents(), componentMask);
+    }
 };

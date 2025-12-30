@@ -24,16 +24,32 @@
 #define __FOR_FIELDS() _FOR_FIELDS
 
 
-#define ADD_FIELD(type, field) \
-    LoadIfPresent<decltype(type::field)>(&dest->field, #field, table);
+#define WRITE_FIELD(type, field) \
+    rv |= WriteIfPresent<decltype(type::field)>(&dest->field, #field, data->structVal);
+
+#define READ_FIELD(type, field) \
+    data->structVal.push_back(ReadToData<decltype(type::field)>(&src->field, #field));
 
 #define SERIALIZE(name, ...) \
     template<> \
-    void LoadValue<name>(name* dest, toml::node* data) \
+    s32 WriteFromData<name>(name* dest, DataEntry* data) \
     { \
-         toml::table* table = data->as_table(); \
-         FOR_FIELDS(ADD_FIELD, name, __VA_ARGS__) \
+        if (data->type != STRUCT_ENTRY) \
+        { \
+            printf("entry must be struct but instead is %d\n", data->type); \
+            return -1; \
+        } \
+        s32 rv = 0; \
+        FOR_FIELDS(WRITE_FIELD, name, __VA_ARGS__) \
+        return rv; \
     } \
+    template <> \
+    DataEntry* ReadToData<name>(name* src, std::string name) \
+    { \
+        DataEntry* data = new DataEntry(name); \
+        FOR_FIELDS(READ_FIELD, name, __VA_ARGS__) \
+        return data; \
+    }
 
 #define COMPONENT(type) [[maybe_unused]] static int add##type = (AddComponent<type>(#type), 0);
 
@@ -42,31 +58,56 @@
 SERIALIZE(Transform3D, position, rotation, scale)
 COMPONENT(Transform3D)
 template <>
-void LoadComponent<Transform3D>(Scene &scene, EntityID entity, toml::table* compData)
+s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compData)
 {
     Transform3D* comp = scene.Get<Transform3D>(entity);
-    LoadValue<Transform3D>(comp, compData);
-
-    if (compData->contains("parent"))
+    s32 rv = WriteFromData<Transform3D>(comp, compData);
+    for (DataEntry* entry : compData->structVal)
     {
-        toml::node* parentData = compData->get("parent");
-        if (!parentData->is_string())
+        if (entry->name == "parent")
         {
-            std::cout << "This field must be an string\n";
+            if (entry->type != STR_ENTRY)
+            {
+                printf("entry must be string but instead is %d\n", entry->type);
+                return -1;
+            }
+            std::string parentName = entry->stringVal;
+            if (!entityIds.contains(parentName))
+            {
+                comp->SetParent(nullptr);
+                return rv;
+            }
+            EntityID parent = entityIds[parentName];
+            Transform3D* parentTransform = scene.Get<Transform3D>(parent);
+            if (parentTransform == nullptr)
+            {
+                comp->SetParent(nullptr);
+                return rv;
+            }
+            comp->SetParent(parentTransform);
         }
-        std::string parentName = parentData->as_string()->get();
-        if (!entityNames.contains(parentName))
-        {
-            std::cout << "This field must be the name of an entity";
-        }
-        EntityID parent = entityNames[parentName];
-        Transform3D* parentTransform = scene.Get<Transform3D>(parent);
-        if (parentTransform == nullptr)
-        {
-            std::cout << "The parent must have a Transform3D";
-        }
-        comp->SetParent(parentTransform);
     }
+
+    comp->MarkDirty();
+    return rv;
+}
+template <>
+DataEntry* ReadComponent<Transform3D>(Scene &scene, EntityID entity)
+{
+    Transform3D* comp = scene.Get<Transform3D>(entity);
+    DataEntry* data = ReadToData<Transform3D>(comp, "Transform3D");
+    Transform3D* parent = comp->GetParent();
+    if (parent != nullptr)
+    {
+        EntityID parentEnt = scene.GetOwner<Transform3D>(parent);
+        NameComponent* nameComp = scene.Get<NameComponent>(parentEnt);
+        data->structVal.push_back(new DataEntry("parent", nameComp->name));
+    }
+    else
+    {
+        data->structVal.push_back(new DataEntry("parent", std::string{""}));
+    }
+    return data;
 }
 
 
@@ -84,9 +125,19 @@ COMPONENT(MeshComponent)
 struct PlayerCharacter
 {
     JPH::CharacterVirtual* characterVirtual = nullptr;
+    f32 moveSpeed = 5.0f;
 };
+SERIALIZE(PlayerCharacter, moveSpeed)
 COMPONENT(PlayerCharacter)
 
+
+struct StaticBox
+{
+    glm::vec3 volume;
+    bool initialized = false;
+};
+SERIALIZE(StaticBox, volume)
+COMPONENT(StaticBox)
 
 struct CameraComponent
 {
@@ -105,6 +156,20 @@ struct FlyingMovement
 };
 SERIALIZE(FlyingMovement, moveSpeed, turnSpeed)
 COMPONENT(FlyingMovement)
+
+struct HorizontalLook
+{
+    f32 turnSpeed = 0.1f;
+};
+SERIALIZE(HorizontalLook, turnSpeed)
+COMPONENT(HorizontalLook)
+
+struct VerticalLook
+{
+    f32 turnSpeed = 0.1;
+};
+SERIALIZE(VerticalLook, turnSpeed)
+COMPONENT(VerticalLook)
 
 
 struct Plane
@@ -154,3 +219,6 @@ struct PointLight
 };
 SERIALIZE(PointLight, diffuse, specular, constant, linear, quadratic, maxRange)
 COMPONENT(PointLight)
+
+
+COMPONENT(NameComponent)

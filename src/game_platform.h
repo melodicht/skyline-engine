@@ -20,10 +20,12 @@
 
 struct GameInput
 {
-  f32 mouseDeltaX;
-  f32 mouseDeltaY;
+    s32 mouseDeltaX;
+    s32 mouseDeltaY;
+    u32 mouseX;
+    u32 mouseY;
 
-  std::set<std::string> keysDown;
+    std::set<std::string> keysDown;
 };
 
 struct GameMemory
@@ -40,11 +42,19 @@ typedef PLATFORM_LOAD_TEXTURE_ASSET(platform_load_texture_asset_t);
 #define PLATFORM_LOAD_SKYBOX_ASSET(proc) void proc(std::array<std::string,6> names)
 typedef PLATFORM_LOAD_SKYBOX_ASSET(platform_load_skybox_asset_t);
 
+#define PLATFORM_LOAD_DATA_ASSET(proc) DataEntry* proc(std::string path)
+typedef PLATFORM_LOAD_DATA_ASSET(platform_load_data_asset_t);
+
+#define PLATFORM_WRITE_DATA_ASSET(proc) s32 proc(std::string path, DataEntry* data)
+typedef PLATFORM_WRITE_DATA_ASSET(platform_write_data_asset_t);
+
 struct PlatformAPI
 {
     // Asset Utility
     platform_load_mesh_asset_t *platformLoadMeshAsset;
     platform_load_texture_asset_t *platformLoadTextureAsset;
+    platform_load_data_asset_t *platformLoadDataAsset;
+    platform_write_data_asset_t *platformWriteDataAsset;
     platform_load_skybox_asset_t *platformLoadSkyboxAsset;
 
     // Renderer
@@ -55,6 +65,7 @@ struct PlatformAPI
     platform_renderer_destroy_light_t *rendererDestroyDirLight;
     platform_renderer_destroy_light_t *rendererDestroySpotLight;
     platform_renderer_destroy_light_t *rendererDestroyPointLight;
+    platform_renderer_get_index_at_cursor_t *rendererGetIndexAtCursor;
     platform_renderer_render_update_t *rendererRenderUpdate;
 };
 
@@ -62,7 +73,7 @@ struct PlatformAPI
   
 #include "ecs.h"
 
-#define GAME_INITIALIZE(name) void name(Scene &scene, GameMemory &memory, PlatformAPI &platformAPI)
+#define GAME_INITIALIZE(name) void name(Scene &scene, GameMemory &memory, PlatformAPI &platformAPI, bool editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
 #define GAME_UPDATE_AND_RENDER(name) void name(Scene &scene, GameInput &input, f32 deltaTime)

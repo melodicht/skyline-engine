@@ -1,3 +1,5 @@
+#include <imgui.h>
+
 std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
 {
     glm::mat4 inverse = glm::inverse(proj * view);
@@ -117,46 +119,54 @@ class RenderSystem : public System
 
 // TODO(marvin): Figure out a better place to put this, for it is not
 // a system, and too generalisable for it to be a private method on
-// CharacterControllerSystem.
+// SKLPhysicsSystem.
 
-local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
+local glm::vec3 GetMovementDirection(GameInput *input, Transform3D *t)
 {
-    // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
-    JPH::Vec3 result = {};
+    glm::vec3 result{};
+    
     if (input->keysDown.contains("W"))
     {
-        result = JPH::Vec3(0, 0, 1);
+        result += t->GetForwardVector();
     }
-    else if (input->keysDown.contains("S"))
+
+    if (input->keysDown.contains("S"))
     {
-        result = JPH::Vec3(0, 0, -1);
+        result -= t->GetForwardVector();
     }
-    else if (input->keysDown.contains("D"))
+
+    if (input->keysDown.contains("D"))
     {
-        result = JPH::Vec3(-1, 0, 0);
+        result += t->GetRightVector();
     }
-    else if (input->keysDown.contains("A"))
+
+    if (input->keysDown.contains("A"))
     {
-        result = JPH::Vec3(1, 0, 0);
+        result -= t->GetRightVector();
     }
+
     return result;
 }
 
-class CharacterControllerSystem : public System
+class SKLPhysicsSystem : public System
 {
 private:
     JPH::PhysicsSystem *physicsSystem;
     JPH::TempAllocatorImpl *allocator;
+    JPH::JobSystem *jobSystem;
 
     void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
-                              JPH::Vec3 movementDirection, f32 deltaTime)
+                              JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime)
     {
-        characterVirtual.SetLinearVelocity(movementDirection);
+        JPH::Vec3 velocity = characterVirtual.GetLinearVelocity();
+        JPH::Vec3Arg gravity{0, -9.81f, 0};
+        velocity += gravity * deltaTime;
+        velocity.SetX(0.0f);
+        velocity.SetZ(0.0f);
+        velocity += movementDirection * moveSpeed;
+        characterVirtual.SetLinearVelocity(velocity);
 
-        JPH::Vec3Arg gravity = JPH::Vec3(0, -9.81f, 0);
         JPH::CharacterVirtual::ExtendedUpdateSettings settings;
-        // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
-        // how much memory ExtendedUpdate needs...
         characterVirtual.ExtendedUpdate(deltaTime,
                                         gravity,
                                         settings,
@@ -165,13 +175,66 @@ private:
                                         {},
                                         {},
                                         *allocator);
+
+        // TODO(marvin): Physics System update should happen in its own system.
+        u32 collisionSteps = 1;
+        this->physicsSystem->Update(deltaTime, collisionSteps, this->allocator, this->jobSystem);
+    }
+
+    static void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsSystem)
+    {
+        JPH::CharacterVirtualSettings characterVirtualSettings;
+        f32 halfHeightOfCylinder = 1.0f;
+        f32 cylinderRadius = 0.3f;
+        characterVirtualSettings.mShape = new JPH::CapsuleShape(halfHeightOfCylinder, cylinderRadius);
+        characterVirtualSettings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cylinderRadius);
+
+        JPH::Vec3 characterPosition = JPH::Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
+        JPH::Quat characterRotation = JPH::Quat(0, 0, 0, 0);
+        JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
+        pc->characterVirtual = characterVirtual;
     }
 
 public:
-    CharacterControllerSystem(JPH::PhysicsSystem *ps)
+    SKLPhysicsSystem()
     {
-        physicsSystem = ps;
-        allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+        JPH::RegisterDefaultAllocator();
+        JPH::Factory::sInstance = new JPH::Factory();
+        JPH::RegisterTypes();
+
+        // NOTE(marvin): Pulled these numbers out of my ass.
+        const u32 maxPhysicsJobs = 2048;
+        const u32 maxPhysicsBarriers = 8;
+        const u32 maxBodies = 1024;
+        const u32 numBodyMutexes = 0;  // 0 means auto-detect.
+        const u32 maxBodyPairs = 1024;
+        const u32 maxContactConstraints = 1024;
+        const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
+    
+        JPH::JobSystemThreadPool *jobSystem = new JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
+
+        // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
+        JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
+
+        JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
+        JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
+        JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
+    
+        physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
+                            *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
+                            *sklObjectLayerPairFilter);
+
+        this->physicsSystem = physicsSystem;
+        this->jobSystem = jobSystem;
+        // TODO(marvin): Is it possible for Jolt's temp allocator to take from our memory arenas (after we have them)?
+        this->allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+    }
+
+    ~SKLPhysicsSystem()
+    {
+        delete this->allocator;
+        delete this->jobSystem;
+        delete this->physicsSystem;
     }
 
     void OnStart(Scene *scene)
@@ -194,36 +257,76 @@ public:
         }
         EntityID playerEnt = *playerView.begin();
         PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
+
+        if (pc->characterVirtual == nullptr)
+        {
+            this->initializePlayerCharacter(pc, this->physicsSystem);
+        }
+
+        JPH::BodyInterface &bodyInterface = this->physicsSystem->GetBodyInterface();
+        for (EntityID ent : SceneView<StaticBox, Transform3D>(*scene))
+        {
+            StaticBox *sb = scene->Get<StaticBox>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+
+            if (!sb->initialized)
+            {
+                JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(sb->volume);
+                JPH::Vec3 halfExtent{
+                    abs(abs(joltVolume.GetX()) / 2),
+                    abs(abs(joltVolume.GetY()) / 2),
+                    abs(abs(joltVolume.GetZ()) / 2)
+                };
+                JPH::BoxShapeSettings staticBodySettings{halfExtent, 0.05f};
+                JPH::ShapeSettings::ShapeResult shapeResult = staticBodySettings.Create();
+                JPH::ShapeRefC shape = shapeResult.Get();
+
+                JPH::Vec3 position = OurToJoltCoordinateSystem(t->position);
+                JPH::BodyCreationSettings bodyCreationSettings{shape, position,
+                                                               JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
+                JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
+                bodyInterface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
+
+                sb->initialized = true;
+            }
+        }
+
         JPH::CharacterVirtual *cv = pc->characterVirtual;
+        f32 moveSpeed = pc->moveSpeed;
         Transform3D *pt = scene->Get<Transform3D>(playerEnt);
 
-        EntityID cameraEnt = *playerView.begin();
-        Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
-
+        // Load player's transform into character virtual
         glm::vec3 ip = pt->GetLocalPosition();
-        JPH::Vec3 playerPhysicsInitialPosition = JPH::Vec3(-ip.y, ip.z, ip.x);
+        JPH::Vec3 playerPhysicsInitialPosition = OurToJoltCoordinateSystem(ip);
         cv->SetPosition(playerPhysicsInitialPosition);
 
         glm::vec3 ir = pt->GetLocalRotation();
         JPH::Quat playerPhysicsInitialRotation = JPH::Quat(-ir.y, ir.z, ir.x, 1.0f).Normalized();
         cv->SetRotation(playerPhysicsInitialRotation);
 
-        JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
-        MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
+        glm::vec3 ourMovementDirection = GetMovementDirection(input, pt);
+        JPH::Vec3 joltMovementDirection = OurToJoltCoordinateSystem(ourMovementDirection);
+        MoveCharacterVirtual(*cv, *physicsSystem, joltMovementDirection, moveSpeed, deltaTime);
 
-        // Update player and camera transforms from character virtual's position
-        JPH::Vec3 cp = cv->GetPosition();
-        pt->GetLocalPosition() = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-#if 0
-        ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-#endif
+        // Update player's transform from character virtual's position
+        JPH::Vec3 joltPosition = cv->GetPosition();
+        glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
+        pt->SetLocalPosition(position);
     }
 };
 
 class MovementSystem : public System
 {
+private:
+    // Cannot look up/down to the extent where it becomes looking behind.
+    void CapVerticalRotationForward(Transform3D *t)
+    {
+        t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
+    }
+public:
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        // TODO(marvin): Duplicate looking code between FlyingMovement and the XLook family of components.
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
@@ -231,31 +334,28 @@ class MovementSystem : public System
 
             t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
             t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
-            t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
+            this->CapVerticalRotationForward(t);
 
-            if (input->keysDown.contains("W"))
-            {
-                t->AddLocalPosition(t->GetForwardVector() * f->moveSpeed * deltaTime);
-            }
+            glm::vec3 movementDirection = GetMovementDirection(input, t);
+            t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
+        }
 
-            if (input->keysDown.contains("S"))
-            {
-                t->AddLocalPosition(t->GetForwardVector() * -f->moveSpeed * deltaTime);
-            }
+        for (EntityID ent : SceneView<HorizontalLook, Transform3D>(*scene))
+        {
+            HorizontalLook *hl = scene->Get<HorizontalLook>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            t->AddLocalRotation({0, 0, input->mouseDeltaX * hl->turnSpeed});
+        }
 
-            if (input->keysDown.contains("D"))
-            {
-                t->AddLocalPosition(t->GetRightVector() * f->moveSpeed * deltaTime);
-            }
-
-            if (input->keysDown.contains("A"))
-            {
-                t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
-            }
+        for (EntityID ent : SceneView<VerticalLook, Transform3D>(*scene))
+        {
+            VerticalLook *vl = scene->Get<VerticalLook>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            t->AddLocalRotation({0, input->mouseDeltaY * vl->turnSpeed, 0});
+            this->CapVerticalRotationForward(t);
         }
     }
 };
-
 
 // A vocabulary
 //
@@ -500,5 +600,382 @@ public:
         m->mesh = mesh;
         f32 shade = RandInBetween(0.25f, 0.75f);
         m->color = {shade, shade, shade};
+    }
+};
+
+class EditorSystem : public System
+{
+private:
+    EntityID editorCam;
+    EntityID selectedEntityID = INVALID_ENTITY;
+    b32 addingComponent = false;
+
+    enum ComponentDataEntryAction : u32
+    {
+        NOTHING = 0b0,
+        REWRITE = 0b1,
+        REMOVE  = 0b10,
+    };
+
+    typedef u32 ComponentDataEntryActionOutcome;
+
+    b32 ShouldRewriteComponentDataEntry(ComponentDataEntryActionOutcome outcome)
+    {
+        b32 result = (outcome & REWRITE);
+        return result;
+    }
+
+    b32 ShouldRemoveComponentDataEntry(ComponentDataEntryActionOutcome outcome)
+    {
+        b32 result = (outcome & REMOVE);
+        return result;
+    }
+
+    // Diplays the data entry, and indicates whether any action must
+    // be taken on the component root data entry.
+    // Only reads the data.
+    // To be called inside of ImGui scope.
+    ComponentDataEntryActionOutcome ImguiDisplayDataEntry(DataEntry *dataEntry, Scene &scene, EntityID ent, b32 isComponent)
+    {
+        // TODO(marvin): Duplicate code between the non-recursive cases, the way to abstract is also not immediately obvious.
+        ComponentDataEntryActionOutcome result = NOTHING;
+        switch (dataEntry->type)
+        {
+          case INT_ENTRY:
+          {
+              Assert(!isComponent);
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              if (ImGui::InputInt(fieldName, &(dataEntry->intVal)))
+              {
+                  result = REWRITE;
+              }
+              ImGui::NextColumn();
+              ImGui::Columns(1);
+              break;
+          }
+          case FLOAT_ENTRY:
+          {
+              Assert(!isComponent);
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              if (ImGui::InputFloat(fieldName, &(dataEntry->floatVal)))
+              {
+                  result = REWRITE;
+              }
+              ImGui::NextColumn();
+              ImGui::Columns(1);
+              break;
+          }
+          case BOOL_ENTRY:
+          {
+              Assert(!isComponent);
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              if (ImGui::Checkbox(fieldName, &(dataEntry->boolVal)))
+              {
+                  result = REWRITE;
+              }
+              ImGui::NextColumn();
+              ImGui::Columns(1);
+              break;
+          }
+          case VEC_ENTRY:
+          {
+              Assert(!isComponent);
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+              
+              glm::vec3 vec = dataEntry->vecVal;
+              f32 xyz[3] = {vec.x, vec.y, vec.z};
+              if (ImGui::InputFloat3(fieldName, xyz))
+              {
+                  dataEntry->vecVal = {xyz[0], xyz[1], xyz[2]};
+                  result = REWRITE;
+              }
+              ImGui::NextColumn();
+              ImGui::Columns(1);
+              break;
+          }
+          case STR_ENTRY:
+          {
+              Assert(!isComponent);
+              const char *fieldName = dataEntry->name.c_str();
+              ImGui::Columns(2, nullptr, false);
+              ImGui::SetColumnWidth(0, 150);
+        
+              ImGui::Text("%s", fieldName);
+              ImGui::NextColumn();
+
+              // TODO(marvin): Need to have temporary string buffer for string value.
+              // NOTE(marvin): Pulled that number out of my ass.
+              char buf[256];
+              const char *fieldStringValue = dataEntry->stringVal.c_str();
+              strncpy(buf, fieldStringValue, sizeof(buf) - 1);
+              buf[sizeof(buf) - 1] = '\0';
+              if (ImGui::InputText(fieldName, buf, sizeof(buf)))
+              {
+                  dataEntry->stringVal = buf;
+                  result = REWRITE;
+              }
+              ImGui::NextColumn();
+              ImGui::Columns(1);
+              break;
+          }
+          case STRUCT_ENTRY:
+          {
+              result = this->ImguiDisplayStructDataEntry(dataEntry->name, dataEntry->structVal, scene, ent, isComponent);
+              break;
+          }
+        }
+        return result;
+    }
+
+    // Diplays the data entry for a struct, and indicates whether any data has been changed.
+    // Only reads from the data.
+    ComponentDataEntryActionOutcome ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent, b32 isComponent)
+    {
+        ComponentDataEntryActionOutcome result = NOTHING;
+
+        if (isComponent)
+        {
+            std::string entityComponentUniqueName = std::to_string(ent) + name;
+            ImGui::PushID(entityComponentUniqueName.c_str());
+        }
+        
+        const char *nodeName = name.c_str();
+        if (ImGui::TreeNode(nodeName))
+        {
+            if (ImGui::Button("Remove Component"))
+            {
+                result = REMOVE;
+            }
+            
+            for (DataEntry *dataEntry : dataEntries)
+            {
+                result |= this->ImguiDisplayDataEntry(dataEntry, scene, ent, false);
+            }
+            ImGui::TreePop();
+        }
+
+        if (isComponent)
+        {
+            ImGui::PopID();
+        }
+        return result;
+    }
+
+public:
+    EditorSystem(EntityID editorCam)
+    {
+        this->editorCam = editorCam;
+    }
+
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    {
+        if (input->keysDown.contains("Mouse 3"))
+        {
+            FlyingMovement *f = scene->Get<FlyingMovement>(editorCam);
+            Transform3D *t = scene->Get<Transform3D>(editorCam);
+
+            t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
+            t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
+            t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
+
+            if (input->keysDown.contains("W"))
+            {
+                t->AddLocalPosition(t->GetForwardVector() * f->moveSpeed * deltaTime);
+            }
+
+            if (input->keysDown.contains("S"))
+            {
+                t->AddLocalPosition(t->GetForwardVector() * -f->moveSpeed * deltaTime);
+            }
+
+            if (input->keysDown.contains("D"))
+            {
+                t->AddLocalPosition(t->GetRightVector() * f->moveSpeed * deltaTime);
+            }
+
+            if (input->keysDown.contains("A"))
+            {
+                t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
+            }
+        }
+
+        // NOTE(marvin): Proof of concept for interactive tree view for components of a single entity
+
+        // Create a transparent, non-interactive overlay window
+        ImGuiWindowFlags window_flags = 
+        ImGuiWindowFlags_NoTitleBar | 
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoSavedSettings;
+
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->Pos);
+        ImGui::SetNextWindowSize({viewport->Size.x, 0});
+
+        ImGui::Begin("Overlay", nullptr, window_flags);
+
+        if (input->keysDown.contains("Mouse 1"))
+        {
+            u32 cursorEntityIndex = globalPlatformAPI.rendererGetIndexAtCursor();
+            selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
+        }
+
+        // TODO(marvin): Make name editable.
+        // NOTE(marvin): Entities list
+        if (ImGui::BeginListBox("Entities"))
+        {
+            for (EntityID entityID : SceneView(*scene))
+            {
+                NameComponent *maybeNameComponent = scene->Get<NameComponent>(entityID);
+                if (maybeNameComponent)
+                {
+                    NameComponent *nameComponent = maybeNameComponent;
+                    const char *entityName = (nameComponent->name).c_str();
+                    std::string entityIDString = std::to_string(entityID);
+                    
+                    ImGui::PushID(entityIDString.c_str());
+                    const bool isSelected = (entityID == this->selectedEntityID);
+
+                    if (isSelected)
+                    {
+                        // NOTE(marvin): Pulled this number out of my ass.
+                        char buf[256];
+                        strncpy(buf, entityName, sizeof(buf) - 1);
+                        buf[sizeof(buf) - 1] = '\0';
+
+                        if (ImGui::InputText(("##" + entityIDString).c_str(), buf, sizeof(buf)))
+                        {
+                            nameComponent->name = buf;
+                        }
+                    }
+                    else
+                    {
+                        if (ImGui::Selectable(entityName, isSelected))
+                        {
+                            selectedEntityID = entityID;
+                        }
+                
+                        ImGui::IsItemHovered();
+                    }
+                    ImGui::PopID();
+                }
+            
+            }
+            ImGui::EndListBox();
+        }
+
+        // NOTE(marvin): Destroy selected entity.
+        if (IsEntityValid(selectedEntityID) && ImGui::Button("Destroy Selected Entity"))
+        {
+            scene->DestroyEntity(selectedEntityID);
+            selectedEntityID = INVALID_ENTITY;
+        }
+
+        // NOTE(marvin): Add new entity.
+        if (ImGui::Button("New Entity"))
+        {
+            // TODO(marvin): Probably want a helper that creates the entity through this ritual. Common with the one in scene_loader::LoadScene, but that one doesn't assign a Transform3D.
+            EntityID newEntityID = scene->NewEntity();
+
+            // TODO(marvin): Will there be problems if there is an entity with that name already?
+            std::string entityName = "New Entity";
+            entityIds[entityName] = newEntityID;
+            NameComponent* nameComp = scene->Assign<NameComponent>(newEntityID);
+            nameComp->name = entityName;
+            scene->Assign<Transform3D>(newEntityID);
+            
+            selectedEntityID = newEntityID;
+        }
+
+        if (IsEntityValid(selectedEntityID))
+        {
+            // NOTE(marvin): Component interactive tree view
+            for (ComponentID componentID : EntityView(*scene, selectedEntityID))
+            {
+                ComponentInfo compInfo = compInfos[componentID];
+                if (compInfo.name == NAME_COMPONENT)
+                {
+                    continue;
+                }
+
+                // NOTE(marvin): It's not possible to rewrite and
+                // remove at the same time, but rewrite is
+                // prioritised. Allowing both at the same time (if
+                // somehow possible) seems risky.
+                DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
+                ComponentDataEntryActionOutcome componentOutcome = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
+                if (this->ShouldRewriteComponentDataEntry(componentOutcome))
+                {
+                    s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
+                    if (val != 0)
+                    {
+                        printf("failed to write component");
+                    }
+                }
+                else if (this->ShouldRemoveComponentDataEntry(componentOutcome))
+                {
+                    compInfo.removeFunc(*scene, selectedEntityID);
+                }
+                delete dataEntry;
+            }
+            // NOTE(marvin): Add component to current entity.
+            if (!this->addingComponent)
+            {
+                if (ImGui::Button("Add Component"))
+                {
+                    this->addingComponent = true;
+                }
+            }
+            else
+            {
+                if (ImGui::BeginListBox("Add which component?"))
+                {
+                    for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
+                    {
+                        ComponentInfo compInfo = compInfos[componentID];
+                        if (ImGui::Button(compInfo.name.c_str()))
+                        {
+                            compInfo.assignFunc(*scene, selectedEntityID);
+                        }
+                    }
+                    ImGui::EndListBox();
+                }
+            
+                if (ImGui::Button("Cancel"))
+                {
+                    this->addingComponent = false;
+                }
+            }
+
+        }
+
+        // NOTE(marvin): Save scene button
+        if (ImGui::Button("Save Scene"))
+        {
+            SaveCurrentScene(*scene);
+        }
+        
+        ImGui::End();
     }
 };

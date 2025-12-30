@@ -51,7 +51,6 @@ void Transform3D::MarkDirty()
             child->MarkDirty();
         }
     }
-
 }
 
 glm::mat4 Transform3D::GetWorldTransform()
@@ -138,8 +137,16 @@ void Transform3D::SetParent(Transform3D *newParent)
     }
 
     this->parent = newParent;
-    newParent->children.insert(this);
+    if (newParent != nullptr)
+    {
+        newParent->children.insert(this);
+    }
     MarkDirty();
+}
+
+Transform3D *Transform3D::GetParent()
+{
+    return this->parent;
 }
 
 Transform3D::~Transform3D()

@@ -13,7 +13,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 set(GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game.cpp)
 
-include(cmake/CPM.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
@@ -34,6 +34,16 @@ CPMAddPackage(
       )
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
+
+#==============================================================================
+# IMGUI
+#==============================================================================
+
+file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
+add_library(imgui SHARED ${imgui_sources})
+target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+
 #==============================================================================
 # SHARED DEPENDENCIES (Between platform, rendering backend, and game)
 #==============================================================================
@@ -110,16 +120,8 @@ endif()
 target_compile_definitions(SHARED_DEPENDENCIES
         INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
         INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
-        INTERFACE SKL_INTERNAL=${SKL_INTERNAL})
-
-#==============================================================================
-# IMGUI
-#==============================================================================
-
-file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
-add_library(imgui SHARED ${imgui_sources})
-target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+        INTERFACE SKL_INTERNAL=${SKL_INTERNAL}
+        INTERFACE SKL_SLOW=${SKL_SLOW})
 
 #==============================================================================
 # RENDERING BACKEND
@@ -160,7 +162,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         add_library(vulkan-backend SHARED
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
-                ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
+                ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
                 Vulkan::Headers)
@@ -170,8 +172,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
-                ${CMAKE_CURRENT_SOURCE_DIR}/src
-                $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+                ${CMAKE_CURRENT_SOURCE_DIR}/src)
         target_compile_definitions(vulkan-backend PRIVATE VK_NO_PROTOTYPES)
         target_compile_definitions(RENDERING_BACKEND INTERFACE
                 SKL_RENDERER=0
@@ -196,6 +197,7 @@ string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
 set_target_properties(game-module PROPERTIES
         PDB_NAME "game_module_${BUILD_TIME}")
 target_compile_definitions(game-module PRIVATE
+        _CRT_SECURE_NO_WARNINGS
         debugRecordArray=debugRecordsGame)
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
@@ -204,6 +206,25 @@ target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${JoltPhysics_SOURCE_DIR})
+
+set(PCH_HEADERS
+        <iostream>
+        <string>
+        <vector>
+        <glm/glm.hpp>
+        <glm/gtc/type_ptr.hpp>
+        <Jolt/Jolt.h>
+        <Jolt/Core/JobSystemThreadPool.h>
+        <Jolt/Physics/PhysicsSystem.h>
+        # TODO(marvin): Precompiling imgui header causes problems.
+        # <imgui.h>
+)
+
+if(WIN32)
+        list(APPEND PCH_HEADERS <windows.h>)
+endif()
+
+target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
 
 #==============================================================================
 # PLATFORM

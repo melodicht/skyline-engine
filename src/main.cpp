@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 #include <random>
+#include <format>
 
 #define SDL_MAIN_HANDLED
 
@@ -47,6 +48,9 @@
 global_variable std::set<std::string> keysDown;
 global_variable f32 mouseDeltaX = 0;
 global_variable f32 mouseDeltaY = 0;
+
+global_variable f32 mouseX = 0;
+global_variable f32 mouseY = 0;
 
 local const char *SDLGetGameCodeSrcFilePath()
 {
@@ -185,10 +189,17 @@ void updateLoop(void* appInfo) {
             case SDL_EVENT_KEY_UP:
                 keysDown.erase(SDL_GetKeyName(info->e.key.key));
                 break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                keysDown.insert(std::format("Mouse {}", info->e.button.button));
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                keysDown.erase(std::format("Mouse {}", info->e.button.button));
+                break;
         }
     }
 
     SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
+    SDL_GetMouseState(&mouseX, &mouseY);
 
     s32 windowWidth = WINDOW_WIDTH;
     s32 windowHeight = WINDOW_HEIGHT;
@@ -200,9 +211,17 @@ void updateLoop(void* appInfo) {
     ImGui::NewFrame();
     #endif
 
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse)
+    {
+        keysDown.erase("Mouse 1");
+    }
+
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
     gameInput.mouseDeltaY = mouseDeltaY;
+    gameInput.mouseX = mouseX;
+    gameInput.mouseY = mouseY;
     gameInput.keysDown = keysDown;
     gameCode.gameUpdateAndRender(info->scene, gameInput, deltaTime);
 
@@ -218,7 +237,7 @@ void updateLoop(void* appInfo) {
 
 #include <filesystem>
 
-int main()
+int main(int argc, char** argv)
 {
     std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     srand(static_cast<unsigned>(time(0)));
@@ -244,12 +263,31 @@ int main()
     ImGui_ImplSDL3_InitForOther(window);
     #endif
 
-    SDL_SetWindowRelativeMouseMode(window, true);
+    bool editor = false;
 
-    RenderInitInfo initDesc {
-            .window = window,
-            .startWidth = WINDOW_WIDTH,
-            .startHeight = WINDOW_HEIGHT
+    if (argc > 0)
+    {
+        for (int i = 0; i < argc; i++)
+        {
+            if (!strcmp(argv[i], "-editor"))
+            {
+                editor = true;
+            }
+        }
+    }
+
+    if (!editor)
+    {
+        SDL_SetWindowRelativeMouseMode(window, true);
+    }
+
+
+    RenderInitInfo initDesc
+    {
+        .window = window,
+        .startWidth = WINDOW_WIDTH,
+        .startHeight = WINDOW_HEIGHT,
+        .editor = editor
     };
     InitRenderer(initDesc);
 
@@ -258,6 +296,9 @@ int main()
     PlatformAPI platformAPI = {};
     platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
     platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
+    platformAPI.platformLoadDataAsset = &LoadDataAsset;
+    platformAPI.platformWriteDataAsset = &WriteDataAsset;
+
     platformAPI.platformLoadSkyboxAsset = &LoadSkyboxAsset;
     platformAPI.rendererInitPipelines = &InitPipelines;
     platformAPI.rendererAddDirLight = &AddDirLight;
@@ -266,10 +307,11 @@ int main()
     platformAPI.rendererDestroyDirLight = &DestroyDirLight;
     platformAPI.rendererDestroySpotLight = &DestroySpotLight;
     platformAPI.rendererDestroyPointLight = &DestroyPointLight;
+    platformAPI.rendererGetIndexAtCursor = &GetIndexAtCursor;
     platformAPI.rendererRenderUpdate = &RenderUpdate;
 
     Scene scene;
-    gameCode.gameInitialize(scene, gameMemory, platformAPI);
+    gameCode.gameInitialize(scene, gameMemory, platformAPI, editor);
 
     SDL_Event e;
     bool playing = true;

@@ -21,12 +21,16 @@ typedef PLATFORM_RENDERER_ADD_LIGHT(platform_renderer_add_light_t);
 #define PLATFORM_RENDERER_DESTROY_LIGHT(proc) void proc(LightID lightID)
 typedef PLATFORM_RENDERER_DESTROY_LIGHT(platform_renderer_destroy_light_t);
 
+#define PLATFORM_RENDERER_GET_INDEX_AT_CURSOR(proc) u32 proc()
+typedef PLATFORM_RENDERER_GET_INDEX_AT_CURSOR(platform_renderer_get_index_at_cursor_t);
+
 struct MeshRenderInfo {
     // Shared
     glm::mat4 matrix;
     glm::vec3 rgbColor;
     MeshID mesh;
     TextureID texture;
+    u32 id;
 
     // Vulkan Specific
 
@@ -89,6 +93,8 @@ struct RenderFrameInfo {
     float cameraFov;
     float cameraNear;
     float cameraFar;
+
+    glm::ivec2 cursorPos;
 
     // Vulkan Specific
 

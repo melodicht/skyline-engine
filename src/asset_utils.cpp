@@ -1,9 +1,11 @@
 #include "asset_types.h"
 #include "meta_definitions.h"
 
+#include <fstream>
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
+#include <toml++/toml.hpp>
 
 #include <array>
 
@@ -89,6 +91,7 @@ PLATFORM_LOAD_MESH_ASSET(LoadMeshAsset)
     info.idxSize = indices.size();
 
     MeshAsset asset;
+    asset.name = name;
     asset.id = UploadMesh(info);
     meshAssets[name] = asset;
 
@@ -99,6 +102,7 @@ struct ImageData {
     u32 width;
     u32 height;
     std::vector<u32> data;
+    bool loaded
 };
 
 ImageData LoadImage(std::filesystem::path path) {
@@ -106,11 +110,16 @@ ImageData LoadImage(std::filesystem::path path) {
 
     stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
     ImageData info{};
+    if (imageData == nullptr) {
+        info.loaded = false;
+        return info;
+    }
     info.data = std::vector<u32>((width * height * 4) / sizeof(u32));
 
     memcpy(info.data.data(), imageData, info.data.size() * sizeof(u32));
     stbi_image_free(imageData);
 
+    info.loaded = true;
     info.width = width;
     info.height = height;
     return info;
@@ -125,8 +134,12 @@ PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
 
     std::filesystem::path path = "textures/" + name + ".png";
     ImageData info = LoadImage(path);
+    if (!info.loaded) {
+        return nullptr;
+    }
 
     TextureAsset asset;
+    asset.name = name;
     asset.width = info.width;
     asset.height = info.height;
     RenderUploadTextureInfo uploadInfo ={info.width, info.height, info.data.data()};
@@ -134,6 +147,130 @@ PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
     texAssets[name] = asset;
     
     return &texAssets[name];
+}
+
+DataEntry* LoadNodeToData(std::string name, toml::node& node);
+
+DataEntry* LoadTableToData(std::string name, toml::table* table)
+{
+    DataEntry* data = new DataEntry(name);
+    for (auto elem : *table)
+    {
+        data->structVal.push_back(LoadNodeToData(elem.first.data(), elem.second));
+    }
+    return data;
+}
+
+f32 LoadFloatFromNode(toml::node* node)
+{
+    if (!node->is_floating_point())
+    {
+        return 0;
+    }
+    return node->as_floating_point()->get();
+}
+
+DataEntry* LoadNodeToData(std::string name, toml::node& node)
+{
+    if (node.is_integer())
+    {
+        return new DataEntry(name, (s32)node.as_integer()->get());
+    }
+    else if (node.is_floating_point())
+    {
+        return new DataEntry(name, (f32)node.as_floating_point()->get());
+    }
+    else if (node.is_boolean())
+    {
+        return new DataEntry(name, node.as_boolean()->get());
+    }
+    else if (node.is_array())
+    {
+        toml::array* array = node.as_array();
+        glm::vec3 vector =
+        {
+            LoadFloatFromNode(array->get(0)),
+            LoadFloatFromNode(array->get(1)),
+            LoadFloatFromNode(array->get(2))
+        };
+        return new DataEntry(name, vector);
+    }
+    else if (node.is_string())
+    {
+        return new DataEntry(name, node.as_string()->get());
+    }
+    else if (node.is_table())
+    {
+        return LoadTableToData(name, node.as_table());
+    }
+    return nullptr;
+}
+
+PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
+{
+    toml::table file;
+    try
+    {
+        file = toml::parse_file(path);
+        return LoadTableToData("Scene", &file);
+    }
+    catch (const toml::parse_error& error)
+    {
+        std::cout << error << '\n';
+        return nullptr;
+    }
+}
+
+void SaveDataToNode(DataEntry* data, toml::table* dest);
+
+void SaveDataToTable(std::vector<DataEntry*>& data, toml::table* dest)
+{
+    for (DataEntry* field : data)
+    {
+        SaveDataToNode(field, dest);
+    }
+}
+
+void SaveDataToNode(DataEntry* data, toml::table* dest)
+{
+    switch (data->type)
+    {
+        case INT_ENTRY:
+            dest->emplace(data->name, data->intVal);
+            break;
+        case FLOAT_ENTRY:
+            dest->emplace(data->name, data->floatVal);
+            break;
+        case BOOL_ENTRY:
+            dest->emplace(data->name, data->boolVal);
+            break;
+        case VEC_ENTRY:
+            dest->emplace(data->name, toml::array{data->vecVal.x, data->vecVal.y, data->vecVal.z});
+            break;
+        case STR_ENTRY:
+            dest->emplace(data->name, data->stringVal);
+            break;
+        case STRUCT_ENTRY:
+            toml::table table;
+            SaveDataToTable(data->structVal, &table);
+            dest->emplace(data->name, table);
+            break;
+    }
+}
+
+PLATFORM_WRITE_DATA_ASSET(WriteDataAsset)
+{
+    if (data->type != STRUCT_ENTRY)
+    {
+        return -1;
+    }
+    toml::table file;
+    SaveDataToTable(data->structVal, &file);
+
+    std::ofstream output(path);
+    output << file;
+
+    return 0;
 }
 
 PLATFORM_LOAD_SKYBOX_ASSET(LoadSkyboxAsset)
@@ -147,7 +284,7 @@ PLATFORM_LOAD_SKYBOX_ASSET(LoadSkyboxAsset)
     for (u32 i = 1 ; i < 6 ; i ++) {
         std::filesystem::path path = "textures/" + names[i] + ".png";
         ImageData info = LoadImage(path);
-        if (info.width != firstWidth || info.height != firstHeight ) {
+        if (!info.loaded || info.width != firstWidth || info.height != firstHeight ) {
             LOG_ERROR("Images provided for cubemap do not have uniform dimensions");
             return;
         }
