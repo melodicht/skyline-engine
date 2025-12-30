@@ -65,3 +65,7 @@ void DestroyPointLight(LightID lightID) {
     wgpuRenderer.DestroyPointLight(lightID);
 }
 
+u32 GetIndexAtCursor()
+{
+    return 0;
+}

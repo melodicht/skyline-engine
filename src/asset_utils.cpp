@@ -102,7 +102,7 @@ struct ImageData {
     u32 width;
     u32 height;
     std::vector<u32> data;
-    bool loaded
+    bool loaded;
 };
 
 ImageData LoadImage(std::filesystem::path path) {
