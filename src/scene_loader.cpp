@@ -16,10 +16,19 @@ struct ComponentInfo
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
     std::string name;
+    std::string iconPath;
 };
 
 std::vector<ComponentInfo> compInfos;
 std::unordered_map<std::string, EntityID> entityIds;
+
+struct IconGizmo
+{
+    ComponentID id;
+    TextureAsset* texture;
+};
+
+std::vector<IconGizmo> iconGizmos;
 
 template <typename T>
 s32 WriteFromData(T* dest, DataEntry* data) { return 0; }
@@ -224,6 +233,14 @@ void AddComponent(const char *name)
     compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
 }
 
+template <typename T>
+void AddComponent(const char *name, const char *icon)
+{
+    compName<T> = name;
+    MakeComponentId(name);
+    compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name, icon});
+}
+
 // Runs in O(1), courtesy of std::vector.
 u32 GetNumberOfDefinedComponents()
 {
@@ -231,11 +248,20 @@ u32 GetNumberOfDefinedComponents()
     return result;
 }
 
-void RegisterComponents(Scene& scene)
+void RegisterComponents(Scene& scene, bool editor)
 {
-    for (ComponentInfo& compInfo : compInfos)
+    for (ComponentID id = 0; id < compInfos.size(); id++)
     {
+        ComponentInfo& compInfo = compInfos[id];
         scene.AddComponentPool(compInfo.size);
+        if (editor && compInfo.iconPath.length() > 0)
+        {
+            TextureAsset* icon = globalPlatformAPI.platformLoadTextureAsset(compInfo.iconPath);
+            if (icon != nullptr)
+            {
+                iconGizmos.push_back({id, icon});
+            }
+        }
     }
 }
 

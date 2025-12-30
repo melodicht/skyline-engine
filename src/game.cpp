@@ -25,10 +25,6 @@ global_variable PlatformAPI globalPlatformAPI;
 
 EntityID currentCamera = -1;
 bool isEditor;
-TextureAsset* gizmoCamera;
-TextureAsset* gizmoPointLight;
-TextureAsset* gizmoSpotLight;
-TextureAsset* gizmoDirLight;
 
 local void LogDebugRecords();
 
@@ -39,12 +35,12 @@ __declspec(dllexport)
 GAME_INITIALIZE(GameInitialize)
 {
     isEditor = editor;
-    RegisterComponents(scene);
-
     globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.rendererInitPipelines(initDesc);
+
+    RegisterComponents(scene, editor);
 
     s32 rv = LoadScene(scene, "test");
     if (rv != 0)
@@ -64,11 +60,6 @@ GAME_INITIALIZE(GameInitialize)
 
         EditorSystem *editorSystem = new EditorSystem(currentCamera);
         scene.AddSystem(editorSystem);
-
-        gizmoCamera = globalPlatformAPI.platformLoadTextureAsset("gizmos/camera");
-        gizmoPointLight = globalPlatformAPI.platformLoadTextureAsset("gizmos/point_light");
-        gizmoSpotLight = globalPlatformAPI.platformLoadTextureAsset("gizmos/spot_light");
-        gizmoDirLight = globalPlatformAPI.platformLoadTextureAsset("gizmos/dir_light");
     }
     else
     {
@@ -148,25 +139,16 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
     std::vector<IconRenderInfo> icons;
     if (isEditor)
     {
-        for (EntityID ent: SceneView<CameraComponent, Transform3D, NameComponent>(scene))
+        for (EntityID ent : SceneView<Transform3D, NameComponent>(scene))
         {
             Transform3D *iconTransform = scene.Get<Transform3D>(ent);
-            icons.push_back({iconTransform->GetWorldPosition(), gizmoCamera->id, GetEntityIndex(ent)});
-        }
-        for (EntityID ent: SceneView<PointLight, Transform3D, NameComponent>(scene))
-        {
-            Transform3D *iconTransform = scene.Get<Transform3D>(ent);
-            icons.push_back({iconTransform->GetWorldPosition(), gizmoPointLight->id, GetEntityIndex(ent)});
-        }
-        for (EntityID ent: SceneView<SpotLight, Transform3D, NameComponent>(scene))
-        {
-            Transform3D *iconTransform = scene.Get<Transform3D>(ent);
-            icons.push_back({iconTransform->GetWorldPosition(), gizmoSpotLight->id, GetEntityIndex(ent)});
-        }
-        for (EntityID ent: SceneView<DirLight, Transform3D, NameComponent>(scene))
-        {
-            Transform3D *iconTransform = scene.Get<Transform3D>(ent);
-            icons.push_back({iconTransform->GetWorldPosition(), gizmoDirLight->id, GetEntityIndex(ent)});
+            for (IconGizmo& gizmo : iconGizmos)
+            {
+                if (scene.Has(ent, gizmo.id))
+                {
+                    icons.push_back({iconTransform->GetWorldPosition(), gizmo.texture->id, GetEntityIndex(ent)});
+                }
+            }
         }
     }
 

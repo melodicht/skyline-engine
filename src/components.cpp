@@ -51,7 +51,7 @@
         return data; \
     }
 
-#define COMPONENT(type) [[maybe_unused]] static int add##type = (AddComponent<type>(#type), 0);
+#define COMPONENT(type, ...) [[maybe_unused]] static int add##type = (AddComponent<type>(#type __VA_OPT__(,) __VA_ARGS__), 0);
 
 // Define the game's components here
 
@@ -146,7 +146,7 @@ struct CameraComponent
     float farPlane = 1000;
 };
 SERIALIZE(CameraComponent, fov, nearPlane, farPlane)
-COMPONENT(CameraComponent)
+COMPONENT(CameraComponent, "gizmos/camera")
 
 
 struct FlyingMovement
@@ -188,7 +188,7 @@ struct DirLight
     LightID lightID = -1;
 };
 SERIALIZE(DirLight, diffuse, specular)
-COMPONENT(DirLight)
+COMPONENT(DirLight, "gizmos/dir_light")
 
 
 struct SpotLight
@@ -202,7 +202,7 @@ struct SpotLight
     float range = 100;
 };
 SERIALIZE(SpotLight, diffuse, specular, innerCone, outerCone, range)
-COMPONENT(SpotLight)
+COMPONENT(SpotLight, "gizmos/spot_light")
 
 
 struct PointLight
@@ -218,7 +218,7 @@ struct PointLight
     float maxRange = 20;
 };
 SERIALIZE(PointLight, diffuse, specular, constant, linear, quadratic, maxRange)
-COMPONENT(PointLight)
+COMPONENT(PointLight, "gizmos/point_light")
 
 
 COMPONENT(NameComponent)

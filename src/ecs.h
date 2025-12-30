@@ -217,14 +217,24 @@ struct Scene
         T *pComponent = static_cast<T *>(componentPools[componentId]->get(GetEntityIndex(id)));
         return pComponent;
     }
-
-    void *GetWithComponentID(EntityID entityId, ComponentID componentId)
+    void *Get(EntityID entityId, ComponentID componentId)
     {
         if (!GetEntityEntry(entityId).mask.test(componentId))
             return nullptr;
 
         void *pComponent = componentPools[componentId]->get(GetEntityIndex(entityId));
         return pComponent;
+    }
+
+    template <typename T>
+    bool Has(EntityID id)
+    {
+        int componentId = GetComponentId<T>();
+        return entities[GetEntityIndex(id)].mask.test(componentId);
+    }
+    bool Has(EntityID entityId, ComponentID componentId)
+    {
+        return entities[GetEntityIndex(entityId)].mask.test(componentId);
     }
 
     template<typename T>
