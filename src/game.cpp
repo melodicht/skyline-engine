@@ -24,6 +24,7 @@ global_variable PlatformAPI globalPlatformAPI;
 #include "systems.cpp"
 
 EntityID currentCamera = -1;
+bool isEditor;
 
 local void LogDebugRecords();
 
@@ -33,12 +34,13 @@ __declspec(dllexport)
 #endif
 GAME_INITIALIZE(GameInitialize)
 {
-    RegisterComponents(scene);
-
+    isEditor = editor;
     globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.rendererInitPipelines(initDesc);
+
+    RegisterComponents(scene, editor);
 
     s32 rv = LoadScene(scene, "test");
     if (rv != 0)
@@ -134,6 +136,22 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
                                   l->constant, l->linear, l->quadratic, l->maxRange, true});
     }
 
+    std::vector<IconRenderInfo> icons;
+    if (isEditor)
+    {
+        for (EntityID ent : SceneView<Transform3D, NameComponent>(scene))
+        {
+            Transform3D *iconTransform = scene.Get<Transform3D>(ent);
+            for (IconGizmo& gizmo : iconGizmos)
+            {
+                if (scene.Has(ent, gizmo.id))
+                {
+                    icons.push_back({iconTransform->GetWorldPosition(), gizmo.texture->id, GetEntityIndex(ent)});
+                }
+            }
+        }
+    }
+
     std::vector<MeshRenderInfo> meshInstances;
     for (EntityID ent: SceneView<MeshComponent, Transform3D>(scene))
     {
@@ -157,7 +175,8 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         .cameraFov = camera->fov,
         .cameraNear = camera->nearPlane,
         .cameraFar = camera->farPlane,
-        .cursorPos = {input.mouseX, input.mouseY}
+        .cursorPos = {input.mouseX, input.mouseY},
+        .icons = icons
     };
 
     globalPlatformAPI.rendererRenderUpdate(sendState);

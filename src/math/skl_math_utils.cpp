@@ -75,6 +75,12 @@ glm::mat4 Transform3D::GetWorldTransform()
     return this->worldTransform;
 }
 
+glm::vec3 Transform3D::GetWorldPosition()
+{
+    glm::mat4 transform = this->GetWorldTransform();
+    return transform * glm::vec4(0.0, 0.0, 0.0, 1.0);
+}
+
 glm::vec3 Transform3D::GetForwardVector()
 {
     return GetWorldTransform() * glm::vec4(1.0, 0.0, 0.0, 0.0);
