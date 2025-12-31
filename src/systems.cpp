@@ -718,7 +718,7 @@ public:
 
         if (input->keysDown.contains("Mouse 1"))
         {
-            u32 cursorEntityIndex = globalPlatformAPI.rendererGetIndexAtCursor();
+            u32 cursorEntityIndex = globalPlatformAPI.renderer.GetIndexAtCursor();
             selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
         }
 

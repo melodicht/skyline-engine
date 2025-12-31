@@ -35,8 +35,8 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     std::array<glm::vec4, 4> nearCorners;
     std::array<glm::vec4, 4> nearToFarCornerVectors;
     u8 cornerIter = 0;
-    for (i8 x = -1 ; x <= 1 ; x += 2) {
-        for (i8 y = -1 ; y <= 1 ; y += 2) {
+    for (s8 x = -1 ; x <= 1 ; x += 2) {
+        for (s8 y = -1 ; y <= 1 ; y += 2) {
             nearCorners[cornerIter] = invertedCamSpace * glm::vec4(x,y,0,1);
             nearCorners[cornerIter] /= nearCorners[cornerIter].w;
             
@@ -67,8 +67,8 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
         std::array<glm::vec4, 8> corners;
         u8 cornerIter = 0;
         u8 wholeCornerIter = 0;
-        for (i8 x = -1 ; x <= 1 ; x += 2) {
-            for (i8 y = -1 ; y <= 1 ; y += 2) {
+        for (s8 x = -1 ; x <= 1 ; x += 2) {
+            for (s8 y = -1 ; y <= 1 ; y += 2) {
                 corners[cornerIter] = nearCorners[wholeCornerIter] + nearToFarCornerVectors[wholeCornerIter] * trueStartRatio;
                 corners[cornerIter].w = 1;
                 cornerIter++;

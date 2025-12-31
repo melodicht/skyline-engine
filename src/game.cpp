@@ -38,7 +38,7 @@ GAME_INITIALIZE(GameInitialize)
     globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
-    globalPlatformAPI.rendererInitPipelines(initDesc);
+    globalPlatformAPI.renderer.InitPipelines(initDesc);
 
 //    globalPlatformAPI.platformLoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
@@ -100,7 +100,7 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         DirLight *l = scene.Get<DirLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.rendererAddDirLight();
+            l->lightID = globalPlatformAPI.renderer.AddDirLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -114,7 +114,7 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         SpotLight *l = scene.Get<SpotLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.rendererAddSpotLight();
+            l->lightID = globalPlatformAPI.renderer.AddSpotLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -129,7 +129,7 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         PointLight *l = scene.Get<PointLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.rendererAddPointLight();
+            l->lightID = globalPlatformAPI.renderer.AddPointLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -183,7 +183,7 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         .icons = icons
     };
 
-    globalPlatformAPI.rendererRenderUpdate(sendState);
+    globalPlatformAPI.renderer.RenderUpdate(sendState);
 }
 
 

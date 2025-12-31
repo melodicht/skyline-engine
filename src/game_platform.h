@@ -58,15 +58,7 @@ struct PlatformAPI
     platform_load_skybox_asset_t *platformLoadSkyboxAsset;
 
     // Renderer
-    platform_renderer_init_pipelines_t *rendererInitPipelines;
-    platform_renderer_add_light_t *rendererAddDirLight;
-    platform_renderer_add_light_t *rendererAddSpotLight;
-    platform_renderer_add_light_t *rendererAddPointLight;
-    platform_renderer_destroy_light_t *rendererDestroyDirLight;
-    platform_renderer_destroy_light_t *rendererDestroySpotLight;
-    platform_renderer_destroy_light_t *rendererDestroyPointLight;
-    platform_renderer_get_index_at_cursor_t *rendererGetIndexAtCursor;
-    platform_renderer_render_update_t *rendererRenderUpdate;
+    PlatformRenderer renderer;
 };
 
 // NOTE(marvin): Game platform only needs to know about scene, and only system needs to know about game input. Maybe separate out scene.h?

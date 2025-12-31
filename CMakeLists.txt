@@ -202,7 +202,8 @@ set_target_properties(game-module PROPERTIES
         PDB_NAME "game_module_${BUILD_TIME}")
 target_compile_definitions(game-module PRIVATE
         _CRT_SECURE_NO_WARNINGS
-        debugRecordArray=debugRecordsGame)
+        debugRecordArray=debugRecordsGame
+        SKL_GAME_MODULE)
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         Jolt)

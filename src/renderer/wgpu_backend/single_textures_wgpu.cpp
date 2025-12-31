@@ -1,5 +1,3 @@
-#pragma once
-
 #include "single_textures_wgpu.h"
 
 #include <array>
