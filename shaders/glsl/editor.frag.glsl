@@ -51,11 +51,8 @@ struct PointLightData
     vec3 diffuse;
     vec3 specular;
 
-    float constant;
-    float linear;
-    float quadratic;
-
-    float maxRange;
+    float radius;
+    float falloff;
 };
 
 struct LightCascade
@@ -236,24 +233,28 @@ void main()
         PointLightData pointLight = pcs.pointLightBuffer.lights[i];
 
         vec3 lightVec = worldPos.xyz - pointLight.position;
-        vec3 offsetPos = worldPos.xyz - pointLight.position;
-        vec3 offsetLightDir = normalize(offsetPos);
 
-        float sampleDepth = length(offsetPos) / pointLight.maxRange;
+        float distNorm = length(lightVec) / pointLight.radius;
+        if (distNorm < 1)
+        {
+            vec3 offsetPos = worldPos.xyz - pointLight.position;
+            vec3 offsetLightDir = normalize(offsetPos);
 
-        float unshadowed = texture(samplerCubeShadow(cubemaps[nonuniformEXT(pointLight.shadowID)], shadowSampler), vec4(offsetLightDir, sampleDepth));
+            float sampleDepth = length(offsetPos) / pointLight.radius;
 
-        float distance = length(lightVec);
-        float attenuation = 1.0 / (pointLight.constant + (pointLight.linear * distance) + (pointLight.quadratic * distance * distance));
+            float unshadowed = texture(samplerCubeShadow(cubemaps[nonuniformEXT(pointLight.shadowID)], shadowSampler), vec4(offsetLightDir, sampleDepth));
 
-        vec3 lightDir = normalize(lightVec);
+            float attenuation = pow(1 - pow(distNorm, 2), 2) / (1 + (pointLight.falloff * pow(distNorm, 2)));
 
-        vec3 diffuse = max(dot(normal, -lightDir), 0.0) * pointLight.diffuse;
-        vec3 viewDir = normalize(-eyeRelPos);
-        vec3 halfDir = normalize(viewDir - lightDir);
-        vec3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * pointLight.specular;
+            vec3 lightDir = normalize(lightVec);
 
-        light += unshadowed * attenuation * (diffuse + specular);
+            vec3 diffuse = max(dot(normal, -lightDir), 0.0) * pointLight.diffuse;
+            vec3 viewDir = normalize(-eyeRelPos);
+            vec3 halfDir = normalize(viewDir - lightDir);
+            vec3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * pointLight.specular;
+
+            light += unshadowed * attenuation * (diffuse + specular);
+        }
     }
 
     outFragColor = color * vec4(light, 1.0);

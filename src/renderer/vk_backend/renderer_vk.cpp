@@ -84,6 +84,7 @@ VkPipeline cascadedPipeline;
 VkPipeline cubemapPipeline;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
+VkPipeline iconPipeline;
 
 VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
 
@@ -115,6 +116,7 @@ u32 mainCamIndex;
 
 bool editor;
 u32 cursorEntityIndex = UINT32_MAX;
+AllocatedBuffer iconIndexBuffer;
 
 // Upload a mesh to the gpu
 MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
@@ -719,7 +721,7 @@ void InitRenderer(RenderInitInfo& info)
         .bufferDeviceAddress = true
     };
 
-    VkPhysicalDeviceVulkan13Features feat13{.synchronization2 = true, .dynamicRendering = true};
+    VkPhysicalDeviceVulkan13Features feat13{.shaderDemoteToHelperInvocation = true, .synchronization2 = true, .dynamicRendering = true};
 
     // Select which GPU to use
     vkb::PhysicalDeviceSelector selector{vkbInstance};
@@ -816,6 +818,41 @@ void InitRenderer(RenderInitInfo& info)
     {
         VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderSemaphores[i]));
     }
+
+    if (editor)
+    {
+        iconIndexBuffer = CreateBuffer(device, allocator, 6 * sizeof(u16),
+                                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+                                       | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                       0,
+                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        AllocatedBuffer stagingBuffer = CreateBuffer(device, allocator,
+                                                     6 * sizeof(u16),
+                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                     VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                     | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+        u16 indices[6] = {0, 2, 1, 1, 2, 3};
+
+        void* stagingData = stagingBuffer.allocation->GetMappedData();
+        memcpy(stagingData, indices, 6 * sizeof(u16));
+
+        VkCommandBuffer cmd = BeginImmediateCommands(device, mainCommandPool);
+
+        VkBufferCopy indexCopy
+        {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = 6 * sizeof(u16)
+        };
+
+        vkCmdCopyBuffer(cmd, stagingBuffer.buffer, iconIndexBuffer.buffer, 1, &indexCopy);
+
+        EndImmediateCommands(device, graphicsQueue, mainCommandPool, cmd);
+        DestroyBuffer(allocator, stagingBuffer);
+    }
 }
 
 // Also checks that the creation of the shader module is good.
@@ -882,17 +919,26 @@ void InitPipelines(RenderPipelineInitInfo& info)
                                                   VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].idBuffer = CreateBuffer(device, allocator,
-                                          sizeof(u32) * 4096,
-                                          VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                          VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                          | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].idTransferBuffer = CreateBuffer(device, allocator,
-                                                  32, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        if (editor)
+        {
+            frames[i].idBuffer = CreateBuffer(device, allocator,
+                                              sizeof(u32) * 4096,
+                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                              VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                              | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+            frames[i].idTransferBuffer = CreateBuffer(device, allocator,
+                                                      32, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                      VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                      | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
+                                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+            frames[i].iconBuffer = CreateBuffer(device, allocator,
+                                                sizeof(IconData) * 1024,
+                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        }
     }
 
     mainCamIndex = CreateCameraBuffer(1);
@@ -922,6 +968,9 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkShaderModule colorFragShader = CreateShaderModuleFromFile(colorFragPath);
 
     VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile("shaders/dirshadow.frag.spv");
+
+    VkShaderModule iconVertShader = CreateShaderModuleFromFile("shaders/icon.vert.spv");
+    VkShaderModule iconFragShader = CreateShaderModuleFromFile("shaders/icon.frag.spv");
 #endif
 
 #if DEFAULT_SLANG
@@ -935,13 +984,16 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader, vertEntryPointName);
     VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader, vertEntryPointName);
     VkPipelineShaderStageCreateInfo shadowVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, shadowVertShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
     VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
     VkPipelineShaderStageCreateInfo dirShadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, dirShadowFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo iconVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, iconVertShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo iconFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, iconFragShader, fragEntryPointName);
     
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
     VkPipelineShaderStageCreateInfo shadowShaderStages[] = {shadowVertStageInfo, shadowFragStageInfo};
     VkPipelineShaderStageCreateInfo dirShadowShaderStages[] = {depthVertStageInfo, dirShadowFragStageInfo};
+    VkPipelineShaderStageCreateInfo iconShaderStages[] = {iconVertStageInfo, iconFragStageInfo};
 
     // Set up descriptor pool and set for textures
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
@@ -1231,8 +1283,7 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .front = {},
         .back = {},
         .minDepthBounds = 0.0f,
-        .maxDepthBounds = 1.0f,
-
+        .maxDepthBounds = 1.0f
     };
 
     // For pre-depth pass
@@ -1329,6 +1380,14 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &depthPipelineInfo, nullptr, &depthPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &colorPipelineInfo, nullptr, &colorPipeline));
 
+    if (editor)
+    {
+        VkGraphicsPipelineCreateInfo iconPipelineInfo = colorPipelineInfo;
+        iconPipelineInfo.pStages = iconShaderStages;
+        iconPipelineInfo.pDepthStencilState = &preDepthStencil;
+        VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &iconPipelineInfo, nullptr, &iconPipeline));
+    }
+
     vkDestroyShaderModule(device, depthShader, nullptr);
     vkDestroyShaderModule(device, dirShadowFragShader, nullptr);
 #if DEFAULT_SLANG
@@ -1339,6 +1398,8 @@ void InitPipelines(RenderPipelineInitInfo& info)
     vkDestroyShaderModule(device, colorFragShader, nullptr);
     vkDestroyShaderModule(device, shadowVertShader, nullptr);
     vkDestroyShaderModule(device, shadowFragShader, nullptr);
+    vkDestroyShaderModule(device, iconVertShader, nullptr);
+    vkDestroyShaderModule(device, iconFragShader, nullptr);
 #endif
 
 #if SKL_ENABLED_EDITOR
@@ -1649,7 +1710,7 @@ void BeginColorPass(CullMode cullMode)
         .imageView = depthImageView,
         .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-        .storeOp = VK_ATTACHMENT_STORE_OP_NONE,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
     };
 
     VkRenderingInfo renderInfo
@@ -1675,7 +1736,7 @@ void BeginColorPass(CullMode cullMode)
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .clearValue = idClearValue
-        };
+    };
 
     VkRenderingAttachmentInfo attachments[2] = {colorAttachment, idAttachment};
 
@@ -1845,6 +1906,7 @@ void EndFrame(glm::ivec2 cursorPos)
 
     if (editor)
     {
+        cursorPos = glm::clamp(cursorPos, {0, 0}, {swapExtent.width - 1, swapExtent.height - 1});
         VkBufferImageCopy idCopy
         {
             .bufferOffset = 0,
@@ -1904,6 +1966,33 @@ void EndFrame(glm::ivec2 cursorPos)
     frameNum %= NUM_FRAMES;
 }
 
+void DrawIcons(std::vector<IconRenderInfo>& icons)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, iconPipeline);
+    vkCmdBindIndexBuffer(cmd, iconIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+
+    AllocatedBuffer& objectBuffer = frames[frameNum].iconBuffer;
+    void* objectData = objectBuffer.allocation->GetMappedData();
+    memcpy(objectData, icons.data(), sizeof(IconData) * icons.size());
+
+    f32 aspect = (f32)swapExtent.height / swapExtent.width;
+    glm::vec2 iconScale = {0.0625 * aspect, 0.0625};
+
+    FrameData& frame = frames[frameNum];
+    IconPushConstants pushConstants
+    {
+        .objectAddress = objectBuffer.address,
+        .cameraAddress = frame.cameraBuffers[currentCamIndex].address,
+        .iconScale = iconScale,
+    };
+
+    vkCmdPushConstants(cmd, colorPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       0, sizeof(IconPushConstants), &pushConstants);
+
+    vkCmdDrawIndexed(cmd, 6, icons.size(), 0, 0, 0);
+}
 
 void RenderUpdate(RenderFrameInfo& info)
 {
@@ -2089,7 +2178,7 @@ void RenderUpdate(RenderFrameInfo& info)
         {
             CameraData pointCamData[6];
 
-            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, pointInfo.maxRange);
+            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, pointInfo.radius);
             glm::mat4 pointViews[6];
 
             pointTransform->GetPointViews(pointViews);
@@ -2104,7 +2193,7 @@ void RenderUpdate(RenderFrameInfo& info)
             SetCamera(lightEntry.cameraIndex);
             UpdateCamera(6, pointCamData);
 
-            SetShadowInfo(pointPos, pointInfo.maxRange);
+            SetShadowInfo(pointPos, pointInfo.radius);
 
             startIndex = 0;
             for (std::pair<MeshID, u32> pair: meshCounts)
@@ -2119,8 +2208,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
         pointLightData.push_back({pointPos, lightEntry.shadowMap.descriptorIndex,
                                   pointInfo.diffuse, pointInfo.specular,
-                                  pointInfo.constant, pointInfo.linear, pointInfo.quadratic,
-                                  pointInfo.maxRange});
+                                  pointInfo.radius, pointInfo.falloff});
     }
 
     BeginDepthPass(CullMode::BACK);
@@ -2152,9 +2240,20 @@ void RenderUpdate(RenderFrameInfo& info)
         DrawObjects(pair.second, startIndex);
         startIndex += pair.second;
     }
+
+    if (editor)
+    {
+        DrawIcons(info.icons);
+    }
+
 #if SKL_ENABLED_EDITOR
     DrawImGui();
 #endif
     EndPass();
     EndFrame(info.cursorPos);
+}
+
+void SetSkyboxTexture(RenderSetSkyboxInfo& info)
+{
+
 }

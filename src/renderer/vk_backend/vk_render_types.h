@@ -66,11 +66,8 @@ struct VkPointLightData
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    f32 constant;
-    f32 linear;
-    f32 quadratic;
-
-    f32 maxRange;
+    f32 radius;
+    f32 falloff;
 };
 
 // Represents the direction of the skylight, and the descriptor id of the shadowmap (CPU->GPU)
@@ -93,6 +90,13 @@ struct ShadowPushConstants
     float farPlane;
 };
 
+struct IconPushConstants
+{
+    VkDeviceAddress objectAddress;
+    VkDeviceAddress cameraAddress;
+    glm::vec2 iconScale;
+};
+
 // Represents the data for a single frame in flight of rendering
 struct FrameData
 {
@@ -110,6 +114,7 @@ struct FrameData
     AllocatedBuffer pointLightBuffer;
     AllocatedBuffer idBuffer;
     AllocatedBuffer idTransferBuffer;
+    AllocatedBuffer iconBuffer;
 };
 
 struct LightEntry
@@ -123,4 +128,11 @@ struct LightCascade
 {
     glm::mat4 lightSpace;
     f32 maxDepth;
+};
+
+struct IconData
+{
+    glm::vec3 pos;
+    TextureID texID;
+    u32 id;
 };

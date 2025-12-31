@@ -24,6 +24,7 @@ global_variable PlatformAPI globalPlatformAPI;
 #include "systems.cpp"
 
 EntityID currentCamera = -1;
+bool isEditor;
 
 local void LogDebugRecords();
 
@@ -33,12 +34,15 @@ __declspec(dllexport)
 #endif
 GAME_INITIALIZE(GameInitialize)
 {
-    RegisterComponents(scene);
-
+    isEditor = editor;
     globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.renderer.InitPipelines(initDesc);
+
+//    globalPlatformAPI.platformLoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
+
+    RegisterComponents(scene, editor);
 
     s32 rv = LoadScene(scene, "test");
     if (rv != 0)
@@ -131,7 +135,25 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
 
         pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                  l->constant, l->linear, l->quadratic, l->maxRange, true});
+                                  l->radius, l->falloff, true,
+                                  // Temporary for webgpu
+                                  1, 0.0005, 0.00005, 1000});
+    }
+
+    std::vector<IconRenderInfo> icons;
+    if (isEditor)
+    {
+        for (EntityID ent : SceneView<Transform3D, NameComponent>(scene))
+        {
+            Transform3D *iconTransform = scene.Get<Transform3D>(ent);
+            for (IconGizmo& gizmo : iconGizmos)
+            {
+                if (scene.Has(ent, gizmo.id))
+                {
+                    icons.push_back({iconTransform->GetWorldPosition(), gizmo.texture->id, GetEntityIndex(ent)});
+                }
+            }
+        }
     }
 
     std::vector<MeshRenderInfo> meshInstances;
@@ -157,7 +179,8 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         .cameraFov = camera->fov,
         .cameraNear = camera->nearPlane,
         .cameraFar = camera->farPlane,
-        .cursorPos = {input.mouseX, input.mouseY}
+        .cursorPos = {input.mouseX, input.mouseY},
+        .icons = icons
     };
 
     globalPlatformAPI.renderer.RenderUpdate(sendState);
