@@ -293,11 +293,7 @@ int main(int argc, char** argv)
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
     PlatformAPI platformAPI = {};
-    platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
-    platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
-    platformAPI.platformLoadDataAsset = &LoadDataAsset;
-    platformAPI.platformWriteDataAsset = &WriteDataAsset;
-    platformAPI.platformLoadSkyboxAsset = &LoadSkyboxAsset;
+    platformAPI.assetUtils = constructPlatformAssetUtils();
     platformAPI.renderer = constructPlatformRenderer();
     Scene scene;
     gameCode.gameInitialize(scene, gameMemory, platformAPI, editor);
