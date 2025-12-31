@@ -33,29 +33,18 @@ struct GameMemory
     
 };
 
-#define PLATFORM_LOAD_MESH_ASSET(proc) MeshAsset* proc(std::string name)
-typedef PLATFORM_LOAD_MESH_ASSET(platform_load_mesh_asset_t);
-
-#define PLATFORM_LOAD_TEXTURE_ASSET(proc) TextureAsset* proc(std::string name)
-typedef PLATFORM_LOAD_TEXTURE_ASSET(platform_load_texture_asset_t);
-
-#define PLATFORM_LOAD_SKYBOX_ASSET(proc) void proc(std::array<std::string,6> names)
-typedef PLATFORM_LOAD_SKYBOX_ASSET(platform_load_skybox_asset_t);
-
-#define PLATFORM_LOAD_DATA_ASSET(proc) DataEntry* proc(std::string path)
-typedef PLATFORM_LOAD_DATA_ASSET(platform_load_data_asset_t);
-
-#define PLATFORM_WRITE_DATA_ASSET(proc) s32 proc(std::string path, DataEntry* data)
-typedef PLATFORM_WRITE_DATA_ASSET(platform_write_data_asset_t);
+#define ASSET_UTIL_FUNCS(method)\
+    method(MeshAsset*,LoadMeshAsset,(std::string name))\
+    method(TextureAsset*,LoadTextureAsset,(std::string name))\
+    method(void,LoadSkyboxAsset,(std::array<std::string,6> names))\
+    method(DataEntry*,LoadDataAsset,(std::string path))\
+    method(s32,WriteDataAsset,(std::string path, DataEntry* data))
+DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
 
 struct PlatformAPI
 {
     // Asset Utility
-    platform_load_mesh_asset_t *platformLoadMeshAsset;
-    platform_load_texture_asset_t *platformLoadTextureAsset;
-    platform_load_data_asset_t *platformLoadDataAsset;
-    platform_write_data_asset_t *platformWriteDataAsset;
-    platform_load_skybox_asset_t *platformLoadSkyboxAsset;
+    PlatformAssetUtils assetUtils;
 
     // Renderer
     PlatformRenderer renderer;

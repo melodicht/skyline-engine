@@ -102,7 +102,7 @@ s32 WriteFromData<MeshAsset*>(MeshAsset** dest, DataEntry* data)
         printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
-    *dest = globalPlatformAPI.platformLoadMeshAsset(data->stringVal);
+    *dest = globalPlatformAPI.assetUtils.LoadMeshAsset(data->stringVal);
     return 0;
 }
 
@@ -116,7 +116,7 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
     }
     if (data->stringVal != "")
     {
-        *dest = globalPlatformAPI.platformLoadTextureAsset(data->stringVal);
+        *dest = globalPlatformAPI.assetUtils.LoadTextureAsset(data->stringVal);
     }
     return 0;
 }
@@ -256,7 +256,7 @@ void RegisterComponents(Scene& scene, bool editor)
         scene.AddComponentPool(compInfo.size);
         if (editor && compInfo.iconPath.length() > 0)
         {
-            TextureAsset* icon = globalPlatformAPI.platformLoadTextureAsset(compInfo.iconPath);
+            TextureAsset* icon = globalPlatformAPI.assetUtils.LoadTextureAsset(compInfo.iconPath);
             if (icon != nullptr)
             {
                 iconGizmos.push_back({id, icon});
@@ -274,7 +274,7 @@ inline std::string GetCurrentSceneName()
 s32 LoadScene(Scene& scene, std::string name)
 {
     std::string filepath = "scenes/" + name + ".toml";
-    DataEntry* data = globalPlatformAPI.platformLoadDataAsset(filepath);
+    DataEntry* data = globalPlatformAPI.assetUtils.LoadDataAsset(filepath);
     if (data->type != STRUCT_ENTRY)
     {
         return -1;
@@ -342,7 +342,7 @@ void SaveScene(Scene& scene, std::string name)
     }
 
     std::string filepath = "scenes/" + name + ".toml";
-    globalPlatformAPI.platformWriteDataAsset(filepath, sceneData);
+    globalPlatformAPI.assetUtils.WriteDataAsset(filepath, sceneData);
     delete sceneData;
 }
 

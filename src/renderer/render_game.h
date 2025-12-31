@@ -102,7 +102,7 @@ struct RenderFrameInfo {
     // WGPU Specific
 };
 
-#define RENDERER_METHODS(method) \
+#define RENDERER_FUNCS(method) \
     method(void, InitPipelines, (RenderPipelineInitInfo& info))\
     method(LightID,AddDirLight,())\
     method(LightID,AddSpotLight,())\
@@ -112,4 +112,4 @@ struct RenderFrameInfo {
     method(void,DestroyPointLight,(LightID lightID))\
     method(u32,GetIndexAtCursor,())\
     method(void,RenderUpdate,(RenderFrameInfo& state))
-DEFINE_GAME_MODULE_API(PlatformRenderer, RENDERER_METHODS)
+DEFINE_GAME_MODULE_API(PlatformRenderer, RENDERER_FUNCS)
