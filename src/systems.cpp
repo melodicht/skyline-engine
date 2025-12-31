@@ -53,7 +53,7 @@ class RenderSystem : public System
             DirLight *l = scene->Get<DirLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = globalPlatformAPI.rendererAddDirLight();
+                l->lightID = globalPlatformAPI.renderer.AddDirLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -67,7 +67,7 @@ class RenderSystem : public System
             SpotLight *l = scene->Get<SpotLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = globalPlatformAPI.rendererAddSpotLight();
+                l->lightID = globalPlatformAPI.renderer.AddSpotLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -82,7 +82,7 @@ class RenderSystem : public System
             PointLight *l = scene->Get<PointLight>(ent);
             if (l->lightID == -1)
             {
-                l->lightID = globalPlatformAPI.rendererAddPointLight();
+                l->lightID = globalPlatformAPI.renderer.AddPointLight();
             }
 
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
@@ -113,7 +113,7 @@ class RenderSystem : public System
                 .cameraFar = camera->farPlane
         };
 
-        globalPlatformAPI.rendererRenderUpdate(sendState);
+        globalPlatformAPI.renderer.RenderUpdate(sendState);
     }
 };
 
@@ -837,7 +837,7 @@ public:
 
         if (input->keysDown.contains("Mouse 1"))
         {
-            u32 cursorEntityIndex = globalPlatformAPI.rendererGetIndexAtCursor();
+            u32 cursorEntityIndex = globalPlatformAPI.renderer.GetIndexAtCursor();
             selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
         }
 

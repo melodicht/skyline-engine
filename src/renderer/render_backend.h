@@ -1,8 +1,8 @@
 #pragma once
 
 #include "math/skl_math_types.h"
-#include "render_types.h"
 #include "render_game.h"
+#include "render_types.h"
 
 #include <SDL3/SDL.h>
 
@@ -30,8 +30,6 @@ struct RenderInitInfo {
     // WGPU Specific
 };
 void InitRenderer(RenderInitInfo& info);
-
-PLATFORM_RENDERER_INIT_PIPELINES(InitPipelines);
 
 // Moves a mesh to the GPU,
 // Returns a uint that represents the mesh's ID
@@ -68,16 +66,6 @@ struct RenderSetSkyboxInfo {
 };
 void SetSkyboxTexture(RenderSetSkyboxInfo& info);
 
-PLATFORM_RENDERER_ADD_LIGHT(AddDirLight);
-PLATFORM_RENDERER_ADD_LIGHT(AddSpotLight);
-PLATFORM_RENDERER_ADD_LIGHT(AddPointLight);
-
-PLATFORM_RENDERER_DESTROY_LIGHT(DestroyDirLight);
-PLATFORM_RENDERER_DESTROY_LIGHT(DestroySpotLight);
-PLATFORM_RENDERER_DESTROY_LIGHT(DestroyPointLight);
-
-PLATFORM_RENDERER_GET_INDEX_AT_CURSOR(GetIndexAtCursor);
-
 // Destroy the mesh at the given MeshID
 struct RenderDestroyMeshInfo {
     // Shared 
@@ -88,7 +76,3 @@ struct RenderDestroyMeshInfo {
     // WGPU Specific
 };
 void DestroyMesh(RenderDestroyMeshInfo& info);
-
-// Renders a frame using the supplied render state
-// The driving function of the entire renderer.
-PLATFORM_RENDERER_RENDER_UPDATE(RenderUpdate);
