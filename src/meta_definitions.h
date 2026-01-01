@@ -10,6 +10,7 @@
 
 // Project Fixed Width Numerical Types
 #include <stdint.h>
+#include <cstddef>
 
 typedef uint8_t  u8;
 typedef uint8_t  u08;
