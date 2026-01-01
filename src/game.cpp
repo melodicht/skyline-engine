@@ -44,7 +44,7 @@ GAME_INITIALIZE(GameInitialize)
 
     RegisterComponents(scene, editor);
 
-    s32 rv = LoadScene(scene, "test");
+    s32 rv = LoadScene(scene, "city");
     if (rv != 0)
     {
         std::cout << "Failed to load scene\n";
@@ -131,7 +131,7 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         {
             l->lightID = globalPlatformAPI.renderer.AddPointLight();
         }
-
+s
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
 
         pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
