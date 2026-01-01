@@ -27,14 +27,6 @@ struct GameInput
     std::set<std::string> keysDown;
 };
 
-struct GameMemory
-{
-    u64 permanentStorageSize;  // In bytes
-    void *permanentStorage;
-
-    PlatformAPI platformAPI;
-};
-
 #define ASSET_UTIL_FUNCS(method)\
     method(MeshAsset*,LoadMeshAsset,(std::string name))\
     method(TextureAsset*,LoadTextureAsset,(std::string name))\
@@ -50,14 +42,6 @@ struct PlatformAPI
 
     // Renderer
     PlatformRenderer renderer;
-};
-
-struct GameInput
-{
-  f32 mouseDeltaX;
-  f32 mouseDeltaY;
-
-  std::set<std::string> keysDown;
 };
 
 struct GameMemory

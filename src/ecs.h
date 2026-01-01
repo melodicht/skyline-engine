@@ -431,7 +431,7 @@ public:
     T *Get(EntityID id)
     {
         int componentId = GetComponentId<T>();
-        void *componentAddress = GetWithComponentID(id, componentId);
+        void *componentAddress = Get(id, componentId);
         T *result = static_cast<T *>(componentAddress);
         return result;
     }
@@ -446,14 +446,15 @@ public:
     }
 
     template <typename T>
-    bool Has(EntityID id)
+    b32 Has(EntityID id)
     {
-        int componentId = GetComponentId<T>();
-        return entities[GetEntityIndex(id)].mask.test(componentId);
+        ComponentID componentId = GetComponentId<T>();
+        return Has(id, componentId);
     }
-    bool Has(EntityID entityId, ComponentID componentId)
+    b32 Has(EntityID entityId, ComponentID componentId)
     {
-        return entities[GetEntityIndex(entityId)].mask.test(componentId);
+        EntityEntry *entityEntry = GetFromEntitiesPoolWithEntityID(&entities, entityId);
+        return entityEntry->mask.test(componentId);
     }
 
     template<typename T>
