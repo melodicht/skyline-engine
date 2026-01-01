@@ -25,6 +25,7 @@
 #include "stb_image.h"
 #include "renderer/render_backend.h"
 #include "renderer/render_game.h"
+#include "meta_definitions.h"
 #include "game_platform.h"
 
 #if SKL_ENABLED_EDITOR
@@ -211,7 +212,7 @@ void updateLoop(void* appInfo) {
     gameInput.mouseDeltaX = mouseDeltaX;
     gameInput.mouseDeltaY = mouseDeltaY;
     gameInput.keysDown = keysDown;
-    gameCode.gameUpdateAndRender(info->scene, gameInput, deltaTime);
+    gameCode.gameUpdateAndRender(info->gameMemory, gameInput, deltaTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
@@ -279,30 +280,30 @@ int main(int argc, char** argv)
 
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
-    PlatformAPI platformAPI = {};
-    platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
-    platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
-    platformAPI.platformLoadDataAsset = &LoadDataAsset;
-    platformAPI.platformWriteDataAsset = &WriteDataAsset;
+    gameMemory.permanentStorageSize = Gigabytes(1);
+    gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
+    gameMemory.platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
+    gameMemory.platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
+    gameMemory.platformAPI.platformLoadDataAsset = &LoadDataAsset;
+    gameMemory.platformAPI.platformWriteDataAsset = &WriteDataAsset;
 
-    platformAPI.rendererInitPipelines = &InitPipelines;
-    platformAPI.rendererAddDirLight = &AddDirLight;
-    platformAPI.rendererAddSpotLight = &AddSpotLight;
-    platformAPI.rendererAddPointLight = &AddPointLight;
-    platformAPI.rendererDestroyDirLight = &DestroyDirLight;
-    platformAPI.rendererDestroySpotLight = &DestroySpotLight;
-    platformAPI.rendererDestroyPointLight = &DestroyPointLight;
-    platformAPI.rendererRenderUpdate = &RenderUpdate;
+    gameMemory.platformAPI.rendererInitPipelines = &InitPipelines;
+    gameMemory.platformAPI.rendererAddDirLight = &AddDirLight;
+    gameMemory.platformAPI.rendererAddSpotLight = &AddSpotLight;
+    gameMemory.platformAPI.rendererAddPointLight = &AddPointLight;
+    gameMemory.platformAPI.rendererDestroyDirLight = &DestroyDirLight;
+    gameMemory.platformAPI.rendererDestroySpotLight = &DestroySpotLight;
+    gameMemory.platformAPI.rendererDestroyPointLight = &DestroyPointLight;
+    gameMemory.platformAPI.rendererRenderUpdate = &RenderUpdate;
 
-    Scene scene;
-    gameCode.gameInitialize(scene, gameMemory, platformAPI, editor);
+    gameCode.gameInitialize(gameMemory, editor);
 
     SDL_Event e;
     bool playing = true;
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, gameCode, scene, e, playing, now, last);
+    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {

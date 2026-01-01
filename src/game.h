@@ -1,6 +1,9 @@
 #pragma once
 
+#include "meta_definitions.h"
 #include "game_platform.h"
+#include "memory.h"
+#include "ecs.h"
 #include "skl_thread_safe_primitives.h"
 #include "debug.h"
 
@@ -34,3 +37,8 @@
 
 #include "renderer/render_types.h"
 
+
+struct GameState
+{
+  Scene scene;
+};

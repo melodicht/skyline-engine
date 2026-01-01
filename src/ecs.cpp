@@ -1,11 +1,16 @@
 /*
- * ID FUNCTIONALITY
+ * ENTITY FUNCTIONALITY
  */
 
 inline EntityID CreateEntityId(u32 index, u32 version)
 {
     // Shift the index up 32, and put the version in the bottom
     return ((EntityID) index << 32) | ((EntityID) version);
+}
+
+inline EntityID InvalidateEntityId(EntityID id)
+{
+    return CreateEntityId(INVALID_ENTITY_ID, GetEntityVersion(id) + 1);
 }
 
 inline u32 GetEntityIndex(EntityID id)
@@ -30,16 +35,17 @@ inline bool IsEntityValid(EntityID id)
  * COMPONENT POOL
  */
 
-ComponentPool::ComponentPool(size_t elementsize)
+ComponentPool::ComponentPool()
+{
+    elementSize = 0;
+    pData = nullptr;
+}
+
+ComponentPool::ComponentPool(void *base, size_t elementsize)
 {
     // We'll allocate enough memory to hold MAX_ENTITIES, each with element size
     elementSize = elementsize;
-    pData = new u8[elementSize * MAX_ENTITIES];
-}
-
-ComponentPool::~ComponentPool()
-{
-    delete[] pData;
+    pData = static_cast<u8 *>(base);
 }
 
 inline void *ComponentPool::get(size_t index)
@@ -53,69 +59,133 @@ inline EntityID ComponentPool::getOwner(u8 *ptr)
     return ((size_t)(ptr - pData)) / elementSize;
 }
 
+ComponentPoolsBuffer::ComponentPoolsBuffer()
+{
+    this->base = nullptr;
+    this->count = 0;
+}
+
+ComponentPoolsBuffer::ComponentPoolsBuffer(MemoryArena *remainingArena)
+{
+    this->base = PushArray(remainingArena, MAX_COMPONENTS, ComponentPool);
+    this->count = 0;
+}
+
+ComponentPool *ComponentPoolsBuffer::operator[](u32 index)
+{
+    Assert(index < count);
+    ComponentPool *result = base + index;
+    return result;
+}
+
+void ComponentPoolsBuffer::Push(ComponentPool componentPool)
+{
+    Assert(count < MAX_COMPONENTS);
+    ComponentPool *address = base + count;
+    *address = componentPool;
+    ++count;
+}
+
 /*
  * SCENE FUNCTIONALITY
  */
 
-// Each component has its own memory pool, to have good memory
-// locality. An entity's ID is the index into its own component in the
-// component pool.
-void Scene::AddSystem(System *sys)
+void PushSystemsBuffer(SystemsBuffer *systemsBuffer, System *system)
 {
-    systems.push_back(sys);
+    Assert(systemsBuffer->count < MAX_SYSTEMS);
+    System **systemAddress = systemsBuffer->base + systemsBuffer->count;
+    *systemAddress = system;
+    ++systemsBuffer->count;
+}
+
+void StartAllSystems(SystemsBuffer *systemsBuffer, Scene *scene)
+{
+    for (u32 i = 0; i < systemsBuffer->count; ++i)
+    {
+        System *system = systemsBuffer->base[i];
+        system->OnStart(scene);
+    }
+}
+
+void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene *scene, GameInput *input, f32 deltaTime)
+{
+    for (u32 i = 0; i < systemsBuffer->count; ++i)
+    {
+        System *system = systemsBuffer->base[i];
+        system->OnUpdate(scene, input, deltaTime);
+    }
+}
+
+// NOTE(marvin): Remaining arena decreases after each initialization,
+// and the components arena takes all the rest, as that's the least
+// predictable and most memory-consuming.
+Scene::Scene(MemoryArena *remainingArena)
+{
+    this->entities = InitEntitiesPool(remainingArena);
+    this->freeIndices = InitFreeIndicesStack(remainingArena);
+    this->systemsBuffer = InitSystemsBuffer(remainingArena);
+    this->systemsArena = SubArena(remainingArena, SYSTEMS_MEMORY);
+    this->componentPools = ComponentPoolsBuffer(remainingArena);
+    this->componentPoolsArena = *remainingArena;
+
+}
+
+Scene::~Scene()
+{
+    // TODO(marvin): The scene deconstructor doesn't free the memory arenas because the scene is presumed to exist for the entire lifetime of the program. But when we do have multiple scenes and can switch between them while the game is running, we could just zero out the entire permanent storage... no need for an explicit free. We'll see.
+}
+
+void Scene::AddSystem(System *system)
+{
+    PushSystemsBuffer(&systemsBuffer, system);
 }
 
 void Scene::InitSystems()
 {
-    for (System *sys : systems)
-    {
-        sys->OnStart(this);
-    }
+    StartAllSystems(&systemsBuffer, this);
 }
 
 void Scene::UpdateSystems(GameInput *input, f32 deltaTime)
 {
-    for (System *sys: systems)
-    {
-        sys->OnUpdate(this, input, deltaTime);
-    }
+    UpdateAllSystems(&systemsBuffer, this, input, deltaTime);
 }
 
-void Scene::AddComponentPool(size_t size)
+void Scene::AddComponentPool(size_t componentSize)
 {
-    componentPools.push_back(new ComponentPool(size));
+    void *base = PushSize(&componentPoolsArena, MAX_ENTITIES * componentSize);
+    ComponentPool componentPool = ComponentPool(base, componentSize);
+    componentPools.Push(componentPool);
 }
 
 EntityID Scene::NewEntity()
 {
-    // std::vector::size runs in constant time.
-    if (!freeIndices.empty())
+    if (!FreeIndicesStackIsEmpty(&freeIndices))
     {
-        u32 newIndex = freeIndices.back();
-        freeIndices.pop_back();
-        // Takes in index and incremented EntityVersion at that index
-        EntityID newID = CreateEntityId(newIndex, GetEntityVersion(entities[newIndex].id));
-        entities[newIndex].id = newID;
-        return entities[newIndex].id;
+        u32 newIndex = PopFreeIndicesStack(&freeIndices);
+        EntityEntry *entityEntry = GetFromEntitiesPool(&entities, newIndex);
+        ValidateEntityEntryWithIndex(entityEntry, newIndex);
+        return entityEntry->id;
     }
-    entities.push_back({CreateEntityId((u32) (entities.size()), 0), ComponentMask()});
-    return entities.back().id;
+    else
+    {
+        EntityEntry *entityEntry = AddNewEntityEntry(&entities);
+        return entityEntry->id;
+    }
 }
 
-Scene::EntityEntry &Scene::GetEntityEntry(EntityID id)
+EntityEntry &Scene::GetEntityEntry(EntityID id)
 {
-    Scene::EntityEntry &result = entities[GetEntityIndex(id)];
-    return result;
+    u32 index = GetEntityIndex(id);
+    EntityEntry *entityEntry = GetFromEntitiesPool(&entities, index);
+    return *entityEntry;
 }
 
 void Scene::DestroyEntity(EntityID id)
 {
-    // Increments EntityVersion at the deleted index
-    EntityID newID = CreateEntityId((u32) (-1), GetEntityVersion(id) + 1);
-    EntityEntry &entry = GetEntityEntry(id);
-    entry.id = newID;
-    entry.mask.reset();
-    freeIndices.push_back(GetEntityIndex(id));
+    // TODO(marvin): Maybe there should be a structure that encapsulates the entities pool and the free indices stack?
+    u32 index = GetEntityIndex(id);
+    DestroyEntityEntryInEntitiesPool(&entities, index, id);
+    PushFreeIndicesStack(&freeIndices, index);
 }
 
 // Helps with iterating through a given scene
@@ -145,27 +215,29 @@ struct SceneView
         // give back the entityID we're currently at
         EntityID operator*() const
         {
-            return pScene->entities[index].id;
+            EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, index);
+            return entityEntry->id;
         }
 
         // Compare two iterators
         bool operator==(const Iterator &other) const
         {
-            return index == other.index || index == pScene->entities.size();
+            return index == other.index || index == GetEntitiesPoolSize(&pScene->entities);
         }
 
         bool operator!=(const Iterator &other) const
         {
-            return index != other.index && index != pScene->entities.size();
+            return index != other.index && index != GetEntitiesPoolSize(&pScene->entities);
         }
 
         bool ValidIndex()
         {
+            EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, index);
             return
-                // It's a valid entity ID
-                    IsEntityValid(pScene->entities[index].id) &&
+                    // It's a valid entity ID
+                    EntityEntryValid(entityEntry) &&
                     // It has the correct component mask
-                    (all || mask == (mask & pScene->entities[index].mask));
+                    (all || mask == (mask & entityEntry->mask));
         }
 
         // Move the iterator forward
@@ -174,7 +246,7 @@ struct SceneView
             do
             {
                 index++;
-            } while (index < pScene->entities.size() && !ValidIndex());
+            } while (index < GetEntitiesPoolSize(&pScene->entities) && !ValidIndex());
             return *this;
         }
 
@@ -187,12 +259,14 @@ struct SceneView
     // Give an iterator to the beginning of this view
     const Iterator begin() const
     {
-        int firstIndex = 0;
-        while (firstIndex < pScene->entities.size() &&
-               (componentMask != (componentMask & pScene->entities[firstIndex].mask)
-                || !IsEntityValid(pScene->entities[firstIndex].id)))
+        u32 firstIndex = 0;
+        EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, firstIndex);
+        while (firstIndex < GetEntitiesPoolSize(&pScene->entities) &&
+               (componentMask != (componentMask & entityEntry->mask)
+                || !IsEntityValid(entityEntry->id)))
         {
             firstIndex++;
+            entityEntry = GetFromEntitiesPool(&pScene->entities, firstIndex);
         }
         return Iterator(pScene, firstIndex, componentMask, all);
     }
@@ -200,7 +274,7 @@ struct SceneView
     // Give an iterator to the end of this view
     const Iterator end() const
     {
-        return Iterator(pScene, (u32) (pScene->entities.size()), componentMask, all);
+        return Iterator(pScene, (u32) GetEntitiesPoolSize(&pScene->entities), componentMask, all);
     }
 
     Scene *pScene{nullptr};

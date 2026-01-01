@@ -15,16 +15,16 @@ struct AppInformation
 {
     SDL_Window *window;
     SDLGameCode &gameCode;
-    Scene &scene;
+    GameMemory &gameMemory;
     SDL_Event &e;
     bool playing;
     u64 now;
     u64 last;
 
-AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, Scene &setScene, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast) :
+AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast) :
         window(setWindow),
         gameCode(gameCode),
-        scene(setScene),
+        gameMemory(gameMemory),
         e(setE),
         playing(setPlaying),
         now(setNow),

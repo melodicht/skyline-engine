@@ -1,6 +1,5 @@
 #pragma once
 
-#include "meta_definitions.h"
 #include "renderer/render_types.h"
 #include "renderer/render_game.h"
 #include "asset_types.h"
@@ -16,19 +15,6 @@
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
-
-struct GameInput
-{
-  f32 mouseDeltaX;
-  f32 mouseDeltaY;
-
-  std::set<std::string> keysDown;
-};
-
-struct GameMemory
-{
-    
-};
 
 #define PLATFORM_LOAD_MESH_ASSET(proc) MeshAsset* proc(std::string name)
 typedef PLATFORM_LOAD_MESH_ASSET(platform_load_mesh_asset_t);
@@ -61,12 +47,24 @@ struct PlatformAPI
     platform_renderer_render_update_t *rendererRenderUpdate;
 };
 
-// NOTE(marvin): Game platform only needs to know about scene, and only system needs to know about game input. Maybe separate out scene.h?
-  
-#include "ecs.h"
+struct GameInput
+{
+  f32 mouseDeltaX;
+  f32 mouseDeltaY;
 
-#define GAME_INITIALIZE(name) void name(Scene &scene, GameMemory &memory, PlatformAPI &platformAPI, bool editor)
+  std::set<std::string> keysDown;
+};
+
+struct GameMemory
+{
+    u64 permanentStorageSize;  // In bytes
+    void *permanentStorage;
+
+    PlatformAPI platformAPI;
+};
+
+#define GAME_INITIALIZE(name) void name(GameMemory &memory, bool editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
-#define GAME_UPDATE_AND_RENDER(name) void name(Scene &scene, GameInput &input, f32 deltaTime)
+#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 deltaTime)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);
