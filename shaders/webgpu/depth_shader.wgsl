@@ -1,17 +1,11 @@
-// Represents camera that player sees through
-struct Camera {
-    viewMat : mat4x4<f32>,
-    projMat : mat4x4<f32>,
-    pos: vec3<f32>,
-}
-
 // Represents the data that differentiates each instance of the same mesh
 struct ObjData {
     transform : mat4x4<f32>,
-    color : vec4<f32>,
+    normMat : mat4x4<f32>,
+    color : vec4<f32>
 }
 
-@binding(0) @group(0) var<uniform> camera : Camera;
+@binding(0) @group(0) var<uniform> cameraSpace : mat4x4<f32>;
 
 @binding(1) @group(0) var<storage> objStore : array<ObjData>; 
 
@@ -26,5 +20,5 @@ struct VertexIn {
 @vertex
 fn vtxMain(in : VertexIn) -> @builtin(position) vec4<f32> {
   var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
-  return camera.projMat * camera.viewMat * worldPos;
+  return cameraSpace * worldPos;
 }

@@ -12,39 +12,44 @@
 #include <unordered_map>
 #include <string>
 #include <set>
+#include <array>
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#define PLATFORM_LOAD_MESH_ASSET(proc) MeshAsset* proc(std::string name)
-typedef PLATFORM_LOAD_MESH_ASSET(platform_load_mesh_asset_t);
+struct GameInput
+{
+    s32 mouseDeltaX;
+    s32 mouseDeltaY;
+    u32 mouseX;
+    u32 mouseY;
 
-#define PLATFORM_LOAD_TEXTURE_ASSET(proc) TextureAsset* proc(std::string name)
-typedef PLATFORM_LOAD_TEXTURE_ASSET(platform_load_texture_asset_t);
+    std::set<std::string> keysDown;
+};
 
-#define PLATFORM_LOAD_DATA_ASSET(proc) DataEntry* proc(std::string path)
-typedef PLATFORM_LOAD_DATA_ASSET(platform_load_data_asset_t);
+struct GameMemory
+{
+    u64 permanentStorageSize;  // In bytes
+    void *permanentStorage;
 
-#define PLATFORM_WRITE_DATA_ASSET(proc) s32 proc(std::string path, DataEntry* data)
-typedef PLATFORM_WRITE_DATA_ASSET(platform_write_data_asset_t);
+    PlatformAPI platformAPI;
+};
+
+#define ASSET_UTIL_FUNCS(method)\
+    method(MeshAsset*,LoadMeshAsset,(std::string name))\
+    method(TextureAsset*,LoadTextureAsset,(std::string name))\
+    method(void,LoadSkyboxAsset,(std::array<std::string,6> names))\
+    method(DataEntry*,LoadDataAsset,(std::string path))\
+    method(s32,WriteDataAsset,(std::string path, DataEntry* data))
+DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
 
 struct PlatformAPI
 {
     // Asset Utility
-    platform_load_mesh_asset_t *platformLoadMeshAsset;
-    platform_load_texture_asset_t *platformLoadTextureAsset;
-    platform_load_data_asset_t *platformLoadDataAsset;
-    platform_write_data_asset_t *platformWriteDataAsset;
+    PlatformAssetUtils assetUtils;
 
     // Renderer
-    platform_renderer_init_pipelines_t *rendererInitPipelines;
-    platform_renderer_add_light_t *rendererAddDirLight;
-    platform_renderer_add_light_t *rendererAddSpotLight;
-    platform_renderer_add_light_t *rendererAddPointLight;
-    platform_renderer_destroy_light_t *rendererDestroyDirLight;
-    platform_renderer_destroy_light_t *rendererDestroySpotLight;
-    platform_renderer_destroy_light_t *rendererDestroyPointLight;
-    platform_renderer_render_update_t *rendererRenderUpdate;
+    PlatformRenderer renderer;
 };
 
 struct GameInput

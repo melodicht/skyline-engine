@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/skl_math_types.h"
+#include "renderer/render_types.h"
 
 // The subset of renderer interface used by the game module.
 
@@ -12,14 +12,6 @@ struct RenderPipelineInitInfo {
 
     // WGPU Specific
 };
-#define PLATFORM_RENDERER_INIT_PIPELINES(proc) void proc(RenderPipelineInitInfo& info)
-typedef PLATFORM_RENDERER_INIT_PIPELINES(platform_renderer_init_pipelines_t);
-
-#define PLATFORM_RENDERER_ADD_LIGHT(proc) LightID proc()
-typedef PLATFORM_RENDERER_ADD_LIGHT(platform_renderer_add_light_t);
-
-#define PLATFORM_RENDERER_DESTROY_LIGHT(proc) void proc(LightID lightID)
-typedef PLATFORM_RENDERER_DESTROY_LIGHT(platform_renderer_destroy_light_t);
 
 struct MeshRenderInfo {
     // Shared
@@ -27,10 +19,17 @@ struct MeshRenderInfo {
     glm::vec3 rgbColor;
     MeshID mesh;
     TextureID texture;
+    u32 id;
 
     // Vulkan Specific
 
     // WGPU Specific
+};
+
+struct IconRenderInfo {
+    glm::vec3 pos;
+    TextureID texture;
+    u32 id;
 };
 
 struct DirLightRenderInfo {
@@ -67,13 +66,17 @@ struct PointLightRenderInfo {
     glm::vec3 diffuse;
     glm::vec3 specular;
 
+    f32 radius;
+    f32 falloff;
+
+    bool needsUpdate;
+
+    //WGPU Specific
     f32 constant;
     f32 linear;
     f32 quadratic;
 
     f32 maxRange;
-
-    bool needsUpdate;
 };
 
 // Represents the information needed to render a single frame on any renderer
@@ -90,9 +93,23 @@ struct RenderFrameInfo {
     float cameraNear;
     float cameraFar;
 
+    // Editor stuff
+    glm::ivec2 cursorPos;
+    std::vector<IconRenderInfo>& icons;
+
     // Vulkan Specific
 
     // WGPU Specific
 };
-#define PLATFORM_RENDERER_RENDER_UPDATE(proc) void proc(RenderFrameInfo& info)
-typedef PLATFORM_RENDERER_RENDER_UPDATE(platform_renderer_render_update_t);
+
+#define RENDERER_FUNCS(method) \
+    method(void, InitPipelines, (RenderPipelineInitInfo& info))\
+    method(LightID,AddDirLight,())\
+    method(LightID,AddSpotLight,())\
+    method(LightID,AddPointLight,())\
+    method(void,DestroyDirLight,(LightID lightID))\
+    method(void,DestroySpotLight,(LightID lightID))\
+    method(void,DestroyPointLight,(LightID lightID))\
+    method(u32,GetIndexAtCursor,())\
+    method(void,RenderUpdate,(RenderFrameInfo& state))
+DEFINE_GAME_MODULE_API(PlatformRenderer, RENDERER_FUNCS)

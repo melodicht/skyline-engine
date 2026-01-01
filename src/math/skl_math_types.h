@@ -29,6 +29,7 @@ public:
     glm::vec3 GetLocalScale();
     void SetLocalScale(glm::vec3 newScale);
     glm::mat4 GetWorldTransform();
+    glm::vec3 GetWorldPosition();
     glm::vec3 GetForwardVector();
     glm::vec3 GetRightVector();
     glm::vec3 GetUpVector();

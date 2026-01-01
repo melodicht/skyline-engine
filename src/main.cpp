@@ -24,7 +24,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "renderer/render_backend.h"
-#include "renderer/render_game.h"
 #include "meta_definitions.h"
 #include "game_platform.h"
 
@@ -49,6 +48,9 @@
 global_variable std::set<std::string> keysDown;
 global_variable f32 mouseDeltaX = 0;
 global_variable f32 mouseDeltaY = 0;
+
+global_variable f32 mouseX = 0;
+global_variable f32 mouseY = 0;
 
 local const char *SDLGetGameCodeSrcFilePath()
 {
@@ -197,6 +199,7 @@ void updateLoop(void* appInfo) {
     }
 
     SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
+    SDL_GetMouseState(&mouseX, &mouseY);
 
     s32 windowWidth = WINDOW_WIDTH;
     s32 windowHeight = WINDOW_HEIGHT;
@@ -208,9 +211,17 @@ void updateLoop(void* appInfo) {
     ImGui::NewFrame();
     #endif
 
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse)
+    {
+        keysDown.erase("Mouse 1");
+    }
+
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
     gameInput.mouseDeltaY = mouseDeltaY;
+    gameInput.mouseX = mouseX;
+    gameInput.mouseY = mouseY;
     gameInput.keysDown = keysDown;
     gameCode.gameUpdateAndRender(info->gameMemory, gameInput, deltaTime);
 
@@ -219,7 +230,7 @@ void updateLoop(void* appInfo) {
 
     f32 msPerFrame =  1000.0f * deltaTime;
     f32 fps = 1 / deltaTime;
-    // printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+    //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     return;
 }
 
@@ -271,10 +282,12 @@ int main(int argc, char** argv)
     }
 
 
-    RenderInitInfo initDesc {
-            .window = window,
-            .startWidth = WINDOW_WIDTH,
-            .startHeight = WINDOW_HEIGHT
+    RenderInitInfo initDesc
+    {
+        .window = window,
+        .startWidth = WINDOW_WIDTH,
+        .startHeight = WINDOW_HEIGHT,
+        .editor = editor
     };
     InitRenderer(initDesc);
 
@@ -282,20 +295,8 @@ int main(int argc, char** argv)
     GameMemory gameMemory = {};
     gameMemory.permanentStorageSize = Gigabytes(1);
     gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
-    gameMemory.platformAPI.platformLoadMeshAsset = &LoadMeshAsset;
-    gameMemory.platformAPI.platformLoadTextureAsset = &LoadTextureAsset;
-    gameMemory.platformAPI.platformLoadDataAsset = &LoadDataAsset;
-    gameMemory.platformAPI.platformWriteDataAsset = &WriteDataAsset;
-
-    gameMemory.platformAPI.rendererInitPipelines = &InitPipelines;
-    gameMemory.platformAPI.rendererAddDirLight = &AddDirLight;
-    gameMemory.platformAPI.rendererAddSpotLight = &AddSpotLight;
-    gameMemory.platformAPI.rendererAddPointLight = &AddPointLight;
-    gameMemory.platformAPI.rendererDestroyDirLight = &DestroyDirLight;
-    gameMemory.platformAPI.rendererDestroySpotLight = &DestroySpotLight;
-    gameMemory.platformAPI.rendererDestroyPointLight = &DestroyPointLight;
-    gameMemory.platformAPI.rendererRenderUpdate = &RenderUpdate;
-
+    gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
+    gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameCode.gameInitialize(gameMemory, editor);
 
     SDL_Event e;

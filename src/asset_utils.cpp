@@ -1,10 +1,13 @@
 #include "asset_types.h"
+#include "meta_definitions.h"
 
 #include <fstream>
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 #include <toml++/toml.hpp>
+
+#include <array>
 
 template <>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};
@@ -15,7 +18,129 @@ struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec
 std::unordered_map<std::string, MeshAsset> meshAssets;
 std::unordered_map<std::string, TextureAsset> texAssets;
 
-PLATFORM_LOAD_MESH_ASSET(LoadMeshAsset)
+struct ImageData {
+    u32 width;
+    u32 height;
+    std::vector<u32> data;
+    bool loaded;
+};
+
+ImageData LoadImage(std::filesystem::path path) {
+    int width, height, channels;
+
+    stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    ImageData info{};
+    if (imageData == nullptr) {
+        info.loaded = false;
+        return info;
+    }
+    info.data = std::vector<u32>((width * height * 4) / sizeof(u32));
+
+    memcpy(info.data.data(), imageData, info.data.size() * sizeof(u32));
+    stbi_image_free(imageData);
+
+    info.loaded = true;
+    info.width = width;
+    info.height = height;
+    return info;
+}
+
+DataEntry* LoadNodeToData(std::string name, toml::node& node);
+
+DataEntry* LoadTableToData(std::string name, toml::table* table)
+{
+    DataEntry* data = new DataEntry(name);
+    for (auto elem : *table)
+    {
+        data->structVal.push_back(LoadNodeToData(elem.first.data(), elem.second));
+    }
+    return data;
+}
+
+f32 LoadFloatFromNode(toml::node* node)
+{
+    if (!node->is_floating_point())
+    {
+        return 0;
+    }
+    return node->as_floating_point()->get();
+}
+
+DataEntry* LoadNodeToData(std::string name, toml::node& node)
+{
+    if (node.is_integer())
+    {
+        return new DataEntry(name, (s32)node.as_integer()->get());
+    }
+    else if (node.is_floating_point())
+    {
+        return new DataEntry(name, (f32)node.as_floating_point()->get());
+    }
+    else if (node.is_boolean())
+    {
+        return new DataEntry(name, node.as_boolean()->get());
+    }
+    else if (node.is_array())
+    {
+        toml::array* array = node.as_array();
+        glm::vec3 vector =
+        {
+            LoadFloatFromNode(array->get(0)),
+            LoadFloatFromNode(array->get(1)),
+            LoadFloatFromNode(array->get(2))
+        };
+        return new DataEntry(name, vector);
+    }
+    else if (node.is_string())
+    {
+        return new DataEntry(name, node.as_string()->get());
+    }
+    else if (node.is_table())
+    {
+        return LoadTableToData(name, node.as_table());
+    }
+    return nullptr;
+}
+
+void SaveDataToNode(DataEntry* data, toml::table* dest);
+
+void SaveDataToTable(std::vector<DataEntry*>& data, toml::table* dest)
+{
+    for (DataEntry* field : data)
+    {
+        SaveDataToNode(field, dest);
+    }
+}
+
+void SaveDataToNode(DataEntry* data, toml::table* dest)
+{
+    switch (data->type)
+    {
+        case INT_ENTRY:
+            dest->emplace(data->name, data->intVal);
+            break;
+        case FLOAT_ENTRY:
+            dest->emplace(data->name, data->floatVal);
+            break;
+        case BOOL_ENTRY:
+            dest->emplace(data->name, data->boolVal);
+            break;
+        case VEC_ENTRY:
+            dest->emplace(data->name, toml::array{data->vecVal.x, data->vecVal.y, data->vecVal.z});
+            break;
+        case STR_ENTRY:
+            dest->emplace(data->name, data->stringVal);
+            break;
+        case STRUCT_ENTRY:
+            toml::table table;
+            SaveDataToTable(data->structVal, &table);
+            dest->emplace(data->name, table);
+            break;
+    }
+}
+
+// Platform API Funcs
+MeshAsset* LoadMeshAsset(std::string name)
 {
     if (meshAssets.contains(name))
     {
@@ -95,7 +220,7 @@ PLATFORM_LOAD_MESH_ASSET(LoadMeshAsset)
     return &meshAssets[name];
 }
 
-PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
+TextureAsset* LoadTextureAsset(std::string name)
 {
     if (texAssets.contains(name))
     {
@@ -103,94 +228,52 @@ PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
     }
 
     std::filesystem::path path = "textures/" + name + ".png";
-
-    int width, height, channels;
-
-    stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
-    if (imageData == nullptr)
-    {
+    ImageData info = LoadImage(path);
+    if (!info.loaded) {
         return nullptr;
     }
-    std::vector<u32> pixels;
-
-    pixels = std::vector<u32>((width * height * 4) / sizeof(u32));
-
-    memcpy(pixels.data(), imageData, pixels.size() * sizeof(u32));
-    stbi_image_free(imageData);
-
-    RenderUploadTextureInfo info{};
-    info.width = width;
-    info.height = height;
-    info.pixelData = pixels.data();
 
     TextureAsset asset;
     asset.name = name;
-    asset.width = width;
-    asset.height = height;
-    asset.id = UploadTexture(info);
+    asset.width = info.width;
+    asset.height = info.height;
+    RenderUploadTextureInfo uploadInfo ={info.width, info.height, info.data.data()};
+    asset.id = UploadTexture(uploadInfo);
     texAssets[name] = asset;
-
+    
     return &texAssets[name];
 }
 
-DataEntry* LoadNodeToData(std::string name, toml::node& node);
-
-DataEntry* LoadTableToData(std::string name, toml::table* table)
-{
-    DataEntry* data = new DataEntry(name);
-    for (auto elem : *table)
-    {
-        data->structVal.push_back(LoadNodeToData(elem.first.data(), elem.second));
+void LoadSkyboxAsset(std::array<std::string,6> names) {
+    std::array<std::vector<u32>,6> cubemapData;
+    std::filesystem::path firstPath = "textures/" + names[0] + ".png";
+    ImageData firstInfo = LoadImage(firstPath);
+    u32 firstWidth = firstInfo.width;
+    u32 firstHeight = firstInfo.height;
+    cubemapData[0] = std::move(firstInfo.data);
+    for (u32 i = 1 ; i < 6 ; i ++) {
+        std::filesystem::path path = "textures/" + names[i] + ".png";
+        ImageData info = LoadImage(path);
+        if (!info.loaded || info.width != firstWidth || info.height != firstHeight ) {
+            LOG_ERROR("Images provided for cubemap do not have uniform dimensions");
+            return;
+        }
+        cubemapData[i] = std::move(info.data);
     }
-    return data;
+
+    std::array<u32*,6> setData;
+    for (u32 i = 0 ; i < 6 ; i++) {
+        setData[i] = cubemapData[i].data();
+    }
+    
+    RenderSetSkyboxInfo setInfo;
+    setInfo.width = firstWidth;
+    setInfo.height = firstHeight;
+    setInfo.cubemapData = setData;
+    SetSkyboxTexture(setInfo);
 }
 
-f32 LoadFloatFromNode(toml::node* node)
-{
-    if (!node->is_floating_point())
-    {
-        return 0;
-    }
-    return node->as_floating_point()->get();
-}
-
-DataEntry* LoadNodeToData(std::string name, toml::node& node)
-{
-    if (node.is_integer())
-    {
-        return new DataEntry(name, (s32)node.as_integer()->get());
-    }
-    else if (node.is_floating_point())
-    {
-        return new DataEntry(name, (f32)node.as_floating_point()->get());
-    }
-    else if (node.is_boolean())
-    {
-        return new DataEntry(name, node.as_boolean()->get());
-    }
-    else if (node.is_array())
-    {
-        toml::array* array = node.as_array();
-        glm::vec3 vector =
-        {
-            LoadFloatFromNode(array->get(0)),
-            LoadFloatFromNode(array->get(1)),
-            LoadFloatFromNode(array->get(2))
-        };
-        return new DataEntry(name, vector);
-    }
-    else if (node.is_string())
-    {
-        return new DataEntry(name, node.as_string()->get());
-    }
-    else if (node.is_table())
-    {
-        return LoadTableToData(name, node.as_table());
-    }
-    return nullptr;
-}
-
-PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
+DataEntry* LoadDataAsset(std::string path)
 {
     toml::table file;
     try
@@ -205,44 +288,7 @@ PLATFORM_LOAD_DATA_ASSET(LoadDataAsset)
     }
 }
 
-void SaveDataToNode(DataEntry* data, toml::table* dest);
-
-void SaveDataToTable(std::vector<DataEntry*>& data, toml::table* dest)
-{
-    for (DataEntry* field : data)
-    {
-        SaveDataToNode(field, dest);
-    }
-}
-
-void SaveDataToNode(DataEntry* data, toml::table* dest)
-{
-    switch (data->type)
-    {
-        case INT_ENTRY:
-            dest->emplace(data->name, data->intVal);
-            break;
-        case FLOAT_ENTRY:
-            dest->emplace(data->name, data->floatVal);
-            break;
-        case BOOL_ENTRY:
-            dest->emplace(data->name, data->boolVal);
-            break;
-        case VEC_ENTRY:
-            dest->emplace(data->name, toml::array{data->vecVal.x, data->vecVal.y, data->vecVal.z});
-            break;
-        case STR_ENTRY:
-            dest->emplace(data->name, data->stringVal);
-            break;
-        case STRUCT_ENTRY:
-            toml::table table;
-            SaveDataToTable(data->structVal, &table);
-            dest->emplace(data->name, table);
-            break;
-    }
-}
-
-PLATFORM_WRITE_DATA_ASSET(WriteDataAsset)
+s32 WriteDataAsset(std::string path, DataEntry* data)
 {
     if (data->type != STRUCT_ENTRY)
     {

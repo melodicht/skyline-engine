@@ -1,117 +1,5 @@
 #include <imgui.h>
 
-std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
-{
-    glm::mat4 inverse = glm::inverse(proj * view);
-
-    std::vector<glm::vec4> frustumCorners;
-    for (u32 x = 0; x < 2; ++x)
-    {
-        for (u32 y = 0; y < 2; ++y)
-        {
-            for (u32 z = 0; z < 2; ++z)
-            {
-                const glm::vec4 pt =
-                        inverse * glm::vec4(
-                                    2.0f * x - 1.0f,
-                                    2.0f * y - 1.0f,
-                                    z,
-                                    1.0f);
-                frustumCorners.push_back(pt / pt.w);
-            }
-        }
-    }
-
-    return frustumCorners;
-}
-
-#define NUM_CASCADES 6
-
-class RenderSystem : public System
-{
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
-    {
-        // Get the main camera view
-        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
-        if (cameraView.begin() == cameraView.end())
-        {
-            return;
-        }
-
-        EntityID cameraEnt = *cameraView.begin();
-        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
-        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
-
-        std::vector<DirLightRenderInfo> dirLights;
-        for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
-        {
-            DirLight *l = scene->Get<DirLight>(ent);
-            if (l->lightID == -1)
-            {
-                l->lightID = globalPlatformAPI.rendererAddDirLight();
-            }
-
-            Transform3D *lTransform = scene->Get<Transform3D>(ent);
-
-            dirLights.push_back({l->lightID, lTransform, l->diffuse, l->specular});
-        }
-
-        std::vector<SpotLightRenderInfo> spotLights;
-        for (EntityID ent: SceneView<SpotLight, Transform3D>(*scene))
-        {
-            SpotLight *l = scene->Get<SpotLight>(ent);
-            if (l->lightID == -1)
-            {
-                l->lightID = globalPlatformAPI.rendererAddSpotLight();
-            }
-
-            Transform3D *lTransform = scene->Get<Transform3D>(ent);
-
-            spotLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                  l->innerCone, l->outerCone, l->range, true});
-        }
-
-        std::vector<PointLightRenderInfo> pointLights;
-        for (EntityID ent: SceneView<PointLight, Transform3D>(*scene))
-        {
-            PointLight *l = scene->Get<PointLight>(ent);
-            if (l->lightID == -1)
-            {
-                l->lightID = globalPlatformAPI.rendererAddPointLight();
-            }
-
-            Transform3D *lTransform = scene->Get<Transform3D>(ent);
-
-            pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                   l->constant, l->linear, l->quadratic, l->maxRange, true});
-        }
-
-        std::vector<MeshRenderInfo> meshInstances;
-        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
-        {
-            Transform3D *t = scene->Get<Transform3D>(ent);
-            glm::mat4 model = t->GetWorldTransform();
-            MeshComponent *m = scene->Get<MeshComponent>(ent);
-            MeshID meshID = m->mesh == nullptr ? -1 : m->mesh->id;
-            TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
-            meshInstances.push_back({model, m->color, meshID, texID});
-        }
-
-        RenderFrameInfo sendState{
-                .cameraTransform = cameraTransform,
-                .meshes = meshInstances,
-                .dirLights = dirLights,
-                .spotLights = spotLights,
-                .pointLights = pointLights,
-                .cameraFov = camera->fov,
-                .cameraNear = camera->nearPlane,
-                .cameraFar = camera->farPlane
-        };
-
-        globalPlatformAPI.rendererRenderUpdate(sendState);
-    }
-};
-
 // TODO(marvin): Figure out a better place to put this, for it is not
 // a system, and too generalisable for it to be a private method on
 // SKLPhysicsSystem.
@@ -425,7 +313,7 @@ public:
                 {
                     // Build antenna
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
                     t->AddLocalPosition({0, 0, -antennaWidth / 2});
 
                     if (pointLightCount < 64)
@@ -439,10 +327,8 @@ public:
                         f32 red = RandInBetween(0.8, 1.0);
                         pointLightComponent->diffuse = {red, 0.6, 0.25};
                         pointLightComponent->specular = {red, 0.6, 0.25};
-                        pointLightComponent->constant = 1;
-                        pointLightComponent->linear = 0.0005;
-                        pointLightComponent->quadratic = 0.00005;
-                        pointLightComponent->maxRange = 1000;
+                        pointLightComponent->radius = 500.0f;
+                        pointLightComponent->falloff = 2.0f;
 
                         pointLightCount++;
                     }
@@ -486,7 +372,7 @@ public:
                     }
 
                     f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
-                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -508,7 +394,7 @@ public:
                     }
 
                     f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -522,7 +408,7 @@ public:
                     }
 
                     f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -534,7 +420,7 @@ public:
                 {
                     // Build Cuboid
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
-                    BuildPart(scene, ent, t, globalPlatformAPI.platformLoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
+                    BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -650,6 +536,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case FLOAT_ENTRY:
@@ -666,6 +553,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case BOOL_ENTRY:
@@ -682,6 +570,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case VEC_ENTRY:
@@ -702,6 +591,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case STR_ENTRY:
@@ -726,6 +616,7 @@ private:
                   result = REWRITE;
               }
               ImGui::NextColumn();
+              ImGui::Columns(1);
               break;
           }
           case STRUCT_ENTRY:
@@ -817,14 +708,19 @@ public:
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoSavedSettings | 
-        ImGuiWindowFlags_NoBackground;
+        ImGuiWindowFlags_NoSavedSettings;
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->Pos);
-        ImGui::SetNextWindowSize(viewport->Size);
+        ImGui::SetNextWindowSize({viewport->Size.x, 0});
 
         ImGui::Begin("Overlay", nullptr, window_flags);
+
+        if (input->keysDown.contains("Mouse 1"))
+        {
+            u32 cursorEntityIndex = globalPlatformAPI.renderer.GetIndexAtCursor();
+            selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
+        }
 
         // TODO(marvin): Make name editable.
         // NOTE(marvin): Entities list

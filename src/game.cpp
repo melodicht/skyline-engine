@@ -24,6 +24,7 @@ global_variable PlatformAPI globalPlatformAPI;
 #include "systems.cpp"
 
 EntityID currentCamera = -1;
+bool isEditor;
 
 local void LogDebugRecords();
 
@@ -50,13 +51,16 @@ GAME_INITIALIZE(GameInitialize)
     
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
-    
-    RegisterComponents(scene);
 
+    isEditor = editor;
     globalPlatformAPI = memory.platformAPI;
 
     RenderPipelineInitInfo initDesc {};
-    globalPlatformAPI.rendererInitPipelines(initDesc);
+    globalPlatformAPI.renderer.InitPipelines(initDesc);
+
+    globalPlatformAPI.assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
+
+    RegisterComponents(scene, editor);
 
     s32 rv = LoadScene(scene, "test");
     if (rv != 0)
@@ -93,7 +97,7 @@ GAME_INITIALIZE(GameInitialize)
     scene.InitSystems();
 }
 
-void UpdateRenderer(Scene& scene)
+void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
 {
     if (currentCamera == -1)
     {
@@ -109,7 +113,7 @@ void UpdateRenderer(Scene& scene)
         DirLight *l = scene.Get<DirLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.rendererAddDirLight();
+            l->lightID = globalPlatformAPI.renderer.AddDirLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -123,7 +127,7 @@ void UpdateRenderer(Scene& scene)
         SpotLight *l = scene.Get<SpotLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.rendererAddSpotLight();
+            l->lightID = globalPlatformAPI.renderer.AddSpotLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -138,13 +142,31 @@ void UpdateRenderer(Scene& scene)
         PointLight *l = scene.Get<PointLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.rendererAddPointLight();
+            l->lightID = globalPlatformAPI.renderer.AddPointLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
 
         pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                  l->constant, l->linear, l->quadratic, l->maxRange, true});
+                                  l->radius, l->falloff, true,
+                                  // Temporary for webgpu
+                                  1, 0.0005, 0.00005, 1000});
+    }
+
+    std::vector<IconRenderInfo> icons;
+    if (isEditor)
+    {
+        for (EntityID ent : SceneView<Transform3D, NameComponent>(scene))
+        {
+            Transform3D *iconTransform = scene.Get<Transform3D>(ent);
+            for (IconGizmo& gizmo : iconGizmos)
+            {
+                if (scene.Has(ent, gizmo.id))
+                {
+                    icons.push_back({iconTransform->GetWorldPosition(), gizmo.texture->id, GetEntityIndex(ent)});
+                }
+            }
+        }
     }
 
     std::vector<MeshRenderInfo> meshInstances;
@@ -157,7 +179,7 @@ void UpdateRenderer(Scene& scene)
         {
             MeshID meshID = m->mesh->id;
             TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
-            meshInstances.push_back({model, m->color, meshID, texID});
+            meshInstances.push_back({model, m->color, meshID, texID, GetEntityIndex(ent)});
         }
     }
 
@@ -169,10 +191,12 @@ void UpdateRenderer(Scene& scene)
         .pointLights = pointLights,
         .cameraFov = camera->fov,
         .cameraNear = camera->nearPlane,
-        .cameraFar = camera->farPlane
+        .cameraFar = camera->farPlane,
+        .cursorPos = {input.mouseX, input.mouseY},
+        .icons = icons
     };
 
-    globalPlatformAPI.rendererRenderUpdate(sendState);
+    globalPlatformAPI.renderer.RenderUpdate(sendState);
 }
 
 
@@ -188,7 +212,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     scene.UpdateSystems(&input, deltaTime);
 
-    UpdateRenderer(scene);
+    UpdateRenderer(scene, input, deltaTime);
 
     LogDebugRecords();
 }

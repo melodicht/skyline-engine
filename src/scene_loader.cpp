@@ -16,10 +16,19 @@ struct ComponentInfo
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
     std::string name;
+    std::string iconPath;
 };
 
 std::vector<ComponentInfo> compInfos;
 std::unordered_map<std::string, EntityID> entityIds;
+
+struct IconGizmo
+{
+    ComponentID id;
+    TextureAsset* texture;
+};
+
+std::vector<IconGizmo> iconGizmos;
 
 template <typename T>
 s32 WriteFromData(T* dest, DataEntry* data) { return 0; }
@@ -93,7 +102,7 @@ s32 WriteFromData<MeshAsset*>(MeshAsset** dest, DataEntry* data)
         printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
-    *dest = globalPlatformAPI.platformLoadMeshAsset(data->stringVal);
+    *dest = globalPlatformAPI.assetUtils.LoadMeshAsset(data->stringVal);
     return 0;
 }
 
@@ -107,7 +116,7 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
     }
     if (data->stringVal != "")
     {
-        *dest = globalPlatformAPI.platformLoadTextureAsset(data->stringVal);
+        *dest = globalPlatformAPI.assetUtils.LoadTextureAsset(data->stringVal);
     }
     return 0;
 }
@@ -224,6 +233,14 @@ void AddComponent(const char *name)
     compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
 }
 
+template <typename T>
+void AddComponent(const char *name, const char *icon)
+{
+    compName<T> = name;
+    MakeComponentId(name);
+    compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name, icon});
+}
+
 // Runs in O(1), courtesy of std::vector.
 u32 GetNumberOfDefinedComponents()
 {
@@ -231,11 +248,20 @@ u32 GetNumberOfDefinedComponents()
     return result;
 }
 
-void RegisterComponents(Scene& scene)
+void RegisterComponents(Scene& scene, bool editor)
 {
-    for (ComponentInfo& compInfo : compInfos)
+    for (ComponentID id = 0; id < compInfos.size(); id++)
     {
+        ComponentInfo& compInfo = compInfos[id];
         scene.AddComponentPool(compInfo.size);
+        if (editor && compInfo.iconPath.length() > 0)
+        {
+            TextureAsset* icon = globalPlatformAPI.assetUtils.LoadTextureAsset(compInfo.iconPath);
+            if (icon != nullptr)
+            {
+                iconGizmos.push_back({id, icon});
+            }
+        }
     }
 }
 
@@ -248,7 +274,7 @@ inline std::string GetCurrentSceneName()
 s32 LoadScene(Scene& scene, std::string name)
 {
     std::string filepath = "scenes/" + name + ".toml";
-    DataEntry* data = globalPlatformAPI.platformLoadDataAsset(filepath);
+    DataEntry* data = globalPlatformAPI.assetUtils.LoadDataAsset(filepath);
     if (data->type != STRUCT_ENTRY)
     {
         return -1;
@@ -316,7 +342,7 @@ void SaveScene(Scene& scene, std::string name)
     }
 
     std::string filepath = "scenes/" + name + ".toml";
-    globalPlatformAPI.platformWriteDataAsset(filepath, sceneData);
+    globalPlatformAPI.assetUtils.WriteDataAsset(filepath, sceneData);
     delete sceneData;
 }
 

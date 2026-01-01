@@ -77,3 +77,36 @@ typedef size_t   siz;
 #define Megabytes(Expression) (Kilobytes(Expression)*1024LL)
 #define Gigabytes(Expression) (Megabytes(Expression)*1024LL)
 #define Terabytes(Expression) (Gigabytes(Expression)*1024LL)
+
+// Streamlines process of passing platform funcs to game module api.
+
+// Helper macros
+#define SKL_AS_FIELD(r, n, p) r (* n) p;
+#ifndef SKL_GAME_MODULE
+#define SKL_AS_HEADER_FUNC(r, n, p) r n p;
+#define SKL_AS_CONSTRUCT_INSERT(r, n, p) ret.n = n;
+#define SKL_AS_CONSTRUCT_FUNC(name, methods)\
+    inline name construct##name() {\
+        name ret{};\
+        methods(SKL_AS_CONSTRUCT_INSERT)\
+        return ret;\
+    }
+#else
+#define SKL_AS_HEADER_FUNC(r, n, p);
+#define SKL_AS_CONSTRUCT_INSERT(r, n, p);
+#define SKL_AS_CONSTRUCT_FUNC(name, methods);
+#endif
+
+// Allows for funcs to be passed into the game module as a part of an api struct 
+// while only being declared once
+// @param name     the name of the api struct constructed by the macro, 
+//                 if not in game module, use construct<name>() method to create instance of struct with declared methods.
+// @param methods  defines which methods that will be in the api struct constructed by macro, 
+//                 if not in game module, it also declares these functions.
+#define DEFINE_GAME_MODULE_API(name, methods) \
+    methods(SKL_AS_HEADER_FUNC) \
+    struct name { \
+        methods(SKL_AS_FIELD) \
+    };\
+    \
+    SKL_AS_CONSTRUCT_FUNC(name, methods)

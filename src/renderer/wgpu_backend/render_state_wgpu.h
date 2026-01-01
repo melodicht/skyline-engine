@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/math_consts.h"
+#include "math/skl_math_types.h"
 #include "renderer/render_types.h"
 
 #include <map>
