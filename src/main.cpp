@@ -208,13 +208,13 @@ void updateLoop(void* appInfo) {
     #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    #endif
-
     ImGuiIO& io = ImGui::GetIO();
+    
     if (io.WantCaptureMouse)
     {
         keysDown.erase("Mouse 1");
     }
+    #endif
 
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;

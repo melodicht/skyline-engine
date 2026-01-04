@@ -417,6 +417,7 @@ build/*
 !build/.gitkeep 
 
 
+/build_external
 /SkylineEngine_XCode
 /test
 /subprojects
