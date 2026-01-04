@@ -48,7 +48,8 @@ GAME_INITIALIZE(GameInitialize)
     // purpose of starting up the scene's own memory arenas.
     u8 *pastGameStateAddress = static_cast<u8 *>(memory.permanentStorage) + sizeof(GameState);
     MemoryArena remainingArena = InitMemoryArena(pastGameStateAddress, memory.permanentStorageSize - sizeof(GameState));
-    
+
+    gameState->overlayMode = overlayMode_none;
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
@@ -73,12 +74,13 @@ GAME_INITIALIZE(GameInitialize)
 
     if (editor)
     {
+        gameState->overlayMode = overlayMode_ecsEditor;
         currentCamera = scene.NewEntity();
         CameraComponent* camera = scene.Assign<CameraComponent>(currentCamera);
         FlyingMovement* movement = scene.Assign<FlyingMovement>(currentCamera);
         scene.Assign<Transform3D>(currentCamera);
 
-        EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, currentCamera);
+        EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, currentCamera, &gameState->overlayMode);
     }
     else
     {
@@ -97,13 +99,69 @@ GAME_INITIALIZE(GameInitialize)
     scene.InitSystems();
 }
 
-void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
+// NOTE(marvin): ECS editor functionality in the editor system.
+void RenderOverlay(GameState &gameState)
+{
+    ImGuiWindowFlags window_flags = 
+    ImGuiWindowFlags_NoTitleBar | 
+    ImGuiWindowFlags_NoResize |
+    ImGuiWindowFlags_NoMove | 
+    ImGuiWindowFlags_NoScrollbar |
+    ImGuiWindowFlags_NoSavedSettings;
+
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize({viewport->Size.x, 0});
+
+    ImGui::Begin("Overlay", nullptr, window_flags);
+        
+    b32 shouldShowOverlay = isEditor;
+
+#if SKL_INTERNAL
+    shouldShowOverlay |= true;
+#endif
+
+    if (shouldShowOverlay)
+    {
+        // NOTE(marvin): Tabs
+        ImGuiTabBarFlags tabBarFlags = ImGuiTabBarFlags_None;
+        if (ImGui::BeginTabBar("Overlay Options", tabBarFlags))
+        {
+            if (isEditor && ImGui::BeginTabItem("ECS Editor"))
+            {
+                gameState.overlayMode = overlayMode_ecsEditor;
+                ImGui::EndTabItem();
+            }
+#if SKL_INTERNAL
+            if (ImGui::BeginTabItem("Memory"))
+            {
+                gameState.overlayMode = overlayMode_memory;
+                ImGui::EndTabItem();
+            }
+#endif
+            ImGui::EndTabBar();
+        }
+
+#if SKL_INTERNAL
+        // NOTE(marvin): Tab content.
+        if (gameState.overlayMode == overlayMode_memory)
+        {
+            ImGui::Text("%s", "Hello world!");
+        }
+#endif
+    }
+
+    ImGui::End();
+}
+
+void UpdateRenderer(GameState &gameState, GameInput &input, f32 deltaTime)
 {
     if (currentCamera == -1)
     {
         return;
     }
 
+    Scene &scene = gameState.scene;
     CameraComponent *camera = scene.Get<CameraComponent>(currentCamera);
     Transform3D *cameraTransform = scene.Get<Transform3D>(currentCamera);
 
@@ -196,9 +254,9 @@ void UpdateRenderer(Scene& scene, GameInput &input, f32 deltaTime)
         .icons = icons
     };
 
+    RenderOverlay(gameState);
     globalPlatformAPI.renderer.RenderUpdate(sendState);
 }
-
 
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
@@ -212,7 +270,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     scene.UpdateSystems(&input, deltaTime);
 
-    UpdateRenderer(scene, input, deltaTime);
+    UpdateRenderer(*gameState, input, deltaTime);
 
     LogDebugRecords();
 }

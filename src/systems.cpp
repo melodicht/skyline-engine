@@ -488,6 +488,7 @@ class EditorSystem : public System
 {
 private:
     EntityID editorCam;
+    OverlayMode *overlayMode;
     EntityID selectedEntityID = INVALID_ENTITY;
     b32 addingComponent = false;
 
@@ -663,9 +664,10 @@ private:
     }
 
 public:
-    EditorSystem(EntityID editorCam)
+    EditorSystem(EntityID editorCam, OverlayMode *overlayMode)
     {
         this->editorCam = editorCam;
+        this->overlayMode = overlayMode;
     }
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
@@ -700,163 +702,165 @@ public:
             }
         }
 
-        // NOTE(marvin): Proof of concept for interactive tree view for components of a single entity
-
-        // Create a transparent, non-interactive overlay window
-        ImGuiWindowFlags window_flags = 
-        ImGuiWindowFlags_NoTitleBar | 
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoSavedSettings;
-
-        ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->Pos);
-        ImGui::SetNextWindowSize({viewport->Size.x, 0});
-
-        ImGui::Begin("Overlay", nullptr, window_flags);
-
-        if (input->keysDown.contains("Mouse 1"))
+        // TODO(marvin): Maybe the ecs editor functionality shouldn't be within the EditorSystem? Feels strange that the overlay GUI is split in two places. Maybe an EditorState? Which could hold some of the stuff defined at a global level in scene_loader.cpp.
+        // NOTE(marvin): ECS editor.
+        if (*overlayMode == overlayMode_ecsEditor)
         {
-            u32 cursorEntityIndex = globalPlatformAPI.renderer.GetIndexAtCursor();
-            selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
-        }
+            ImGuiWindowFlags window_flags = 
+            ImGuiWindowFlags_NoTitleBar | 
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove | 
+            ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoSavedSettings;
 
-        // TODO(marvin): Make name editable.
-        // NOTE(marvin): Entities list
-        if (ImGui::BeginListBox("Entities"))
-        {
-            for (EntityID entityID : SceneView(*scene))
+            ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(viewport->Pos);
+            ImGui::SetNextWindowSize({viewport->Size.x, 0});
+
+            ImGui::Begin("Overlay", nullptr, window_flags);
+
+            if (input->keysDown.contains("Mouse 1"))
             {
-                NameComponent *maybeNameComponent = scene->Get<NameComponent>(entityID);
-                if (maybeNameComponent)
+                u32 cursorEntityIndex = globalPlatformAPI.renderer.GetIndexAtCursor();
+                selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
+            }
+
+            // TODO(marvin): Make name editable.
+            // NOTE(marvin): Entities list
+            if (ImGui::BeginListBox("Entities"))
+            {
+                for (EntityID entityID : SceneView(*scene))
                 {
-                    NameComponent *nameComponent = maybeNameComponent;
-                    const char *entityName = (nameComponent->name).c_str();
-                    std::string entityIDString = std::to_string(entityID);
+                    NameComponent *maybeNameComponent = scene->Get<NameComponent>(entityID);
+                    if (maybeNameComponent)
+                    {
+                        NameComponent *nameComponent = maybeNameComponent;
+                        const char *entityName = (nameComponent->name).c_str();
+                        std::string entityIDString = std::to_string(entityID);
                     
-                    ImGui::PushID(entityIDString.c_str());
-                    const bool isSelected = (entityID == this->selectedEntityID);
+                        ImGui::PushID(entityIDString.c_str());
+                        const bool isSelected = (entityID == this->selectedEntityID);
 
-                    if (isSelected)
-                    {
-                        // NOTE(marvin): Pulled this number out of my ass.
-                        char buf[256];
-                        strncpy(buf, entityName, sizeof(buf) - 1);
-                        buf[sizeof(buf) - 1] = '\0';
+                        if (isSelected)
+                        {
+                            // NOTE(marvin): Pulled this number out of my ass.
+                            char buf[256];
+                            strncpy(buf, entityName, sizeof(buf) - 1);
+                            buf[sizeof(buf) - 1] = '\0';
 
-                        if (ImGui::InputText(("##" + entityIDString).c_str(), buf, sizeof(buf)))
-                        {
-                            nameComponent->name = buf;
+                            if (ImGui::InputText(("##" + entityIDString).c_str(), buf, sizeof(buf)))
+                            {
+                                nameComponent->name = buf;
+                            }
                         }
-                    }
-                    else
-                    {
-                        if (ImGui::Selectable(entityName, isSelected))
+                        else
                         {
-                            selectedEntityID = entityID;
-                        }
+                            if (ImGui::Selectable(entityName, isSelected))
+                            {
+                                selectedEntityID = entityID;
+                            }
                 
-                        ImGui::IsItemHovered();
+                            ImGui::IsItemHovered();
+                        }
+                        ImGui::PopID();
                     }
-                    ImGui::PopID();
-                }
             
+                }
+                ImGui::EndListBox();
             }
-            ImGui::EndListBox();
-        }
 
-        // NOTE(marvin): Destroy selected entity.
-        if (IsEntityValid(selectedEntityID) && ImGui::Button("Destroy Selected Entity"))
-        {
-            scene->DestroyEntity(selectedEntityID);
-            selectedEntityID = INVALID_ENTITY;
-        }
-
-        // NOTE(marvin): Add new entity.
-        if (ImGui::Button("New Entity"))
-        {
-            // TODO(marvin): Probably want a helper that creates the entity through this ritual. Common with the one in scene_loader::LoadScene, but that one doesn't assign a Transform3D.
-            EntityID newEntityID = scene->NewEntity();
-
-            // TODO(marvin): Will there be problems if there is an entity with that name already?
-            std::string entityName = "New Entity";
-            entityIds[entityName] = newEntityID;
-            NameComponent* nameComp = scene->Assign<NameComponent>(newEntityID);
-            nameComp->name = entityName;
-            scene->Assign<Transform3D>(newEntityID);
-            
-            selectedEntityID = newEntityID;
-        }
-
-        if (IsEntityValid(selectedEntityID))
-        {
-            // NOTE(marvin): Component interactive tree view
-            for (ComponentID componentID : EntityView(*scene, selectedEntityID))
+            // NOTE(marvin): Destroy selected entity.
+            if (IsEntityValid(selectedEntityID) && ImGui::Button("Destroy Selected Entity"))
             {
-                ComponentInfo compInfo = compInfos[componentID];
-                if (compInfo.name == NAME_COMPONENT)
-                {
-                    continue;
-                }
+                scene->DestroyEntity(selectedEntityID);
+                selectedEntityID = INVALID_ENTITY;
+            }
 
-                // NOTE(marvin): It's not possible to rewrite and
-                // remove at the same time, but rewrite is
-                // prioritised. Allowing both at the same time (if
-                // somehow possible) seems risky.
-                DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
-                ComponentDataEntryActionOutcome componentOutcome = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
-                if (this->ShouldRewriteComponentDataEntry(componentOutcome))
+            // NOTE(marvin): Add new entity.
+            if (ImGui::Button("New Entity"))
+            {
+                // TODO(marvin): Probably want a helper that creates the entity through this ritual. Common with the one in scene_loader::LoadScene, but that one doesn't assign a Transform3D.
+                EntityID newEntityID = scene->NewEntity();
+
+                // TODO(marvin): Will there be problems if there is an entity with that name already?
+                std::string entityName = "New Entity";
+                entityIds[entityName] = newEntityID;
+                NameComponent* nameComp = scene->Assign<NameComponent>(newEntityID);
+                nameComp->name = entityName;
+                scene->Assign<Transform3D>(newEntityID);
+            
+                selectedEntityID = newEntityID;
+            }
+
+            if (IsEntityValid(selectedEntityID))
+            {
+                // NOTE(marvin): Component interactive tree view
+                for (ComponentID componentID : EntityView(*scene, selectedEntityID))
                 {
-                    s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
-                    if (val != 0)
+                    ComponentInfo compInfo = compInfos[componentID];
+                    if (compInfo.name == NAME_COMPONENT)
                     {
-                        printf("failed to write component");
+                        continue;
                     }
-                }
-                else if (this->ShouldRemoveComponentDataEntry(componentOutcome))
-                {
-                    compInfo.removeFunc(*scene, selectedEntityID);
-                }
-                delete dataEntry;
-            }
-            // NOTE(marvin): Add component to current entity.
-            if (!this->addingComponent)
-            {
-                if (ImGui::Button("Add Component"))
-                {
-                    this->addingComponent = true;
-                }
-            }
-            else
-            {
-                if (ImGui::BeginListBox("Add which component?"))
-                {
-                    for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
+
+                    // NOTE(marvin): It's not possible to rewrite and
+                    // remove at the same time, but rewrite is
+                    // prioritised. Allowing both at the same time (if
+                    // somehow possible) seems risky.
+                    DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
+                    ComponentDataEntryActionOutcome componentOutcome = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
+                    if (this->ShouldRewriteComponentDataEntry(componentOutcome))
                     {
-                        ComponentInfo compInfo = compInfos[componentID];
-                        if (ImGui::Button(compInfo.name.c_str()))
+                        s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
+                        if (val != 0)
                         {
-                            compInfo.assignFunc(*scene, selectedEntityID);
+                            printf("failed to write component");
                         }
                     }
-                    ImGui::EndListBox();
+                    else if (this->ShouldRemoveComponentDataEntry(componentOutcome))
+                    {
+                        compInfo.removeFunc(*scene, selectedEntityID);
+                    }
+                    delete dataEntry;
                 }
-            
-                if (ImGui::Button("Cancel"))
+                // NOTE(marvin): Add component to current entity.
+                if (!this->addingComponent)
                 {
-                    this->addingComponent = false;
+                    if (ImGui::Button("Add Component"))
+                    {
+                        this->addingComponent = true;
+                    }
                 }
+                else
+                {
+                    if (ImGui::BeginListBox("Add which component?"))
+                    {
+                        for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
+                        {
+                            ComponentInfo compInfo = compInfos[componentID];
+                            if (ImGui::Button(compInfo.name.c_str()))
+                            {
+                                compInfo.assignFunc(*scene, selectedEntityID);
+                            }
+                        }
+                        ImGui::EndListBox();
+                    }
+            
+                    if (ImGui::Button("Cancel"))
+                    {
+                        this->addingComponent = false;
+                    }
+                }
+
             }
 
-        }
-
-        // NOTE(marvin): Save scene button
-        if (ImGui::Button("Save Scene"))
-        {
-            SaveCurrentScene(*scene);
-        }
+            // NOTE(marvin): Save scene button
+            if (ImGui::Button("Save Scene"))
+            {
+                SaveCurrentScene(*scene);
+            }
         
-        ImGui::End();
+            ImGui::End();
+        }
     }
 };
