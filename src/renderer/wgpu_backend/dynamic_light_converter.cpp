@@ -127,13 +127,15 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
 
         // Calculates cube map 
         glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (float)shadowWidth/(float)shadowHeight, 0.1f, cpuDat.maxRange);
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0,-1, 0}));
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, {-1, 0, 0}, { 0,-1, 0}));
+        // X faces
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0, 1, 0}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, {-1, 0, 0}, { 0, 1, 0}));
+        // Y faces
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 1, 0}, { 0, 0, 1}));
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0,-1, 0}, { 0, 0,-1}));
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0, 1}, { 0,-1, 0}));
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0,-1}, { 0,-1, 0}));
-
+        // Z faces
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0, 1}, { 0, 1, 0}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0,-1}, { 0, 1, 0}));
         // Populates gpu type information 
         WGPUBackendDynamicShadowedPointLightData gpuDat{ };
 
