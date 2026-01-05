@@ -168,6 +168,15 @@ endif()
 message(STATUS "Initializing [${SKL_RENDER_SYS}] rendering backend...")
 if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
+        if (APPLE)
+                CPMAddPackage(
+                        NAME MoltenVK
+                        URL "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.1/MoltenVK-all.tar")
+          
+                set(ENV{VULKAN_SDK} "${MoltenVK_SOURCE_DIR}/MoltenVK")
+                set(Vulkan_LIBRARY "${MoltenVK_SOURCE_DIR}/MoltenVK/dylib/macOS/libMoltenVK.dylib")
+                set(Vulkan_INCLUDE_DIR "${MoltenVK_SOURCE_DIR}/MoltenVK/include")
+        endif()
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
         add_library(vulkan-backend SHARED
