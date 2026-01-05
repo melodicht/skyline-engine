@@ -670,7 +670,7 @@ public:
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
-        if (input->keysDown.contains("Mouse 3"))
+        if (input->keysDown.contains("Space"))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(editorCam);
             Transform3D *t = scene->Get<Transform3D>(editorCam);

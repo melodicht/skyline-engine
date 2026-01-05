@@ -394,7 +394,6 @@ void WGPURenderBackend::EndPass() {
 
 void WGPURenderBackend::DrawImGui() {
   #if SKL_ENABLED_EDITOR
-
   WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("Imgui Encoder Descriptor")

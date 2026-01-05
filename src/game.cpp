@@ -62,7 +62,7 @@ GAME_INITIALIZE(GameInitialize)
 
     RegisterComponents(scene, editor);
 
-    s32 rv = LoadScene(scene, "city");
+    s32 rv = LoadScene(scene, "test");
     if (rv != 0)
     {
         std::cout << "Failed to load scene\n";
