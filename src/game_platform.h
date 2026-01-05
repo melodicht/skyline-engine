@@ -1,6 +1,5 @@
 #pragma once
 
-#include "meta_definitions.h"
 #include "renderer/render_types.h"
 #include "renderer/render_game.h"
 #include "asset_types.h"
@@ -28,11 +27,6 @@ struct GameInput
     std::set<std::string> keysDown;
 };
 
-struct GameMemory
-{
-    
-};
-
 #define ASSET_UTIL_FUNCS(method)\
     method(MeshAsset*,LoadMeshAsset,(std::string name))\
     method(TextureAsset*,LoadTextureAsset,(std::string name))\
@@ -50,12 +44,16 @@ struct PlatformAPI
     PlatformRenderer renderer;
 };
 
-// NOTE(marvin): Game platform only needs to know about scene, and only system needs to know about game input. Maybe separate out scene.h?
-  
-#include "ecs.h"
+struct GameMemory
+{
+    u64 permanentStorageSize;  // In bytes
+    void *permanentStorage;
 
-#define GAME_INITIALIZE(name) void name(Scene &scene, GameMemory &memory, PlatformAPI &platformAPI, bool editor)
+    PlatformAPI platformAPI;
+};
+
+#define GAME_INITIALIZE(name) void name(GameMemory &memory, bool editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
-#define GAME_UPDATE_AND_RENDER(name) void name(Scene &scene, GameInput &input, f32 deltaTime)
+#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 deltaTime)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);

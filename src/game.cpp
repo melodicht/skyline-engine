@@ -34,8 +34,26 @@ __declspec(dllexport)
 #endif
 GAME_INITIALIZE(GameInitialize)
 {
+    Assert(sizeof(GameState) <= memory.permanentStorageSize);
+    GameState *gameState = static_cast<GameState *>(memory.permanentStorage);
+
+    // NOTE(marvin): The remaining arena here only exists for the
+    // duration of game initialize. The scene has its own set of
+    // arenas, which is takes from the remaining arena here. Once the
+    // scene is fully initialized, the remaining arena has done its
+    // job and is no longer needed. Recall that the memory arena is
+    // just a wrapper around a pointer to some memory storage, with
+    // some book-keeping information about how that memory storage is
+    // used. The book-keeping of remaining arena here is for the sole
+    // purpose of starting up the scene's own memory arenas.
+    u8 *pastGameStateAddress = static_cast<u8 *>(memory.permanentStorage) + sizeof(GameState);
+    MemoryArena remainingArena = InitMemoryArena(pastGameStateAddress, memory.permanentStorageSize - sizeof(GameState));
+    
+    gameState->scene = Scene(&remainingArena);
+    Scene &scene = gameState->scene;
+
     isEditor = editor;
-    globalPlatformAPI = platformAPI;
+    globalPlatformAPI = memory.platformAPI;
 
     RenderPipelineInitInfo initDesc {};
     globalPlatformAPI.renderer.InitPipelines(initDesc);
@@ -51,7 +69,7 @@ GAME_INITIALIZE(GameInitialize)
         exit(-1);
     }
 
-    bool slowStep = false;
+    b32 slowStep = false;
 
     if (editor)
     {
@@ -60,18 +78,13 @@ GAME_INITIALIZE(GameInitialize)
         FlyingMovement* movement = scene.Assign<FlyingMovement>(currentCamera);
         scene.Assign<Transform3D>(currentCamera);
 
-        EditorSystem *editorSystem = new EditorSystem(currentCamera);
-        scene.AddSystem(editorSystem);
+        EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, currentCamera);
     }
     else
     {
-        SKLPhysicsSystem *physicsSys = new SKLPhysicsSystem();
-        scene.AddSystem(physicsSys);
-
-        MovementSystem *movementSys = new MovementSystem();
-        BuilderSystem *builderSys = new BuilderSystem(slowStep);
-        scene.AddSystem(movementSys);
-        scene.AddSystem(builderSys);
+        RegisterSystem(&scene, SKLPhysicsSystem);
+        RegisterSystem(&scene, MovementSystem);
+        RegisterSystem(&scene, BuilderSystem, slowStep);
 
         // Get the main camera view
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(scene);
@@ -193,6 +206,10 @@ __declspec(dllexport)
 #endif
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+    Assert(sizeof(GameState) <= memory.permanentStorageSize);
+    GameState *gameState = static_cast<GameState *>(memory.permanentStorage);
+    Scene &scene = gameState->scene;
+    
     scene.UpdateSystems(&input, deltaTime);
 
     UpdateRenderer(scene, input, deltaTime);

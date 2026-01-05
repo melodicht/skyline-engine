@@ -10,21 +10,26 @@
 
 // Project Fixed Width Numerical Types
 #include <stdint.h>
+#include <cstddef>
 
-typedef uint8_t u8;
+typedef uint8_t  u8;
+typedef uint8_t  u08;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-typedef int8_t s8;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
+typedef int8_t   s8;
+typedef int8_t   s08;
+typedef int16_t  s16;
+typedef int32_t  s32;
+typedef int64_t  s64;
 
-typedef float f32;
-typedef double f64;
+typedef float    f32;
+typedef double   f64;
 
-typedef s32 b32;
+typedef s32      b32;
+
+typedef size_t   siz;
 
 // Project Keywords
 #define global_variable static
@@ -67,6 +72,12 @@ typedef s32 b32;
 #else
 #define Assert(Expression)
 #endif
+
+
+#define Kilobytes(Expression) ((Expression)*1024LL)
+#define Megabytes(Expression) (Kilobytes(Expression)*1024LL)
+#define Gigabytes(Expression) (Megabytes(Expression)*1024LL)
+#define Terabytes(Expression) (Gigabytes(Expression)*1024LL)
 
 // Streamlines process of passing platform funcs to game module api.
 

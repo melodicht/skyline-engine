@@ -24,6 +24,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "renderer/render_backend.h"
+#include "meta_definitions.h"
 #include "game_platform.h"
 
 #if SKL_ENABLED_EDITOR
@@ -222,7 +223,7 @@ void updateLoop(void* appInfo) {
     gameInput.mouseX = mouseX;
     gameInput.mouseY = mouseY;
     gameInput.keysDown = keysDown;
-    gameCode.gameUpdateAndRender(info->scene, gameInput, deltaTime);
+    gameCode.gameUpdateAndRender(info->gameMemory, gameInput, deltaTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
@@ -292,18 +293,18 @@ int main(int argc, char** argv)
 
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
-    PlatformAPI platformAPI = {};
-    platformAPI.assetUtils = constructPlatformAssetUtils();
-    platformAPI.renderer = constructPlatformRenderer();
-    Scene scene;
-    gameCode.gameInitialize(scene, gameMemory, platformAPI, editor);
+    gameMemory.permanentStorageSize = Gigabytes(1);
+    gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
+    gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
+    gameMemory.platformAPI.renderer = constructPlatformRenderer();
+    gameCode.gameInitialize(gameMemory, editor);
 
     SDL_Event e;
     bool playing = true;
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, gameCode, scene, e, playing, now, last);
+    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {
