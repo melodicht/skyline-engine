@@ -327,6 +327,13 @@ if(NOT EMSCRIPTEN)
                             VERBATIM)
                 endforeach()
 
+                list(APPEND SHADER_OUT_NAMES "${SHADERS_OUT_DIR}/editor.frag.spv")
+                add_custom_command(
+                        MAIN_DEPENDENCY "${SHADERS_IN_DIR}/glsl/color.frag.glsl"
+                        OUTPUT "${SHADERS_OUT_DIR}/editor.frag.spv"
+                        COMMAND ${GLSLANG} "${SHADERS_IN_DIR}/glsl/color.frag.glsl" -o "${SHADERS_OUT_DIR}/editor.frag.spv" --target-env vulkan1.3 -DEDITOR
+                        VERBATIM)
+
                 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 
                 add_dependencies(platform build_shaders)

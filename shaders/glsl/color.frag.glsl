@@ -91,6 +91,30 @@ layout (buffer_reference, scalar) readonly buffer LightCascadeBuffer
     LightCascade cascades[];
 };
 
+#ifdef EDITOR
+layout (buffer_reference, scalar) readonly buffer IdBuffer
+{
+    uint ids[];
+};
+
+layout (push_constant, scalar) uniform PushConstants
+{
+    CameraBuffer cameraBuffer;
+    ObjectBuffer objectBuffer;
+    layout (offset = 24) IdBuffer idBuffer;
+    DirLightBuffer dirLightBuffer;
+    LightCascadeBuffer dirCascadeBuffer;
+    SpotLightBuffer spotLightBuffer;
+    PointLightBuffer pointLightBuffer;
+    uint dirLightCount;
+    uint dirCascadeCount;
+    uint spotLightCount;
+    uint pointLightCount;
+    vec3 ambientLight;
+} pcs;
+
+layout(location = 1) out uint outID;
+#else
 layout (push_constant, scalar) uniform PushConstants
 {
     CameraBuffer cameraBuffer;
@@ -105,6 +129,7 @@ layout (push_constant, scalar) uniform PushConstants
     uint pointLightCount;
     vec3 ambientLight;
 } pcs;
+#endif
 
 layout(location = 0) in vec4 worldPos;
 layout(location = 1) in vec3 normal;
@@ -125,6 +150,9 @@ layout(set = 0, binding = 2) uniform sampler textureSampler;
 
 void main()
 {
+#ifdef EDITOR
+    outID = pcs.idBuffer.ids[instance];
+#endif
     vec4 viewPos = pcs.cameraBuffer.camera.view * worldPos;
 
     vec3 light = pcs.ambientLight;
