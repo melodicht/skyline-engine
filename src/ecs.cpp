@@ -122,7 +122,7 @@ void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene *scene, GameInput *inp
 Scene::Scene(MemoryArena *remainingArena)
 {
     this->entities = InitEntitiesPool(remainingArena);
-    this->freeIndices = InitFreeIndicesStack(remainingArena);
+    this->freeIndices = InitFreeIndicesStack(remainingArena, MAX_ENTITIES);
     this->systemsBuffer = InitSystemsBuffer(remainingArena);
     this->systemsArena = SubArena(remainingArena, SYSTEMS_MEMORY);
     this->componentPools = ComponentPoolsBuffer(remainingArena);

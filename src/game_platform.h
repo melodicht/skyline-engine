@@ -11,6 +11,7 @@
 #include <bitset>   // For ECS
 #include <unordered_map>
 #include <string>
+#include <cstring>
 #include <set>
 #include <array>
 
@@ -48,6 +49,11 @@ struct GameMemory
 {
     u64 permanentStorageSize;  // In bytes
     void *permanentStorage;
+
+#if SKL_INTERNAL
+    u64 debugStorageSize;  // In bytes
+    void *debugStorage;
+#endif
 
     PlatformAPI platformAPI;
 };

@@ -293,8 +293,18 @@ int main(int argc, char** argv)
 
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
-    gameMemory.permanentStorageSize = Gigabytes(1);
+    gameMemory.permanentStorageSize = Megabytes(512 + 128);
     gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
+#if SKL_INTERNAL
+    gameMemory.debugStorageSize = Megabytes(256 + 128);
+    gameMemory.debugStorage = SDL_malloc(static_cast<size_t>(gameMemory.debugStorageSize));
+
+    if (!gameMemory.debugStorage)
+    {
+        printf("SDL_malloc failed! SDL_Error: %s\n", SDL_GetError());
+        Assert(false);
+    }
+#endif
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameCode.gameInitialize(gameMemory, editor);

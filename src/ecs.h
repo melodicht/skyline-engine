@@ -270,36 +270,6 @@ ComponentsPool InitComponentsPool(MemoryArena *remainingArena)
     return result;
 }
 
-struct FreeIndicesStack
-{
-    MemoryArena arena;
-};
-
-FreeIndicesStack InitFreeIndicesStack(MemoryArena *remainingArena)
-{
-    FreeIndicesStack result = {};
-    result.arena = SubArena(remainingArena, MAX_ENTITIES * sizeof(u32));
-    return result;
-}
-
-void PushFreeIndicesStack(FreeIndicesStack *stack, u32 newIndex)
-{
-    u32 *index = PushPrimitive(&stack->arena, u32);
-    *index = newIndex;
-}
-
-u32 PopFreeIndicesStack(FreeIndicesStack *stack)
-{
-    u32 result = PopPrimitive(&stack->arena, u32);
-    return result;
-}
-
-b32 FreeIndicesStackIsEmpty(FreeIndicesStack *stack)
-{
-    b32 result = ArenaIsEmpty(&stack->arena);
-    return result;
-}
-
 // Holds pointers to the addresses of systems in the memory arena.
 struct SystemsBuffer
 {

@@ -2,10 +2,11 @@
 
 #include "meta_definitions.h"
 #include "game_platform.h"
-#include "memory.h"
-#include "ecs.h"
+#include "memory_types.h"
 #include "skl_thread_safe_primitives.h"
 #include "debug.h"
+#include "memory.h"
+#include "ecs.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
