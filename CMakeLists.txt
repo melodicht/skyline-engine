@@ -297,42 +297,28 @@ if(NOT EMSCRIPTEN)
 
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
-                file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
-
-                set(SLANGC "slangc")
-
-                foreach(SHADER ${SHADERS})
-                get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
-                set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
-                list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
-                add_custom_command(
-                        MAIN_DEPENDENCY ${SHADER}
-                        OUTPUT ${SHADER_OUT_NAME}
-                        COMMAND ${SLANGC} ${SHADER} -o ${SHADER_OUT_NAME} -target spirv -fvk-use-entrypoint-name -emit-spirv-directly -fvk-use-scalar-layout -matrix-layout-row-major
-                        VERBATIM)
-                endforeach()
-
-                file(GLOB_RECURSE GLSL_SHADERS "${SHADERS_IN_DIR}/glsl/*.glsl")
-
                 set(GLSLANG "glslangValidator")
 
-                foreach(SHADER ${GLSL_SHADERS})
-                    get_filename_component(SHADER_NAME ${SHADER} NAME_WLE)
-                    set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
-                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
+                macro(add_shader inName outName)
+                    set(SHADER_IN_PATH "${SHADERS_IN_DIR}/vulkan/${inName}.glsl")
+                    set(SHADER_OUT_PATH "${SHADERS_OUT_DIR}/${outName}.spv")
+                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_PATH})
                     add_custom_command(
-                            MAIN_DEPENDENCY ${SHADER}
-                            OUTPUT ${SHADER_OUT_NAME}
-                            COMMAND ${GLSLANG} ${SHADER} -o ${SHADER_OUT_NAME} --target-env vulkan1.3 -DWORLDPOS -DVERTATTR
+                            MAIN_DEPENDENCY ${SHADER_IN_PATH}
+                            OUTPUT ${SHADER_OUT_PATH}
+                            COMMAND ${GLSLANG} ${SHADER_IN_PATH} -o ${SHADER_OUT_PATH} --target-env vulkan1.3 ${ARGN}
                             VERBATIM)
-                endforeach()
+                endmacro()
 
-                list(APPEND SHADER_OUT_NAMES "${SHADERS_OUT_DIR}/editor.frag.spv")
-                add_custom_command(
-                        MAIN_DEPENDENCY "${SHADERS_IN_DIR}/glsl/color.frag.glsl"
-                        OUTPUT "${SHADERS_OUT_DIR}/editor.frag.spv"
-                        COMMAND ${GLSLANG} "${SHADERS_IN_DIR}/glsl/color.frag.glsl" -o "${SHADERS_OUT_DIR}/editor.frag.spv" --target-env vulkan1.3 -DEDITOR
-                        VERBATIM)
+                add_shader("color.vert" "depth.vert")
+                add_shader("color.vert" "shadow.vert" -DWORLDPOS)
+                add_shader("color.vert" "color.vert" -DWORLDPOS -DVERTATTR)
+                add_shader("color.frag" "color.frag")
+                add_shader("color.frag" "editor.frag" -DEDITOR)
+                add_shader("shadow.frag" "shadow.frag")
+                add_shader("dirshadow.frag" "dirshadow.frag")
+                add_shader("icon.vert" "icon.vert")
+                add_shader("icon.frag" "icon.frag")
 
                 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 

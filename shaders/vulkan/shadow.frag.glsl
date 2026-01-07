@@ -8,10 +8,10 @@ layout (push_constant, scalar) uniform PushConstants
     float farPlane;
 } pcs;
 
-layout(location = 0) in vec3 worldPos;
+layout(location = 0) in vec4 worldPos;
 
 void main()
 {
-    float distance = length(worldPos - pcs.lightPos) / pcs.farPlane;
+    float distance = length(worldPos.xyz - pcs.lightPos) / pcs.farPlane;
     gl_FragDepth = distance + (3 * fwidth(distance));
 }
