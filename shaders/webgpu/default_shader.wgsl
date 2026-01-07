@@ -142,7 +142,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
         // Checks if location has been covered by light
         var lightSpaceIdx : u32 = dirIter + cascadeCheck * fixedData.dirLightAmount;
-        var lightSpacePosition : vec4<f32> = dynamicLightsSpacesStore[lightSpaceIdx] * (in.worldPos + vec4<f32>(in.normal,0)); 
+        var lightSpacePosition : vec4<f32> = dynamicLightsSpacesStore[lightSpaceIdx] * (in.worldPos + vec4<f32>(in.normal*0.1,0)); 
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
         var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
         var lightsUncovered : f32  = textureSampleCompare(dynamicShadowedDirLightMap, shadowMapSampler, texturePosition.xy, cascadeCheck, texturePosition.z - 0.0025);

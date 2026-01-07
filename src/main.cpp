@@ -209,13 +209,13 @@ void updateLoop(void* appInfo) {
     #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    #endif
-
     ImGuiIO& io = ImGui::GetIO();
+    
     if (io.WantCaptureMouse)
     {
         keysDown.erase("Mouse 1");
     }
+    #endif
 
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
@@ -263,16 +263,18 @@ int main(int argc, char** argv)
     ImGui_ImplSDL3_InitForOther(window);
     #endif
 
+    std::string mapName = "test";
     bool editor = false;
 
-    if (argc > 0)
+    for (int i = 0; i < argc; i++)
     {
-        for (int i = 0; i < argc; i++)
+        if (!strcmp(argv[i], "-editor"))
         {
-            if (!strcmp(argv[i], "-editor"))
-            {
-                editor = true;
-            }
+            editor = true;
+        }
+        if ((!strcmp(argv[i], "-map")) && ((++i) < argc))
+        {
+            mapName = argv[i];
         }
     }
 
@@ -307,7 +309,7 @@ int main(int argc, char** argv)
 #endif
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
-    gameCode.gameInitialize(gameMemory, editor);
+    gameCode.gameInitialize(gameMemory, mapName, editor);
 
     SDL_Event e;
     bool playing = true;

@@ -701,14 +701,14 @@ void InitRenderer(RenderInitInfo& info)
     // Create window surface
     SDL_Vulkan_CreateSurface(info.window, instance, vkbInstance.allocation_callbacks, &surface);
 
-    VkPhysicalDeviceFeatures feat10{.depthClamp = true, .shaderInt64 = true};
+    VkPhysicalDeviceFeatures feat10{.depthClamp = true};
 
     if (editor)
     {
         feat10.independentBlend = true;
     }
 
-    VkPhysicalDeviceVulkan11Features feat11{.multiview = true, .shaderDrawParameters = true};
+    VkPhysicalDeviceVulkan11Features feat11{.multiview = true};
 
     VkPhysicalDeviceVulkan12Features feat12
     {

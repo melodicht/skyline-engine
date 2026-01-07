@@ -49,6 +49,16 @@ layout (push_constant, scalar) uniform PushConstants
     VertexBuffer vertexBuffer;
 } pcs;
 
+#ifdef WORLDPOS
+layout(location = 0) out vec4 outWorldPos;
+#endif
+#ifdef VERTATTR
+layout(location = 1) out vec3 normal;
+layout(location = 2) out vec2 uv;
+layout(location = 3) out vec3 eyeRelPos;
+layout(location = 4) flat out int instance;
+#endif
+
 void main()
 {
     ObjectData object = pcs.objectBuffer.objects[gl_InstanceIndex];
@@ -61,4 +71,19 @@ void main()
     CameraData camera = pcs.cameraBuffer.cameras[gl_ViewIndex];
 
     gl_Position = camera.proj * camera.view * worldPos;
+#ifdef WORLDPOS
+    outWorldPos = worldPos;
+#endif
+
+#ifdef VERTATTR
+    mat3 normMat = mat3(
+        cross(model[1].xyz, model[2].xyz),
+        cross(model[2].xyz, model[0].xyz),
+        cross(model[0].xyz, model[1].xyz));
+
+    normal = normalize(normMat * vert.normal);
+    uv = vec2(vert.uvX, vert.uvY);
+    eyeRelPos = worldPos.xyz - camera.pos;
+    instance = gl_InstanceIndex;
+#endif
 }

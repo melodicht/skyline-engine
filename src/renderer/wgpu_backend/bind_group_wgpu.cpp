@@ -17,6 +17,9 @@ WGPUBackendBindGroup::~WGPUBackendBindGroup() {
 }
 
 void WGPUBackendBindGroup::UpdateBindGroup(const WGPUDevice& device) {
+    if (m_inited) {
+        wgpuBindGroupRelease(m_bindGroupDat);
+    }
     m_inited = true;
 
     std::vector<WGPUBindGroupEntry> bindGroups;
@@ -33,7 +36,6 @@ void WGPUBackendBindGroup::UpdateBindGroup(const WGPUDevice& device) {
         .entryCount = bindGroups.size(),
         .entries = bindGroups.data()
     };
-
     m_bindGroupDat = wgpuDeviceCreateBindGroup(device, &bindGroupDesc);
 }
 

@@ -91,6 +91,7 @@ layout (buffer_reference, scalar) readonly buffer LightCascadeBuffer
     LightCascade cascades[];
 };
 
+#ifdef EDITOR
 layout (buffer_reference, scalar) readonly buffer IdBuffer
 {
     uint ids[];
@@ -112,15 +113,31 @@ layout (push_constant, scalar) uniform PushConstants
     vec3 ambientLight;
 } pcs;
 
+layout(location = 1) out uint outID;
+#else
+layout (push_constant, scalar) uniform PushConstants
+{
+    CameraBuffer cameraBuffer;
+    ObjectBuffer objectBuffer;
+    layout (offset = 24) DirLightBuffer dirLightBuffer;
+    LightCascadeBuffer dirCascadeBuffer;
+    SpotLightBuffer spotLightBuffer;
+    PointLightBuffer pointLightBuffer;
+    uint dirLightCount;
+    uint dirCascadeCount;
+    uint spotLightCount;
+    uint pointLightCount;
+    vec3 ambientLight;
+} pcs;
+#endif
+
 layout(location = 0) in vec4 worldPos;
 layout(location = 1) in vec3 normal;
-layout(location = 2) in float uvX;
+layout(location = 2) in vec2 uv;
 layout(location = 3) in vec3 eyeRelPos;
-layout(location = 4) in float uvY;
-layout(location = 5) flat in int instance;
+layout(location = 4) flat in int instance;
 
 layout(location = 0) out vec4 outFragColor;
-layout(location = 1) out uint outID;
 
 layout(set = 0, binding = 0) uniform texture2D textures[];
 layout(set = 0, binding = 0) uniform texture2DArray arrayTextures[];
@@ -132,7 +149,9 @@ layout(set = 0, binding = 2) uniform sampler textureSampler;
 
 void main()
 {
+#ifdef EDITOR
     outID = pcs.idBuffer.ids[instance];
+#endif
     vec4 viewPos = pcs.cameraBuffer.camera.view * worldPos;
 
     vec3 light = pcs.ambientLight;
@@ -143,7 +162,7 @@ void main()
 
     if (object.texID != -1)
     {
-        color *= texture(sampler2D(textures[nonuniformEXT(object.texID)], textureSampler), vec2(uvX, uvY));
+        color *= texture(sampler2D(textures[nonuniformEXT(object.texID)], textureSampler), uv);
     }
 
     for (uint i = 0; i < pcs.dirLightCount; i++)

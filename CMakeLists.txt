@@ -14,6 +14,81 @@ set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 set(GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game.cpp)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
+
+#==============================================================================
+# COMPILATION OPTIONS
+#==============================================================================
+
+add_compile_definitions(NOMINMAX)
+
+# option_if_not_defined vs option
+# https://github.com/google/marl/issues/223
+
+# Determines which rendering backend is used
+if(NOT DEFINED SKL_RENDER_SYS)
+        set(SKL_RENDER_SYS "Default" CACHE STRING "Which graphics API should the rendering backend be based on")
+        set_property(CACHE SKL_RENDER_SYS PROPERTY STRINGS "Default" "WebGPU" "Vulkan")
+endif()
+
+if(NOT DEFINED SKL_ENABLE_EDITOR_MODE)
+        if(${EMSCRIPTEN})
+                option(SKL_ENABLE_EDITOR_MODE "Whether editor is enabled" OFF)
+                if(${SKL_EDITOR_MODE})
+                        message(FATAL_ERROR "Editor functionality should not be active with emscripten")
+                endif()
+        else()
+                option(SKL_ENABLE_EDITOR_MODE "Whether editor is enabled" ON)
+        endif()
+endif()
+
+# Determines whether debugging functionality is enabled
+if(NOT DEFINED SKL_ENABLE_DEBUGGING)
+        option(SKL_ENABLE_DEBUGGING "Whether debug functionality is enabled" ON)
+endif()
+
+# When debugging mode is active, determines whether logging should also be enabled.
+if(NOT DEFINED SKL_ENABLE_LOGGING)
+        if(${SKL_ENABLE_DEBUGGING})
+                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" ON)
+        elseif(NOT ${SKL_ENABLE_DEBUGGING})
+                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" OFF)
+                message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
+        endif()
+endif()
+
+# When debugging mode is active, determines whether hard stopping asserts should also be enabled.
+# Currently not implemented.
+if(NOT DEFINED SKL_ENABLE_ASSERTS)
+        if(${SKL_ENABLE_DEBUGGING})
+                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" ON)
+        elseif(NOT ${SKL_ENABLE_DEBUGGING})
+                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" OFF)
+                if(${SKL_ENABLE_ASSERTS})
+                        message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
+                endif()
+        endif()
+endif()
+
+# Assumes a development build when not specified otherwise
+if(NOT DEFINED SKL_INTERNAL)
+        set(SKL_INTERNAL 1)
+endif()
+if(NOT DEFINED SKL_SLOW)
+        set(SKL_SLOW 1)
+endif()
+
+add_library(COMPILE_OPTIONS INTERFACE)
+target_compile_definitions(COMPILE_OPTIONS INTERFACE
+        SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
+        SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
+        SKL_INTERNAL=${SKL_INTERNAL}
+        SKL_SLOW=${SKL_SLOW})
+
+#==============================================================================
+# PACKAGE MANAGER
+#==============================================================================
+
+set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/build_external")
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
@@ -55,77 +130,10 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         imgui
         skl-math
         tomlplusplus::tomlplusplus
+        COMPILE_OPTIONS
 )
 
 add_library(RENDERING_BACKEND INTERFACE)
-
-#==============================================================================
-# COMPILATION OPTIONS
-#==============================================================================
-
-add_compile_definitions(NOMINMAX)
-
-# option_if_not_defined vs option
-# https://github.com/google/marl/issues/223
-
-# Determines which rendering backend is used
-if(NOT DEFINED SKL_RENDER_SYS)
-        set(SKL_RENDER_SYS "Default" CACHE STRING "Which graphics API should the rendering backend be based on")
-        set_property(CACHE SKL_RENDER_SYS PROPERTY STRINGS "Default" "WebGPU" "Vulkan")
-endif()
-
-if(NOT DEFINED SKL_ENABLE_EDITOR_MODE)
-        if(${EMSCRIPTEN})
-                option(SKL_ENABLE_EDITOR_MODE "Whether editor " OFF)
-                if(${SKL_EDITOR_MODE})
-                        message(FATAL_ERROR "Editor functionality should not be active with emscripten")
-                endif()
-        else()
-                option(SKL_ENABLE_EDITOR_MODE "Whether editor " ON)
-        endif()
-endif()
-
-# Determines whether debugging functionality is enabled
-if(NOT DEFINED SKL_ENABLE_DEBUGGING)
-        option(SKL_ENABLE_DEBUGGING "Whether debug functionality is enabled" ON)
-endif()
-
-# When debugging mode is active, determines whether logging should also be enabled.
-if(NOT DEFINED SKL_ENABLE_LOGGING)
-        if(${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" ON)
-        elseif(NOT ${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" OFF)
-                message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
-        endif()
-endif()
-
-# When debugging mode is active, determines whether hard stopping asserts should also be enabled.
-# Currently not implemented.
-if(NOT DEFINED SKL_ENABLE_ASSERTS)
-        if(${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" ON)
-        elseif(NOT ${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" OFF)
-                if(${SKL_ENABLE_ASSERTS})
-                        message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
-                endif()
-        endif()
-endif()
-
-if(NOT DEFINED SKL_INTERNAL)
-        set(SKL_INTERNAL 1)
-endif()
-
-if(NOT DEFINED SKL_SLOW)
-        set(SKL_SLOW 1)
-endif()
-
-target_compile_definitions(SHARED_DEPENDENCIES
-        INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
-        INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
-        INTERFACE SKL_INTERNAL=${SKL_INTERNAL}
-        INTERFACE SKL_SLOW=${SKL_SLOW})
 
 #==============================================================================
 # RENDERING BACKEND
@@ -133,22 +141,21 @@ target_compile_definitions(SHARED_DEPENDENCIES
 
 # Determines rendering backend if none is explicitly picked
 if(${SKL_RENDER_SYS} STREQUAL "Default")
-        message("Assigning rendering backend based on machine...")
-        if(APPLE)
-                # Currently MoltenVK has not caught up in terms of SDK to the currently used vulkan version
-                # Maybe we should change once that becomes avaliable
-                set(SKL_RENDER_SYS "WebGPU")
-        elseif(EMSCRIPTEN)
-                # No other options for web
-                set(SKL_RENDER_SYS "WebGPU")
-        else()
+        message(STATUS "Assigning rendering backend based on machine...")
+
+        # Checks if Vulkan driver can be found on system
+        find_package(Vulkan QUIET)
+        if(Vulkan_FOUND AND NOT APPLE)
                 # Likely Vulkan will run better on the things it is natively supported by
                 set(SKL_RENDER_SYS "Vulkan")
+        else()
+                # Otherwise run webgpu backend
+                set(SKL_RENDER_SYS "WebGPU")
         endif()
 
 # Checks if selected option is available for current device, throws error if not
 else()
-        message("Checking for api support on current machine...")
+        message(STATUS "Checking for api support on current machine...")
         # Web simply does not work with anything outside of WebGPU
         if(EMSCRIPTEN)
                 if(NOT ${SKL_RENDER_SYS} STREQUAL "WebGPU")
@@ -158,9 +165,18 @@ else()
 endif()
 
 # Accordingly resolves dependencies required for each rendering backend
-message("Initializing [${SKL_RENDER_SYS}] rendering backend...")
+message(STATUS "Initializing [${SKL_RENDER_SYS}] rendering backend...")
 if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
+        if (APPLE)
+                CPMAddPackage(
+                        NAME MoltenVK
+                        URL "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.1/MoltenVK-all.tar")
+          
+                set(ENV{VULKAN_SDK} "${MoltenVK_SOURCE_DIR}/MoltenVK")
+                set(Vulkan_LIBRARY "${MoltenVK_SOURCE_DIR}/MoltenVK/dylib/macOS/libMoltenVK.dylib")
+                set(Vulkan_INCLUDE_DIR "${MoltenVK_SOURCE_DIR}/MoltenVK/include")
+        endif()
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
         add_library(vulkan-backend SHARED
@@ -281,35 +297,28 @@ if(NOT EMSCRIPTEN)
 
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
-                file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
-
-                set(SLANGC "slangc")
-
-                foreach(SHADER ${SHADERS})
-                get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
-                set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
-                list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
-                add_custom_command(
-                        MAIN_DEPENDENCY ${SHADER}
-                        OUTPUT ${SHADER_OUT_NAME}
-                        COMMAND ${SLANGC} ${SHADER} -o ${SHADER_OUT_NAME} -target spirv -fvk-use-entrypoint-name -emit-spirv-directly -fvk-use-scalar-layout -matrix-layout-row-major
-                        VERBATIM)
-                endforeach()
-
-                file(GLOB_RECURSE GLSL_SHADERS "${SHADERS_IN_DIR}/glsl/*.glsl")
-
                 set(GLSLANG "glslangValidator")
 
-                foreach(SHADER ${GLSL_SHADERS})
-                    get_filename_component(SHADER_NAME ${SHADER} NAME_WLE)
-                    set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
-                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
+                macro(add_shader inName outName)
+                    set(SHADER_IN_PATH "${SHADERS_IN_DIR}/vulkan/${inName}.glsl")
+                    set(SHADER_OUT_PATH "${SHADERS_OUT_DIR}/${outName}.spv")
+                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_PATH})
                     add_custom_command(
-                            MAIN_DEPENDENCY ${SHADER}
-                            OUTPUT ${SHADER_OUT_NAME}
-                            COMMAND ${GLSLANG} ${SHADER} -o ${SHADER_OUT_NAME} --target-env vulkan1.3
+                            MAIN_DEPENDENCY ${SHADER_IN_PATH}
+                            OUTPUT ${SHADER_OUT_PATH}
+                            COMMAND ${GLSLANG} ${SHADER_IN_PATH} -o ${SHADER_OUT_PATH} --target-env vulkan1.3 ${ARGN}
                             VERBATIM)
-                endforeach()
+                endmacro()
+
+                add_shader("color.vert" "depth.vert")
+                add_shader("color.vert" "shadow.vert" -DWORLDPOS)
+                add_shader("color.vert" "color.vert" -DWORLDPOS -DVERTATTR)
+                add_shader("color.frag" "color.frag")
+                add_shader("color.frag" "editor.frag" -DEDITOR)
+                add_shader("shadow.frag" "shadow.frag")
+                add_shader("dirshadow.frag" "dirshadow.frag")
+                add_shader("icon.vert" "icon.vert")
+                add_shader("icon.frag" "icon.frag")
 
                 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 
