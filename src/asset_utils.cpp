@@ -18,32 +18,39 @@ struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec
 std::unordered_map<std::string, MeshAsset> meshAssets;
 std::unordered_map<std::string, TextureAsset> texAssets;
 
-struct ImageData {
+
+struct ImageData
+{
     u32 width;
     u32 height;
-    std::vector<u32> data;
+    u32* data;
     bool loaded;
-};
 
-ImageData LoadImage(std::filesystem::path path) {
-    int width, height, channels;
+    ImageData(std::filesystem::path path)
+    {
+        s32 w, h, c;
+        stbi_uc* imageData = stbi_load(path.string().c_str(), &w, &h, &c, STBI_rgb_alpha);
+        if (imageData == nullptr)
+        {
+            loaded = false;
+        }
+        else
+        {
+            width = w;
+            height = h;
+            data = (u32*)imageData;
+            loaded = true;
+        }
 
-    stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
-    ImageData info{};
-    if (imageData == nullptr) {
-        info.loaded = false;
-        return info;
     }
-    info.data = std::vector<u32>((width * height * 4) / sizeof(u32));
-
-    memcpy(info.data.data(), imageData, info.data.size() * sizeof(u32));
-    stbi_image_free(imageData);
-
-    info.loaded = true;
-    info.width = width;
-    info.height = height;
-    return info;
-}
+    ~ImageData()
+    {
+        if (loaded)
+        {
+            stbi_image_free(data);
+        }
+    }
+};
 
 DataEntry* LoadNodeToData(std::string name, toml::node& node);
 
@@ -228,7 +235,7 @@ TextureAsset* LoadTextureAsset(std::string name)
     }
 
     std::filesystem::path path = "textures/" + name + ".png";
-    ImageData info = LoadImage(path);
+    ImageData info{path};
     if (!info.loaded) {
         return nullptr;
     }
@@ -237,7 +244,7 @@ TextureAsset* LoadTextureAsset(std::string name)
     asset.name = name;
     asset.width = info.width;
     asset.height = info.height;
-    RenderUploadTextureInfo uploadInfo ={info.width, info.height, info.data.data()};
+    RenderUploadTextureInfo uploadInfo = {info.width, info.height, info.data};
     asset.id = UploadTexture(uploadInfo);
     texAssets[name] = asset;
     
@@ -245,27 +252,26 @@ TextureAsset* LoadTextureAsset(std::string name)
 }
 
 void LoadSkyboxAsset(std::array<std::string,6> names) {
-    std::array<std::vector<u32>,6> cubemapData;
+    std::vector<ImageData> cubemapData;
+    cubemapData.reserve(6);
     std::filesystem::path firstPath = "textures/" + names[0] + ".png";
-    ImageData firstInfo = LoadImage(firstPath);
+    ImageData& firstInfo = cubemapData.emplace_back(firstPath);
     u32 firstWidth = firstInfo.width;
     u32 firstHeight = firstInfo.height;
-    cubemapData[0] = std::move(firstInfo.data);
     for (u32 i = 1 ; i < 6 ; i ++) {
         std::filesystem::path path = "textures/" + names[i] + ".png";
-        ImageData info = LoadImage(path);
+        ImageData& info = cubemapData.emplace_back(path);
         if (!info.loaded || info.width != firstWidth || info.height != firstHeight ) {
             LOG_ERROR("Images provided for cubemap do not have uniform dimensions");
             return;
         }
-        cubemapData[i] = std::move(info.data);
     }
 
     std::array<u32*,6> setData;
     for (u32 i = 0 ; i < 6 ; i++) {
-        setData[i] = cubemapData[i].data();
+        setData[i] = cubemapData[i].data;
     }
-    
+
     RenderSetSkyboxInfo setInfo;
     setInfo.width = firstWidth;
     setInfo.height = firstHeight;
