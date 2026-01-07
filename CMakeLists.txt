@@ -323,7 +323,7 @@ if(NOT EMSCRIPTEN)
                     add_custom_command(
                             MAIN_DEPENDENCY ${SHADER}
                             OUTPUT ${SHADER_OUT_NAME}
-                            COMMAND ${GLSLANG} ${SHADER} -o ${SHADER_OUT_NAME} --target-env vulkan1.3
+                            COMMAND ${GLSLANG} ${SHADER} -o ${SHADER_OUT_NAME} --target-env vulkan1.3 -DWORLDPOS -DVERTATTR
                             VERBATIM)
                 endforeach()
 

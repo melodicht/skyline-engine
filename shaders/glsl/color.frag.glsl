@@ -133,10 +133,9 @@ layout (push_constant, scalar) uniform PushConstants
 
 layout(location = 0) in vec4 worldPos;
 layout(location = 1) in vec3 normal;
-layout(location = 2) in float uvX;
+layout(location = 2) in vec2 uv;
 layout(location = 3) in vec3 eyeRelPos;
-layout(location = 4) in float uvY;
-layout(location = 5) flat in int instance;
+layout(location = 4) flat in int instance;
 
 layout(location = 0) out vec4 outFragColor;
 
@@ -163,7 +162,7 @@ void main()
 
     if (object.texID != -1)
     {
-        color *= texture(sampler2D(textures[nonuniformEXT(object.texID)], textureSampler), vec2(uvX, uvY));
+        color *= texture(sampler2D(textures[nonuniformEXT(object.texID)], textureSampler), uv);
     }
 
     for (uint i = 0; i < pcs.dirLightCount; i++)
