@@ -10,8 +10,6 @@
 		}                                                           \
 	} while (0)
 
-#define DEFAULT_SLANG false
-
 #include "meta_definitions.h"
 
 #include <SDL3/SDL_surface.h>
@@ -871,14 +869,14 @@ VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
     return shaderModule;
 }
 
-VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule, const char *entryPointName)
+VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule)
 {
     VkPipelineShaderStageCreateInfo stageInfo
     {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = shaderStage,
         .module = shaderModule,
-        .pName = entryPointName
+        .pName = "main"
     };
     return stageInfo;
 }
@@ -944,19 +942,6 @@ void InitPipelines(RenderPipelineInitInfo& info)
     mainCamIndex = CreateCameraBuffer(1);
 
     // Create shader stages
-#if DEFAULT_SLANG
-    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.spv");
-    
-    VkShaderModule cubemapShader = CreateShaderModuleFromFile("shaders/cubemap.spv");
-    VkShaderModule cubemapVertShader = cubemapShader;
-    VkShaderModule cubemapFragShader = cubemapShader;
-
-    VkShaderModule colorShader = CreateShaderModuleFromFile("shaders/color.spv");
-    VkShaderModule colorVertShader = colorShader;
-    VkShaderModule colorFragShader = colorShader;
-
-    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.spv");
-#else
     VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
     
     VkShaderModule shadowVertShader = CreateShaderModuleFromFile("shaders/shadow.vert.spv");
@@ -971,24 +956,15 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VkShaderModule iconVertShader = CreateShaderModuleFromFile("shaders/icon.vert.spv");
     VkShaderModule iconFragShader = CreateShaderModuleFromFile("shaders/icon.frag.spv");
-#endif
-
-#if DEFAULT_SLANG
-    const char *vertEntryPointName = "vertexMain";
-    const char *fragEntryPointName = "fragmentMain";
-#else
-    const char *vertEntryPointName = "main";
-    const char *fragEntryPointName = "main";
-#endif
     
-    VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo shadowVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, shadowVertShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader, fragEntryPointName);
-    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
-    VkPipelineShaderStageCreateInfo dirShadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, dirShadowFragShader, fragEntryPointName);
-    VkPipelineShaderStageCreateInfo iconVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, iconVertShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo iconFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, iconFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader);
+    VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader);
+    VkPipelineShaderStageCreateInfo shadowVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, shadowVertShader);
+    VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader);
+    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader);
+    VkPipelineShaderStageCreateInfo dirShadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, dirShadowFragShader);
+    VkPipelineShaderStageCreateInfo iconVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, iconVertShader);
+    VkPipelineShaderStageCreateInfo iconFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, iconFragShader);
     
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
     VkPipelineShaderStageCreateInfo shadowShaderStages[] = {shadowVertStageInfo, shadowFragStageInfo};
