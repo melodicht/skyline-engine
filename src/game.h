@@ -2,10 +2,11 @@
 
 #include "meta_definitions.h"
 #include "game_platform.h"
-#include "memory.h"
-#include "ecs.h"
+#include "memory_types.h"
 #include "skl_thread_safe_primitives.h"
 #include "debug.h"
+#include "memory.h"
+#include "ecs.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
@@ -37,8 +38,19 @@
 
 #include "renderer/render_types.h"
 
+// TODO(marvin): Does overlay mode really belong in this file?
+enum OverlayMode
+{
+    overlayMode_none      = 0,
+    overlayMode_ecsEditor = 1,
+    overlayMode_memory    = 2,
+};
 
 struct GameState
 {
-  Scene scene;
+    Scene scene;
+
+    // TODO(marvin): Overlay mode is a shared between ecs editor and debug mode. Ideally in a different struct or compiled away for the actual game release. However, because ecs editor is part of game release, cannot be compiled away.
+    // NOTE(marvin): In actual release, overlay mode should only be none, and is never checked.
+    OverlayMode overlayMode;
 };
