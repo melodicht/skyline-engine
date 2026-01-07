@@ -52,7 +52,7 @@ struct GameMemory
     PlatformAPI platformAPI;
 };
 
-#define GAME_INITIALIZE(name) void name(GameMemory &memory, bool editor)
+#define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, bool editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
 #define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 deltaTime)

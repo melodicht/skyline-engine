@@ -263,16 +263,18 @@ int main(int argc, char** argv)
     ImGui_ImplSDL3_InitForOther(window);
     #endif
 
+    std::string mapName = "test";
     bool editor = false;
 
-    if (argc > 0)
+    for (int i = 0; i < argc; i++)
     {
-        for (int i = 0; i < argc; i++)
+        if (!strcmp(argv[i], "-editor"))
         {
-            if (!strcmp(argv[i], "-editor"))
-            {
-                editor = true;
-            }
+            editor = true;
+        }
+        if ((!strcmp(argv[i], "-map")) && ((++i) < argc))
+        {
+            mapName = argv[i];
         }
     }
 
@@ -297,7 +299,7 @@ int main(int argc, char** argv)
     gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
-    gameCode.gameInitialize(gameMemory, editor);
+    gameCode.gameInitialize(gameMemory, mapName, editor);
 
     SDL_Event e;
     bool playing = true;
