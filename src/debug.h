@@ -139,6 +139,8 @@ struct DebugState
 
 global_variable DebugState *globalDebugState;
 
+#endif
+
 // NOTE(marvin): The reason for the macros is to have them compiled
 // away in non-internal release.
 
@@ -149,16 +151,6 @@ global_variable DebugState *globalDebugState;
 #define DebugRecordSubArena(...) DebugRecordSubArena_(__VA_ARGS__)
 #define DebugRecordPushSize(...) DebugRecordPushSize_(__VA_ARGS__)
 #define DebugRecordPopSize(...) DebugRecordPopSize_(__VA_ARGS__)
-    
-#else
-
-#define DebugInitialize(...)
-#define DebugRecordInitMemoryArena(...)
-#define DebugRecordSubArena(...)
-#define DebugRecordPushSize(...)
-#define DebugRecordPopSize(...)
-
-#endif
 
 void DebugInitialize_(GameMemory gameMemory);
 
@@ -169,6 +161,16 @@ void DebugRecordSubArena_(const char *debugID, const char *name, MemoryArena *so
 void DebugRecordPushSize_(const char *debugID, MemoryArena *source, siz requestedSize, siz actualSize);
 
 void DebugRecordPopSize_(MemoryArena *source, siz size);
+    
+#else
+
+#define DebugInitialize(...)
+#define DebugRecordInitMemoryArena(...)
+#define DebugRecordSubArena(...)
+#define DebugRecordPushSize(...)
+#define DebugRecordPopSize(...)
+
+#endif
 
 /**
  * TIME
@@ -238,4 +240,3 @@ struct TimedBlock
     #endif
 };
 
-#endif

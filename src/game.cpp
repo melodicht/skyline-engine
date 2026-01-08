@@ -29,7 +29,8 @@ bool isEditor;
 
 local void LogDebugRecords();
 
-// Memory percent allocations name debugID
+// TODO(marvin): Move these to a different file?
+#if SKL_INTERNAL
 
 local void RenderSizesViewerAllocations(DebugAllocations *allocations);
 
@@ -93,6 +94,8 @@ local void RenderSizesViewerAllocations(DebugAllocations *allocations)
     }
 }
 
+#endif
+
 // NOTE(marvin): ECS editor functionality in the editor system.
 local void RenderOverlay(GameState &gameState)
 {
@@ -137,6 +140,7 @@ local void RenderOverlay(GameState &gameState)
         }
 
 
+#if SKL_INTERNAL
         // NOTE(marvin): Tab content.
         if (gameState.overlayMode == overlayMode_memory)
         {
@@ -173,6 +177,7 @@ local void RenderOverlay(GameState &gameState)
                 ImGui::EndTabBar();
             }
         }
+#endif
 
         ImGui::End();
     }
