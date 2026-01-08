@@ -150,6 +150,12 @@ void DebugInitialize_(GameMemory gameMemory)
     DebugRecordSubArena(miscArenaDebugID, "DebugMiscArena", &memoryArena, debugState->miscArena);
 }
 
+void DebugUpdate_(GameMemory gameMemory)
+{
+    Assert(sizeof(DebugState) <= gameMemory.debugStorageSize);
+    globalDebugState = static_cast<DebugState *>(gameMemory.debugStorage);
+}
+
 local DebugGeneralAllocation *GetFromDebugGeneralAllocationPool(DebugAllocationsStorePool *pool, u32 index)
 {
     Assert(index < MAX_GENERAL_ALLOCATIONS);

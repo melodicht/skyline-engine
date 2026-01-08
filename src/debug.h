@@ -147,12 +147,14 @@ global_variable DebugState *globalDebugState;
 #if SKL_INTERNAL
 
 #define DebugInitialize(...) DebugInitialize_(__VA_ARGS__)
+#define DebugUpdate(...) DebugUpdate_(__VA_ARGS__)
 #define DebugRecordInitMemoryArena(...) DebugRecordInitMemoryArena_(__VA_ARGS__)
 #define DebugRecordSubArena(...) DebugRecordSubArena_(__VA_ARGS__)
 #define DebugRecordPushSize(...) DebugRecordPushSize_(__VA_ARGS__)
 #define DebugRecordPopSize(...) DebugRecordPopSize_(__VA_ARGS__)
 
 void DebugInitialize_(GameMemory gameMemory);
+void DebugUpdate_(GameMemory gameMemory);
 
 void DebugRecordInitMemoryArena_(const char *debugID, const char *name, MemoryArena source);
 
@@ -165,6 +167,7 @@ void DebugRecordPopSize_(MemoryArena *source, siz size);
 #else
 
 #define DebugInitialize(...)
+#define DebugUpdate(...)
 #define DebugRecordInitMemoryArena(...)
 #define DebugRecordSubArena(...)
 #define DebugRecordPushSize(...)

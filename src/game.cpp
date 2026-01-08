@@ -365,6 +365,8 @@ __declspec(dllexport)
 #endif
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+    DebugUpdate(memory);
+    
     Assert(sizeof(GameState) <= memory.permanentStorageSize);
     GameState *gameState = static_cast<GameState *>(memory.permanentStorage);
     Scene &scene = gameState->scene;
