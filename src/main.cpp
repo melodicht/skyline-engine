@@ -273,7 +273,7 @@ int main(int argc, char** argv)
     }
 
     #if SKL_ENABLED_EDITOR
-    ImGui::CreateContext();
+    ImGuiContext *imGuiContext = ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
     #endif
@@ -321,6 +321,8 @@ int main(int argc, char** argv)
         printf("SDL_malloc failed! SDL_Error: %s\n", SDL_GetError());
         Assert(false);
     }
+
+    gameMemory.imGuiContext = imGuiContext;
 #endif
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();

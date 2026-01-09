@@ -365,6 +365,9 @@ __declspec(dllexport)
 #endif
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+    #if SKL_ENABLED_EDITOR
+    ImGui::SetCurrentContext(memory.imGuiContext);
+    #endif
     DebugUpdate(memory);
     
     Assert(sizeof(GameState) <= memory.permanentStorageSize);

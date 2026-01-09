@@ -8,6 +8,10 @@
 #include "platform_metrics.cpp"
 #endif
 
+#if SKL_ENABLED_EDITOR
+#include <imgui.h>
+#endif
+
 #include <bitset>   // For ECS
 #include <unordered_map>
 #include <string>
@@ -53,6 +57,9 @@ struct GameMemory
 #if SKL_INTERNAL
     u64 debugStorageSize;  // In bytes
     void *debugStorage;
+
+    // TODO(marvin): Does the imgui context really belong to game memory? Should it be part of the debug storage?
+    ImGuiContext *imGuiContext;
 #endif
 
     PlatformAPI platformAPI;
