@@ -24,9 +24,6 @@ global_variable PlatformAPI globalPlatformAPI;
 #include "physics.cpp"
 #include "systems.cpp"
 
-EntityID currentCamera = -1;
-bool isEditor;
-
 local void LogDebugRecords();
 
 // TODO(marvin): Move these to a different file?
@@ -99,7 +96,7 @@ local void RenderSizesViewerAllocations(DebugAllocations *allocations)
 // NOTE(marvin): ECS editor functionality in the editor system.
 local void RenderOverlay(GameState &gameState)
 {
-    b32 shouldShowOverlay = isEditor;
+    b32 shouldShowOverlay = gameState.isEditor;
 
 #if SKL_INTERNAL
     shouldShowOverlay |= true;
@@ -124,7 +121,7 @@ local void RenderOverlay(GameState &gameState)
         ImGuiTabBarFlags tabBarFlags = ImGuiTabBarFlags_None;
         if (ImGui::BeginTabBar("Overlay Options", tabBarFlags))
         {
-            if (isEditor && ImGui::BeginTabItem("ECS Editor"))
+            if (gameState.isEditor && ImGui::BeginTabItem("ECS Editor"))
             {
                 gameState.overlayMode = overlayMode_ecsEditor;
                 ImGui::EndTabItem();
@@ -210,7 +207,7 @@ GAME_INITIALIZE(GameInitialize)
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
-    isEditor = editor;
+    gameState->isEditor = editor;
     globalPlatformAPI = memory.platformAPI;
 
     RenderPipelineInitInfo initDesc {};
@@ -232,12 +229,12 @@ GAME_INITIALIZE(GameInitialize)
     if (editor)
     {
         gameState->overlayMode = overlayMode_ecsEditor;
-        currentCamera = scene.NewEntity();
-        CameraComponent* camera = scene.Assign<CameraComponent>(currentCamera);
-        FlyingMovement* movement = scene.Assign<FlyingMovement>(currentCamera);
-        scene.Assign<Transform3D>(currentCamera);
+        gameState->currentCamera = scene.NewEntity();
+        CameraComponent* camera = scene.Assign<CameraComponent>(gameState->currentCamera);
+        FlyingMovement* movement = scene.Assign<FlyingMovement>(gameState->currentCamera);
+        scene.Assign<Transform3D>(gameState->currentCamera);
 
-        EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, currentCamera, &gameState->overlayMode);
+        EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
     }
     else
     {
@@ -249,7 +246,7 @@ GAME_INITIALIZE(GameInitialize)
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(scene);
         if (cameraView.begin() != cameraView.end())
         {
-            currentCamera = *cameraView.begin();
+            gameState->currentCamera = *cameraView.begin();
         }
     }
 
@@ -258,14 +255,14 @@ GAME_INITIALIZE(GameInitialize)
 
 void UpdateRenderer(GameState &gameState, GameInput &input, f32 deltaTime)
 {
-    if (currentCamera == -1)
+    if (gameState.currentCamera == -1)
     {
         return;
     }
 
     Scene &scene = gameState.scene;
-    CameraComponent *camera = scene.Get<CameraComponent>(currentCamera);
-    Transform3D *cameraTransform = scene.Get<Transform3D>(currentCamera);
+    CameraComponent *camera = scene.Get<CameraComponent>(gameState.currentCamera);
+    Transform3D *cameraTransform = scene.Get<Transform3D>(gameState.currentCamera);
 
     std::vector<DirLightRenderInfo> dirLights;
     for (EntityID ent: SceneView<DirLight, Transform3D>(scene))
@@ -314,7 +311,7 @@ void UpdateRenderer(GameState &gameState, GameInput &input, f32 deltaTime)
     }
 
     std::vector<IconRenderInfo> icons;
-    if (isEditor)
+    if (gameState.isEditor)
     {
         for (EntityID ent : SceneView<Transform3D, NameComponent>(scene))
         {
@@ -369,6 +366,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ImGui::SetCurrentContext(memory.imGuiContext);
     #endif
     DebugUpdate(memory);
+
+    globalPlatformAPI = memory.platformAPI;
     
     Assert(sizeof(GameState) <= memory.permanentStorageSize);
     GameState *gameState = static_cast<GameState *>(memory.permanentStorage);

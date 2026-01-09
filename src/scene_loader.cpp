@@ -1,6 +1,6 @@
 #include <iostream>
 
-std::string currentSceneName = "";
+global_variable std::string currentSceneName = "";
 
 struct NameComponent
 {
@@ -19,8 +19,8 @@ struct ComponentInfo
     std::string iconPath;
 };
 
-std::vector<ComponentInfo> compInfos;
-std::unordered_map<std::string, EntityID> entityIds;
+global_variable std::vector<ComponentInfo> compInfos;
+global_variable std::unordered_map<std::string, EntityID> entityIds;
 
 struct IconGizmo
 {

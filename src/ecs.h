@@ -88,7 +88,7 @@ public:
     virtual ~System() = default;
 };
 
-local u32 numComponents = 0;
+global_variable u32 numComponents = 0;
 
 template<typename T>
 const char *compName;
@@ -97,7 +97,7 @@ const char *compName;
 // ID. The reason why this is separated out from the struct is to
 // mirror the prior implementation where it was also separated out
 // from the struct. Honestly, could just integrate it.
-local std::unordered_map<std::string, ComponentID> stringToId;
+global_variable std::unordered_map<std::string, ComponentID> stringToId;
 
 // Maps a new component ID to the given component name, and produces that component ID.
 local ComponentID MakeComponentId(std::string name)
