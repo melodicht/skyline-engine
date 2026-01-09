@@ -360,15 +360,23 @@ extern "C"
 #if defined(_WIN32) || defined(_WIN64)
 __declspec(dllexport)
 #endif
-GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
+GAME_LOAD(GameLoad)
 {
-    #if SKL_ENABLED_EDITOR
+#if SKL_ENABLED_EDITOR
     ImGui::SetCurrentContext(memory.imGuiContext);
-    #endif
+#endif
+
     DebugUpdate(memory);
 
     globalPlatformAPI = memory.platformAPI;
-    
+}
+
+extern "C"
+#if defined(_WIN32) || defined(_WIN64)
+__declspec(dllexport)
+#endif
+GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
+{
     Assert(sizeof(GameState) <= memory.permanentStorageSize);
     GameState *gameState = static_cast<GameState *>(memory.permanentStorage);
     Scene &scene = gameState->scene;

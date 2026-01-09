@@ -65,8 +65,14 @@ struct GameMemory
     PlatformAPI platformAPI;
 };
 
+
+// NOTE(marvin): Initialize is anything has to be done at the start ONCE, whereas load is anything that has to be done after the game module is loaded in, including after hot reloads.
+
 #define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, bool editor)
 typedef GAME_INITIALIZE(game_initialize_t);
+
+#define GAME_LOAD(name) void name(GameMemory &memory)
+typedef GAME_LOAD(game_load_t);
 
 #define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 deltaTime)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);

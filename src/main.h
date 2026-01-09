@@ -8,6 +8,7 @@ struct SDLGameCode
     SDL_Time fileNewLastWritten_;
   
     game_initialize_t *gameInitialize;
+    game_load_t *gameLoad;
     game_update_and_render_t *gameUpdateAndRender;
 };
 

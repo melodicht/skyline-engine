@@ -107,8 +107,9 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     }
 
     result.gameInitialize = (game_initialize_t *)SDL_LoadFunction(result.sharedObjectHandle, "GameInitialize");
+    result.gameLoad = (game_load_t *)SDL_LoadFunction(result.sharedObjectHandle, "GameLoad");
     result.gameUpdateAndRender = (game_update_and_render_t *)SDL_LoadFunction(result.sharedObjectHandle, "GameUpdateAndRender");
-    if (result.gameInitialize && result.gameUpdateAndRender)
+    if (result.gameInitialize && result.gameLoad && result.gameUpdateAndRender)
     {
         result.fileLastWritten = newFileLastWritten;
     }
@@ -116,6 +117,7 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     {
         LOG_ERROR("Unable to load symbols from game shared object.");
         result.gameInitialize = 0;
+        result.gameLoad = 0;
         result.gameUpdateAndRender = 0;
 
     }
@@ -151,6 +153,7 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
 
     }
     gameCode->gameInitialize = 0;
+    gameCode->gameLoad = 0;
     gameCode->gameUpdateAndRender = 0;
 }
 
@@ -175,12 +178,13 @@ void updateLoop(void* appInfo) {
 
     f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
-    SDLGameCode gameCode = info->gameCode;
+    SDLGameCode &gameCode = info->gameCode;
     if (SDLGameCodeChanged(&gameCode))
     {
         SDLUnloadGameCode(&gameCode);
         info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
         gameCode = info->gameCode;
+        gameCode.gameLoad(info->gameMemory);
     }
 
     while (SDL_PollEvent(&info->e))
@@ -326,6 +330,7 @@ int main(int argc, char** argv)
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameCode.gameInitialize(gameMemory, mapName, editor);
+    gameCode.gameLoad(gameMemory);
 
     SDL_Event e;
     bool playing = true;
