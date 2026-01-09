@@ -321,9 +321,8 @@ int main(int argc, char** argv)
         printf("SDL_malloc failed! SDL_Error: %s\n", SDL_GetError());
         Assert(false);
     }
-
-    gameMemory.imGuiContext = imGuiContext;
 #endif
+    gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameCode.gameInitialize(gameMemory, mapName, editor);

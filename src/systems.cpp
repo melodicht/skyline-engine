@@ -220,7 +220,7 @@ public:
             this->CapVerticalRotationForward(t);
 
             glm::vec3 movementDirection = GetMovementDirection(input, t);
-            t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime * 0.5f);
+            t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
         }
 
         for (EntityID ent : SceneView<HorizontalLook, Transform3D>(*scene))
