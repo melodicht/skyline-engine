@@ -217,5 +217,11 @@ struct PointLight
 SERIALIZE(PointLight, diffuse, specular, radius, falloff)
 COMPONENT(PointLight, "gizmos/point_light")
 
+struct Spin
+{
+    f32 speed = 20.0f;
+};
+SERIALIZE(Spin, speed)
+COMPONENT(Spin)
 
 COMPONENT(NameComponent)

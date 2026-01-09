@@ -220,7 +220,7 @@ public:
             this->CapVerticalRotationForward(t);
 
             glm::vec3 movementDirection = GetMovementDirection(input, t);
-            t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
+            t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime * 0.5f);
         }
 
         for (EntityID ent : SceneView<HorizontalLook, Transform3D>(*scene))
@@ -301,6 +301,14 @@ public:
 
     void Step(Scene *scene)
     {
+        
+        for (EntityID ent : SceneView<Transform3D, Spin>(*scene))
+        {
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            Spin *s = scene->Get<Spin>(ent);
+            t->AddLocalRotation({0, 0, s->speed * 0.25f});
+        }
+        
         // Plane Rules
         for (EntityID ent: SceneView<Plane, Transform3D>(*scene))
         {
