@@ -1,5 +1,7 @@
 #include <array>
 
+#include <imgui.h>
+
 #include <meta_definitions.h>
 #include <scene.h>
 #include <game.h>

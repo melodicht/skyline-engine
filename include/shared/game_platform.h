@@ -3,8 +3,6 @@
 #include <set>
 #include <string>
 
-#include <imgui.h>
-
 #include <meta_definitions.h>
 #include <asset_types.h>
 #include <render_game.h>
@@ -35,6 +33,8 @@ struct PlatformAPI
     // Renderer
     PlatformRenderer renderer;
 };
+
+struct ImGuiContext;
 
 struct GameMemory
 {
