@@ -42,8 +42,7 @@ set(SKL_WGPU_SOURCES
 if(EMSCRIPTEN)
         add_library(wgpu-backend SHARED ${SKL_WGPU_SOURCES})
         target_include_directories(wgpu-backend PRIVATE 
-                ${CMAKE_SOURCE_DIR}/include 
-                ${CMAKE_SOURCE_DIR}/src)
+                ${CMAKE_SOURCE_DIR}/include/shared)
 
         add_library(webgpu INTERFACE)
         # Fetches emscripten Dawn port
@@ -91,7 +90,7 @@ else()
 endif()
 
 # Includes ported SDL3-webgpu conduit
-add_subdirectory(${CMAKE_SOURCE_DIR}/include/webgpu/sdl3webgpu-main sdl3webgpu)
+add_subdirectory(${CMAKE_SOURCE_DIR}/include/renderer/webgpu/sdl3webgpu-main sdl3webgpu)
 
 set(SKL_WGPU_PCH_HEADERS
         <iostream>

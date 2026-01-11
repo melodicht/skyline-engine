@@ -10,7 +10,6 @@
 		}                                                           \
 	} while (0)
 
-#include "meta_definitions.h"
 
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
@@ -18,27 +17,27 @@
 #define VK_USE_PLATFORM_MACOS_MVK
 #endif
 #define VOLK_IMPLEMENTATION
-#include <vulkan/volk.h>
+#include <volk.h>
 
-#include "vulkan/vma_no_warnings.h"
+#include <vma_no_warnings.h>
 #include <iostream>
 
 #include <imgui_impl_vulkan.h>
 
-#include "asset_types.h"
-#include "renderer/render_backend.h"
-#include "renderer/vk_backend/vk_render_types.h"
-#include "renderer/vk_backend/vk_render_utils.cpp"
+#include <asset_types.h>
+#include <render_backend.h>
+#include "vk_render_types.h"
+#include "vk_render_utils.cpp"
 
-#include <vulkan/VkBootstrap.h>
+#include <VkBootstrap.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <unordered_map>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_LEFT_HANDED
-
-#include "math/skl_math_types.h"
-#include "math/skl_math_utils.h"
+#include <skl_math_types.h>
+#include <skl_math_utils.h>
+#include <meta_definitions.h>
 
 // Vulkan structures
 VkInstance instance;

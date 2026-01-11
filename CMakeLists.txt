@@ -10,9 +10,6 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 
-set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
-set(GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game.cpp)
-
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
 #==============================================================================
@@ -82,7 +79,9 @@ target_compile_definitions(COMPILE_OPTIONS INTERFACE
         SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
         SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
-        SKL_SLOW=${SKL_SLOW})
+        SKL_SLOW=${SKL_SLOW}
+        GLM_FORCE_DEPTH_ZERO_TO_ONE
+        GLM_FORCE_LEFT_HANDED)
 
 #==============================================================================
 # PACKAGE MANAGER
@@ -117,7 +116,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
 add_library(imgui SHARED ${imgui_sources})
 target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 #==============================================================================
 # SHARED DEPENDENCIES (Between platform, rendering backend, and game)
@@ -125,11 +123,9 @@ list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 add_library(SHARED_DEPENDENCIES INTERFACE)
 target_link_libraries(SHARED_DEPENDENCIES INTERFACE
-        SDL3::SDL3
         glm::glm
         imgui
         skl-math
-        tomlplusplus::tomlplusplus
         COMPILE_OPTIONS
 )
 
@@ -185,14 +181,14 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
                 ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
+                SDL3::SDL3
                 Vulkan::Headers)
         if (APPLE)
             target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
         endif()
         target_include_directories(vulkan-backend PRIVATE
-                ${CMAKE_CURRENT_SOURCE_DIR}/include
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
-                ${CMAKE_CURRENT_SOURCE_DIR}/src)
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/renderer/vulkan
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/shared)
         target_compile_definitions(vulkan-backend PRIVATE VK_NO_PROTOTYPES)
         target_compile_definitions(RENDERING_BACKEND INTERFACE
                 SKL_RENDERER=0
@@ -211,6 +207,8 @@ endif()
 #==============================================================================
 # GAME MODULE
 #==============================================================================
+file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
+
 add_library(game-module MODULE ${GAME_SRC})
 # Version the PDB file to avoid locking issues
 string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
@@ -224,8 +222,8 @@ target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         Jolt)
 target_include_directories(game-module PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/include/shared
+        ${CMAKE_SOURCE_DIR}/include/game
         ${JoltPhysics_SOURCE_DIR})
 
 set(PCH_HEADERS
@@ -242,7 +240,7 @@ set(PCH_HEADERS
 )
 
 if(WIN32)
-        list(APPEND PCH_HEADERS <windows.h>)
+    list(APPEND PCH_HEADERS <windows.h>)
 endif()
 
 target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
@@ -250,29 +248,33 @@ target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
 #==============================================================================
 # PLATFORM
 #==============================================================================
-add_executable(platform ${PLATFORM_SRC})
+file(GLOB_RECURSE PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/*.cpp)
+
+add_executable(platform ${PLATFORM_SRC} ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 set_target_properties(platform PROPERTIES
         OUTPUT_NAME ${PROJECT_NAME}
 )
 target_include_directories(platform PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/shared
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/platform)
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
-        fastgltf::fastgltf)
+        fastgltf::fastgltf
+        SDL3::SDL3
+        tomlplusplus::tomlplusplus)
 
 add_dependencies(platform game-module)
 
 if (EMSCRIPTEN)
-        set_target_properties(platform PROPERTIES SUFFIX ".html")
-elseif (WIN32)
-        add_custom_command(TARGET platform POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
-                COMMAND_EXPAND_LISTS)
+    set_target_properties(platform PROPERTIES SUFFIX ".html")
 endif()
 
+if (WIN32)
+    add_custom_command(TARGET platform POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
+            COMMAND_EXPAND_LISTS)
+endif()
 #==============================================================================
 # POST-BUILD
 #==============================================================================

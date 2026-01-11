@@ -1,0 +1,659 @@
+#pragma once
+
+#include <bitset>
+#include <typeindex>
+
+#include <memory.h>
+
+/*
+ * TYPE DEFINITIONS AND CONSTANTS
+ */
+
+// Comparison via ==
+// Note the INVALID_ENTITY
+typedef u64 EntityID;
+typedef u32 ComponentID;
+
+constexpr u32 MAX_COMPONENTS = 32;
+typedef std::bitset<MAX_COMPONENTS> ComponentMask;
+constexpr u32 MAX_ENTITIES = 32768;
+constexpr u32 MAX_SYSTEMS = 128;
+
+constexpr u32 SYSTEMS_MEMORY = Kilobytes(16);
+
+/*
+ * ID FUNCTIONALITY
+ */
+
+#define INVALID_ENTITY_ID (u32)(-1)
+#define INVALID_ENTITY CreateEntityId(INVALID_ENTITY_ID, 0)
+
+// Allows the storage of EntityID's such that they store both the Index and their Version number
+// This allows for deletion without overlapping slots.
+// Index and Version number are both u32s that will be combined into EntityID.
+
+inline EntityID CreateEntityId(u32 index, u32 version)
+{
+    // Shift the index up 32, and put the version in the bottom
+    return ((EntityID) index << 32) | ((EntityID) version);
+}
+
+inline u32 GetEntityVersion(EntityID id)
+{
+    // Cast to a 32 bit int to get our version number (losing the top 32 bits)
+    return (u32) id;
+}
+
+inline EntityID InvalidateEntityId(EntityID id)
+{
+    return CreateEntityId(INVALID_ENTITY_ID, GetEntityVersion(id) + 1);
+}
+
+inline u32 GetEntityIndex(EntityID id)
+{
+    // Shift down 32 so we lose the version and get our index
+    return id >> 32;
+}
+
+inline bool IsEntityValid(EntityID id)
+{
+    // Check if the index is our invalid index
+    return (id >> 32) != (u32) (-1);
+}
+
+//////////////// COMPONENTS ////////////////
+
+// NOTE(marvin): GetId has been moved to plaform layer, so that the
+// IDs don't get reset after a hot reload.
+
+/*
+ * COMPONENT POOL
+ */
+
+// Responsible for allocating contiguous memory for the components
+// such that `MAX_ENTITIES` can be stored, and components be accessed
+// via index.
+// NOTE: The memory pool is an array of bytes, as the size of one
+// component isn't known at compile time.
+// User of the struct is responsible for managing memory.
+struct ComponentPool
+{
+    u8 *pData{nullptr};
+    size_t elementSize{0};
+
+    ComponentPool();
+    
+    ComponentPool(void *base, size_t elementsize);
+
+    // Gets the component in this pData at the given index.
+    inline void *get(size_t index)
+    {
+        // looking up the component at the desired index
+        return pData + index * elementSize;
+    }
+
+    inline EntityID getOwner(u8 *ptr)
+    {
+        return ((size_t)(ptr - pData)) / elementSize;
+    }
+};
+
+/*
+ * SYSTEM
+ */
+
+struct Scene;
+
+// A system in our ECS, which defines operations on a subset of
+// entities, using scene view.
+class System
+{
+public:
+    virtual void OnStart(Scene *scene) {};
+    virtual void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime) {};
+    virtual ~System() = default;
+};
+
+extern u32 numComponents;
+
+extern std::unordered_map<std::type_index, ComponentID> typeToId;
+
+// Maps a new component ID to the given component name, and produces that component ID.
+ComponentID MakeComponentId(std::string name);
+
+template<typename T>
+ComponentID GetComponentId()
+{
+    if (auto search = typeToId.find(std::type_index(typeid(T)));
+            search != typeToId.end())
+    {
+        u64 count = search->second;
+        return count;
+    }
+
+    printf("Invalid component ID: %s\n", typeid(T).name());
+    exit(1);
+}
+
+/*
+ * SCENE DEFINITION
+ */
+
+struct EntityEntry
+{
+    EntityID id; // though redundent with index in array, required
+    // for deleting entities,
+
+    // NOTE(marvin): Only to be used within ECS-specific code.
+    ComponentMask mask;
+};
+
+inline EntityEntry InitEntityEntryWithIndex(u32 entityIndex)
+{
+    EntityEntry result = {};
+    result.id = CreateEntityId(entityIndex, 0);
+    result.mask = ComponentMask();
+    return result;
+}
+
+inline void InvalidateEntityEntry(EntityEntry *entityEntry)
+{
+    entityEntry->id = InvalidateEntityId(entityEntry->id);
+    entityEntry->mask.reset();
+}
+
+inline b32 EntityEntryValid(EntityEntry *entityEntry)
+{
+    b32 result = IsEntityValid(entityEntry->id);
+    return result;
+}
+
+inline b32 EntityEntryInvalid(EntityEntry *entityEntry)
+{
+    u32 entityIndex = GetEntityIndex(entityEntry->id);
+    b32 result = entityIndex == INVALID_ENTITY_ID;
+    return result;
+}
+
+// Subs in the given entity index into the given entity entry.
+// The entity entry should be marked as invalid.
+inline void ValidateEntityEntryWithIndex(EntityEntry *entityEntry, u32 index)
+{
+    Assert(EntityEntryInvalid(entityEntry) &&
+           "A free entity entry should be marked as an invalid entity.");
+
+    u32 entityVersion = GetEntityVersion(entityEntry->id);
+    EntityID newID = CreateEntityId(index, entityVersion);
+    entityEntry->id = newID;
+}
+
+inline b32 EntityEntryMismatch(EntityEntry *entityEntry, EntityID id)
+{
+    b32 result = entityEntry->id != id;
+    return result;
+}
+
+inline void ClearComponentFromEntityEntry(EntityEntry *entityEntry, ComponentID componentId)
+{
+    ComponentMask &mask = entityEntry->mask;
+    mask.reset(componentId);
+}
+
+// NOTE(marvin): Max size given by MAX_ENTITIES.
+struct EntitiesPool
+{
+    EntityEntry *entries;
+    u32 count;
+};
+
+// Initializes an entities pool, allocating from the given memory arena.
+inline EntitiesPool InitEntitiesPool(MemoryArena *remainingArena)
+{
+    EntitiesPool result = {};
+    result.entries = PushArray(remainingArena, MAX_ENTITIES, EntityEntry);
+    result.count = 0;
+    return result;
+}
+
+inline EntityEntry *GetFromEntitiesPool(EntitiesPool *pool, u32 index)
+{
+    Assert(index < MAX_ENTITIES);
+    EntityEntry *result = pool->entries + index;
+    return result;
+}
+
+inline EntityEntry *GetFromEntitiesPoolWithEntityID(EntitiesPool *pool, EntityID id)
+{
+    u32 index = GetEntityIndex(id);
+    EntityEntry *result = GetFromEntitiesPool(pool, index);
+    return result;
+}
+
+inline EntityEntry *AddNewEntityEntry(EntitiesPool *pool)
+{
+    Assert(pool->count < MAX_ENTITIES);
+    EntityEntry *nextEntityEntry = pool->entries + pool->count;
+    *nextEntityEntry = InitEntityEntryWithIndex(pool->count);
+    ++pool->count;
+    return nextEntityEntry;
+}
+
+inline u32 GetEntitiesPoolSize(EntitiesPool *pool)
+{
+    u32 result = pool->count;
+    return result;
+}
+
+// Assumes that the entity id and the index, and the entity entry at the index all correspond.
+inline void DestroyEntityEntryInEntitiesPool(EntitiesPool *entities, u32 index, EntityID id)
+{
+    EntityEntry *entityEntry = GetFromEntitiesPool(entities, index);
+    Assert((GetEntityIndex(id) == index) &&
+           (entityEntry->id == id) &&
+           (GetEntityIndex(entityEntry->id) == index));
+
+    InvalidateEntityEntry(entityEntry);
+}
+
+// Indicates whether the entity already has been deleted, and also
+// fills in the given entity entry.
+inline b32 EntityAlreadyDeleted(EntitiesPool *pool, EntityID id, EntityEntry **entityEntry)
+{
+    *entityEntry = GetFromEntitiesPoolWithEntityID(pool, id);
+    b32 result = (*entityEntry)->id != id;
+    return result;
+}
+
+inline b32 EntityAlreadyDeleted(EntitiesPool *pool, EntityID id)
+{
+    EntityEntry *entityEntry;
+    return EntityAlreadyDeleted(pool, id, &entityEntry);
+}
+
+// NOTE(marvin): Max size given by MAX_COMPONENTS.
+struct ComponentsPool
+{
+    ComponentPool *componentPools;
+};
+
+// Holds pointers to the addresses of systems in the memory arena.
+struct SystemsBuffer
+{
+    System **base;
+    u32 count;
+};
+
+inline SystemsBuffer InitSystemsBuffer(MemoryArena *remainingArena)
+{
+    SystemsBuffer result = {};
+    result.base = PushArray(remainingArena, MAX_SYSTEMS, System *);
+    return result;
+}
+
+struct ComponentPoolsBuffer
+{
+    ComponentPool *base;
+    u32 count;
+
+    ComponentPoolsBuffer();
+
+    ComponentPoolsBuffer(MemoryArena *remainingArena);
+
+    ComponentPool *operator[](u32);
+
+    void Push(ComponentPool componentPool);
+};
+
+// Each component has its own memory pool, to have good memory
+// locality. An entity's ID is the index into its own component in the
+// component pool.
+struct Scene
+{
+public:
+    EntitiesPool entities;
+    FreeIndicesStack freeIndices;
+
+    SystemsBuffer systemsBuffer;
+    MemoryArena systemsArena;
+
+    ComponentPoolsBuffer componentPools;
+    MemoryArena componentPoolsArena;
+
+private:
+    void *GetComponentAddress(EntityID entityId, ComponentID componentId)
+    {
+        ComponentPool *componentPool = componentPools[componentId];
+        u32 entityIndex = GetEntityIndex(entityId);
+        void *result = componentPool->get(entityIndex);
+        return result;
+    }
+public:
+    Scene(MemoryArena *remainingArena);
+
+    ~Scene();
+    
+    void AddSystem(System *system);
+    
+    void InitSystems();
+
+    void UpdateSystems(GameInput *input, f32 deltaTime);
+
+    void AddComponentPool(size_t componentSize);
+
+    // Adds a new entity to this vector of entities, and returns its
+    // ID. Can only support 2^64 entities without ID conflicts.
+    EntityID NewEntity();
+
+    EntityEntry &GetEntityEntry(EntityID id);
+
+    // Removes a given entity from the scene and signals to the scene the free space that was left behind
+    void DestroyEntity(EntityID id);
+
+    u32 GetNumCompTypes();
+
+    // Removes a component from the entity with the given EntityID
+    // if the EntityID is not already removed.
+    template<typename T>
+    void Remove(EntityID id)
+    {
+        EntityEntry *entityEntry;
+        
+        if (EntityAlreadyDeleted(&entities, id, &entityEntry))
+        {
+            printf("Entity has been deleted, can't remove component.");
+            return;
+        }
+
+        ComponentID componentId = GetComponentId<T>();
+        ClearComponentFromEntityEntry(entityEntry, componentId);
+    }
+
+    // Assigns the entity associated with the given entity ID in this
+    // vector of entities a new instance of the given component. Then,
+    // adds it to its corresponding memory pool, and returns a pointer
+    // to it.
+    template<typename T>
+    T *Assign(EntityID id)
+    {
+        T *result = nullptr;
+        ComponentID componentId = GetComponentId<T>();
+
+        if (numComponents <= componentId) // Invalid component
+        {
+            printf("Invalid component. Components must be defined in components.\n");
+            exit(1);
+        }
+
+        // Verify that the component doesn't already exist.
+        EntityEntry &entityEntry = GetEntityEntry(id);
+        ComponentMask &componentMask = entityEntry.mask;
+        b32 componentAlreadyExists = componentMask.test(componentId);
+        if (componentAlreadyExists)
+        {
+            puts("Attempted to add a component to an entity that already has the component, ignoring.");
+        }
+        else
+        {
+            void *componentAddress = GetComponentAddress(id, componentId);
+            result = new(componentAddress) T();
+            componentMask.set(componentId);
+        }
+        return result;
+    }
+
+    void *Get(EntityID entityId, ComponentID componentId);
+
+    // Returns the pointer to the component instance on the entity
+    // associated with the given ID in this vector of entities, with the
+    // given component type. Returns nullptr if that entity doesn't have
+    // the given component type.
+    template<typename T>
+    T *Get(EntityID id)
+    {
+        int componentId = GetComponentId<T>();
+        T *result = static_cast<T *>(Get(id, componentId));
+        return result;
+    }
+
+    b32 Has(EntityID entityId, ComponentID componentId);
+
+    template <typename T>
+    b32 Has(EntityID id)
+    {
+        ComponentID componentId = GetComponentId<T>();
+        return Has(id, componentId);
+    }
+
+    template<typename T>
+    EntityID GetOwner(T* component)
+    {
+        s32 componentId = GetComponentId<T>();
+        EntityID id = componentPools[componentId]->getOwner((u8*)component);
+        return id;
+    }
+};
+
+// Helps with iterating through a given scene
+template<typename... ComponentTypes>
+struct SceneView
+{
+    SceneView(Scene &scene) : pScene(&scene)
+    {
+        if (sizeof...(ComponentTypes) == 0)
+        {
+            all = true;
+        }
+        else
+        {
+            // Unpack the template parameters into an initializer list
+            u32 componentIds[] = {0, GetComponentId<ComponentTypes>()...};
+            for (u32 i = 1; i < (sizeof...(ComponentTypes) + 1); i++)
+                componentMask.set(componentIds[i]);
+        }
+    }
+
+    struct Iterator
+    {
+        Iterator(Scene *pScene, u32 index, ComponentMask mask, bool all)
+            : pScene(pScene), index(index), mask(mask), all(all) {}
+
+        // give back the entityID we're currently at
+        EntityID operator*() const
+        {
+            EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, index);
+            return entityEntry->id;
+        }
+
+        // Compare two iterators
+        bool operator==(const Iterator &other) const
+        {
+            return index == other.index || index == GetEntitiesPoolSize(&pScene->entities);
+        }
+
+        bool operator!=(const Iterator &other) const
+        {
+            return index != other.index && index != GetEntitiesPoolSize(&pScene->entities);
+        }
+
+        bool ValidIndex()
+        {
+            EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, index);
+            return
+                // It's a valid entity ID
+                EntityEntryValid(entityEntry) &&
+                // It has the correct component mask
+                (all || mask == (mask & entityEntry->mask));
+        }
+
+        // Move the iterator forward
+        Iterator &operator++()
+        {
+            do
+            {
+                index++;
+            } while (index < GetEntitiesPoolSize(&pScene->entities) && !ValidIndex());
+            return *this;
+        }
+
+        u32 index;
+        Scene *pScene;
+        ComponentMask mask;
+        bool all{false};
+    };
+
+    // Give an iterator to the beginning of this view
+    const Iterator begin() const
+    {
+        u32 firstIndex = 0;
+        EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, firstIndex);
+        while (firstIndex < GetEntitiesPoolSize(&pScene->entities) &&
+               (componentMask != (componentMask & entityEntry->mask)
+                || !IsEntityValid(entityEntry->id)))
+        {
+            firstIndex++;
+            entityEntry = GetFromEntitiesPool(&pScene->entities, firstIndex);
+        }
+        return Iterator(pScene, firstIndex, componentMask, all);
+    }
+
+    // Give an iterator to the end of this view
+    const Iterator end() const
+    {
+        return Iterator(pScene, (u32) GetEntitiesPoolSize(&pScene->entities), componentMask, all);
+    }
+
+    Scene *pScene{nullptr};
+    ComponentMask componentMask;
+    bool all{false};
+};
+
+// Iterates through the components of a given entity.
+// NOTE(marvin): Could use GetNumberOfDefinedComponents() instead of MAX_COMPONENTS. Playing the safe route.
+struct EntityView
+{
+private:
+    ComponentMask componentMask;
+
+public:
+    EntityView(Scene &scene, EntityID entityID)
+    {
+        this->componentMask = scene.GetEntityEntry(entityID).mask;
+    }
+
+    struct Iterator
+    {
+        Iterator(ComponentID index, ComponentMask mask) : index(index), mask(mask) {}
+
+        ComponentID operator*() const
+        {
+            return index;
+        }
+
+        bool operator==(const Iterator &other) const
+        {
+            return (index == other.index) || (!ValidIndex() && !other.ValidIndex());
+        }
+
+        bool operator!=(const Iterator &other) const
+        {
+            return (index != other.index) && (ValidIndex() || other.ValidIndex());
+        }
+
+        bool ValidIndex() const
+        {
+            return index < MAX_COMPONENTS;
+        }
+
+        Iterator &operator++()
+        {
+            do
+            {
+                index++;
+            } while (ValidIndex() && !mask.test(index));
+            return *this;
+        }
+
+        u32 index;
+        ComponentMask mask;
+    };
+
+    const Iterator begin() const
+    {
+        return Iterator(0, componentMask);
+    }
+
+    const Iterator end() const
+    {
+        return Iterator(MAX_COMPONENTS, componentMask);
+    }
+};
+
+// Iterates through the components that don't exist on a given entity.
+struct EntityComplementView
+{
+private:
+    ComponentMask componentMask;
+    Scene& scene;
+
+public:
+    EntityComplementView(Scene &scene, EntityID entityID) : scene(scene)
+    {
+        this->componentMask = scene.GetEntityEntry(entityID).mask;
+    }
+
+    struct Iterator
+    {
+        Iterator(u32 index, ComponentMask mask, u32 count) : index(index), mask(mask), count(count) {}
+
+        ComponentID operator*() const
+        {
+            return index;
+        }
+
+        bool operator==(const Iterator &other) const
+        {
+            return (index == other.index) || (!ValidIndex() && !other.ValidIndex());
+        }
+
+        bool operator!=(const Iterator &other) const
+        {
+            return (index != other.index) && (ValidIndex() || other.ValidIndex());
+        }
+
+        bool ValidIndex() const
+        {
+            return index < count;
+        }
+
+        Iterator &operator++()
+        {
+            do
+            {
+                index++;
+            } while (ValidIndex() && mask.test(index));
+            return *this;
+        }
+
+        u32 index;
+        ComponentMask mask;
+        u32 count;
+    };
+
+    const Iterator begin() const
+    {
+        return Iterator(0, componentMask, scene.GetNumCompTypes());
+    }
+
+    const Iterator end() const
+    {
+        return Iterator(scene.GetNumCompTypes(), componentMask, scene.GetNumCompTypes());
+    }
+};
+
+#define PushSystem(scene, T) (PushStruct(&((scene)->systemsArena), T))
+#define RegisterSystem(scene, T, ...) \
+    ({ \
+        Scene *_scene = (scene); \
+        T *_system = new(PushSystem(_scene, T)) T(__VA_ARGS__); \
+        _scene->AddSystem(_system); \
+        _system; })

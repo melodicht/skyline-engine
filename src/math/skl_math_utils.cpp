@@ -1,7 +1,10 @@
-#include "skl_math_utils.h"
+#include <skl_math_utils.h>
 
 #include <random>
 #include <iostream>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 glm::vec3 Transform3D::GetLocalPosition()
 {
