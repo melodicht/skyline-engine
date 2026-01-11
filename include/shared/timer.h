@@ -1,3 +1,7 @@
+#if !_WIN32
+#include <x86intrin.h>
+#endif
+
 #include <meta_definitions.h>
 
 inline u64 ReadCPUTimer(void)

@@ -5,9 +5,9 @@
  * ENTITY FUNCTIONALITY
  */
 
-global_variable u32 numComponents = 0;
+u32 numComponents = 0;
 
-global_variable std::unordered_map<std::type_index, ComponentID> typeToId;
+std::unordered_map<std::type_index, ComponentID> typeToId;
 
 // Maps a new component ID to the given component name, and produces that component ID.
 ComponentID MakeComponentId(std::string name)

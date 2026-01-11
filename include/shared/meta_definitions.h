@@ -32,7 +32,7 @@ typedef s32      b32;
 typedef size_t   siz;
 
 // Project Keywords
-#define global_variable static
+#define file_global static
 #define local static
 #define local_persist static
 

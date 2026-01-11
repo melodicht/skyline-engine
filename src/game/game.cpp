@@ -15,7 +15,7 @@
 #include <scene_view.h>
 
 
-global_variable PlatformAPI globalPlatformAPI;
+PlatformAPI globalPlatformAPI;
 
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)

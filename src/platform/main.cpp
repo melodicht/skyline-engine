@@ -63,12 +63,12 @@ struct AppInformation
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-global_variable std::set<std::string> keysDown;
-global_variable f32 mouseDeltaX = 0;
-global_variable f32 mouseDeltaY = 0;
+file_global std::set<std::string> keysDown;
+file_global f32 mouseDeltaX = 0;
+file_global f32 mouseDeltaY = 0;
 
-global_variable f32 mouseX = 0;
-global_variable f32 mouseY = 0;
+file_global f32 mouseX = 0;
+file_global f32 mouseY = 0;
 
 local const char *SDLGetGameCodeSrcFilePath()
 {

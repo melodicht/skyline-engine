@@ -7,12 +7,12 @@
 #include <scene_view.h>
 #include <entity_view.h>
 
-global_variable std::string currentSceneName = "";
+file_global std::string currentSceneName = "";
 
-global_variable std::vector<ComponentInfo> compInfos;
-global_variable std::unordered_map<std::string, EntityID> entityIds;
-global_variable std::vector<IconGizmo> iconGizmos;
-global_variable std::unordered_map<std::string, ComponentID> stringToId;
+std::vector<ComponentInfo> compInfos;
+std::unordered_map<std::string, EntityID> entityIds;
+std::vector<IconGizmo> iconGizmos;
+file_global std::unordered_map<std::string, ComponentID> stringToId;
 
 template <typename T>
 const char* compName;

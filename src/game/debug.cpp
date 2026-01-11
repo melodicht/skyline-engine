@@ -5,7 +5,7 @@
 
 constexpr u32 MAX_GENERAL_ALLOCATIONS = 8192;
 
-global_variable DebugState *globalDebugState;
+DebugState *globalDebugState;
 
 // NOTE(marvin): We store all of our strings (name and debug ID) in
 // the miscArena. For name, we always create a fresh new
