@@ -3,6 +3,7 @@
 #include <game.h>
 #include <scene.h>
 #include <scene_loader.h>
+#include <utils.h>
 
 typedef u32 ComponentDataEntryActionOutcome;
 
@@ -179,25 +180,8 @@ void EditorSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
         t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
         t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
 
-        if (input->keysDown.contains("W"))
-        {
-            t->AddLocalPosition(t->GetForwardVector() * f->moveSpeed * deltaTime);
-        }
-
-        if (input->keysDown.contains("S"))
-        {
-            t->AddLocalPosition(t->GetForwardVector() * -f->moveSpeed * deltaTime);
-        }
-
-        if (input->keysDown.contains("D"))
-        {
-            t->AddLocalPosition(t->GetRightVector() * f->moveSpeed * deltaTime);
-        }
-
-        if (input->keysDown.contains("A"))
-        {
-            t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
-        }
+        glm::vec3 movementDirection = GetMovementDirection(input, t);
+        t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
     }
 
     // TODO(marvin): Maybe the ecs editor functionality shouldn't be within the EditorSystem? Feels strange that the overlay GUI is split in two places. Maybe an EditorState? Which could hold some of the stuff defined at a global level in scene_loader.cpp.
