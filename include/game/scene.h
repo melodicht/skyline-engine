@@ -350,7 +350,10 @@ public:
     // Removes a given entity from the scene and signals to the scene the free space that was left behind
     void DestroyEntity(EntityID id);
 
-    u32 GetNumCompTypes();
+    u32 GetNumCompTypes()
+    {
+        return componentPools.count;
+    }
 
     // Removes a component from the entity with the given EntityID
     // if the EntityID is not already removed.
@@ -402,7 +405,14 @@ public:
         return result;
     }
 
-    void *Get(EntityID entityId, ComponentID componentId);
+    void *Get(EntityID entityId, ComponentID componentId)
+    {
+        if (!GetEntityEntry(entityId).mask.test(componentId))
+            return nullptr;
+
+        void *pComponent = GetComponentAddress(entityId, componentId);
+        return pComponent;
+    }
 
     // Returns the pointer to the component instance on the entity
     // associated with the given ID in this vector of entities, with the
@@ -416,7 +426,11 @@ public:
         return result;
     }
 
-    b32 Has(EntityID entityId, ComponentID componentId);
+    b32 Has(EntityID entityId, ComponentID componentId)
+    {
+        EntityEntry *entityEntry = GetFromEntitiesPoolWithEntityID(&entities, entityId);
+        return entityEntry->mask.test(componentId);
+    }
 
     template <typename T>
     b32 Has(EntityID id)

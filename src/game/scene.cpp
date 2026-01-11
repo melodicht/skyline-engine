@@ -169,23 +169,3 @@ void Scene::DestroyEntity(EntityID id)
     DestroyEntityEntryInEntitiesPool(&entities, index, id);
     PushFreeIndicesStack(&freeIndices, index);
 }
-
-u32 Scene::GetNumCompTypes()
-{
-    return componentPools.count;
-}
-
-void *Scene::Get(EntityID entityId, ComponentID componentId)
-{
-    if (!GetEntityEntry(entityId).mask.test(componentId))
-        return nullptr;
-
-    void *pComponent = GetComponentAddress(entityId, componentId);
-    return pComponent;
-}
-
-b32 Scene::Has(EntityID entityId, ComponentID componentId)
-{
-    EntityEntry *entityEntry = GetFromEntitiesPoolWithEntityID(&entities, entityId);
-    return entityEntry->mask.test(componentId);
-}
