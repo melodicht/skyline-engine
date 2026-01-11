@@ -1,12 +1,9 @@
 #pragma once
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include <meta_definitions.h>
 #include <skl_math_types.h>
 #include <asset_types.h>
-#include <scene.h>
 
 #ifndef SERIALIZE
 #define SERIALIZE(...)

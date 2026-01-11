@@ -3,8 +3,6 @@
 #include <string>
 #include <vector>
 
-#include <scene.h>
-
 struct NameComponent
 {
     std::string name;
@@ -12,6 +10,7 @@ struct NameComponent
 
 #define NAME_COMPONENT "NameComponent"
 
+struct Scene;
 struct DataEntry;
 struct TextureAsset;
 
