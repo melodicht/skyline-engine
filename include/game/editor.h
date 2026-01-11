@@ -3,6 +3,8 @@
 #include <scene.h>
 #include <overlay.h>
 
+struct DataEntry;
+
 class EditorSystem : public System
 {
 private:

@@ -103,6 +103,7 @@ struct ComponentPool
  */
 
 struct Scene;
+struct GameInput;
 
 // A system in our ECS, which defines operations on a subset of
 // entities, using scene view.

@@ -6,6 +6,8 @@
 #endif
 
 #include <format>
+#include <filesystem>
+#include <iostream>
 
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
@@ -269,8 +271,6 @@ void updateLoop(void* appInfo) {
     return;
 }
 
-
-#include <filesystem>
 
 int main(int argc, char** argv)
 {

@@ -1,6 +1,7 @@
 #include <array>
 #include <fstream>
 #include <unordered_map>
+#include <iostream>
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>

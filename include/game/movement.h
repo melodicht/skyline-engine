@@ -2,6 +2,8 @@
 
 #include <scene.h>
 
+struct Transform3D;
+
 class MovementSystem : public System
 {
 private:

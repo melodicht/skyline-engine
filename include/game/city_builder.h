@@ -2,6 +2,9 @@
 
 #include <scene.h>
 
+struct Transform3D;
+struct MeshAsset;
+
 class BuilderSystem : public System
 {
 private:

@@ -12,6 +12,9 @@ struct NameComponent
 
 #define NAME_COMPONENT "NameComponent"
 
+struct DataEntry;
+struct TextureAsset;
+
 struct ComponentInfo
 {
     void (*assignFunc)(Scene&, EntityID);
