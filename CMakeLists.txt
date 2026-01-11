@@ -235,8 +235,7 @@ set(PCH_HEADERS
         <Jolt/Jolt.h>
         <Jolt/Core/JobSystemThreadPool.h>
         <Jolt/Physics/PhysicsSystem.h>
-        # TODO(marvin): Precompiling imgui header causes problems.
-        # <imgui.h>
+        <imgui.h>
 )
 
 if(WIN32)
