@@ -12,6 +12,7 @@
 #include <city_builder.h>
 #include <editor.h>
 #include <movement.h>
+#include <scene_view.h>
 
 
 global_variable PlatformAPI globalPlatformAPI;

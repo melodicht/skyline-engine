@@ -29,6 +29,7 @@
 #include <physics.h>
 #include <components.h>
 #include <utils.h>
+#include <scene_view.h>
 
 
 /* From the Jolt 5.3.0 documentation:

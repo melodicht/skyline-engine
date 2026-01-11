@@ -4,6 +4,8 @@
 #include <scene.h>
 #include <scene_loader.h>
 #include <game.h>
+#include <scene_view.h>
+#include <entity_view.h>
 
 global_variable std::string currentSceneName = "";
 

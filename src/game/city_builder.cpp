@@ -4,6 +4,7 @@
 #include <components.h>
 #include <skl_math_utils.h>
 #include <game.h>
+#include <scene_view.h>
 
 // A vocabulary
 //

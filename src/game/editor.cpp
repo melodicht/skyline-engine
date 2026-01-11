@@ -6,6 +6,8 @@
 #include <scene.h>
 #include <scene_loader.h>
 #include <utils.h>
+#include <scene_view.h>
+#include <entity_view.h>
 
 typedef u32 ComponentDataEntryActionOutcome;
 

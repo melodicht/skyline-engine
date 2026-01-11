@@ -2,6 +2,7 @@
 #include <meta_definitions.h>
 #include <components.h>
 #include <utils.h>
+#include <scene_view.h>
 
 void MovementSystem::CapVerticalRotationForward(Transform3D *t)
 {
