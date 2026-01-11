@@ -1,3 +1,5 @@
+#pragma once
+
 #if !_WIN32
 #include <x86intrin.h>
 #endif

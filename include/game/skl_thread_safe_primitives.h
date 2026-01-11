@@ -1,8 +1,12 @@
+#pragma once
+
 // NOTE(marvin): Right now we rely on std library's atomic, since it's
 // cross-platform and gets the job done. Ideas of having multiple
 // implementaiton of the interface, using the intrinsics.
 
 #include <atomic>
+
+#include <meta_definitions.h>
 
 inline u64 AtomicExchangeU64(u64 *store, u64 newValue)
 {
