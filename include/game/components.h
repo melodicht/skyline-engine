@@ -4,14 +4,7 @@
 #include <meta_definitions.h>
 #include <skl_math_types.h>
 #include <asset_types.h>
-
-#ifndef SERIALIZE
-#define SERIALIZE(...)
-#endif
-
-#ifndef COMPONENT
-#define COMPONENT(...)
-#endif
+#include <registry.h>
 
 // Define the game's components here
 
