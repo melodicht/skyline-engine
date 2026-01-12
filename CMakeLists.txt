@@ -231,7 +231,8 @@ set(PCH_HEADERS
         <string>
         <vector>
         <glm/glm.hpp>
-        <glm/gtc/type_ptr.hpp>
+        <glm/gtc/quaternion.hpp>
+        <glm/gtc/matrix_transform.hpp>
         <Jolt/Jolt.h>
         <Jolt/Core/JobSystemThreadPool.h>
         <Jolt/Physics/PhysicsSystem.h>

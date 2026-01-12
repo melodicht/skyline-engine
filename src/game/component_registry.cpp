@@ -1,3 +1,7 @@
+#include <skl_math_types.h>
+#include <scene.h>
+#include <scene_loader.h>
+
 #define REGISTRY
 #include <components.h>
 

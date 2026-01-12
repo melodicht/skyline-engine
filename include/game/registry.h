@@ -2,6 +2,34 @@
 
 #ifdef REGISTRY
 
+#include <scene_loader.h>
+#include <serialize.h>
+
+template <typename T>
+const char* compName;
+
+template <typename T>
+s32 WriteFromData(T* dest, DataEntry* data) { return 0; }
+
+template <typename T>
+DataEntry* ReadToData(T* src, std::string name)
+{
+    return new DataEntry(name);
+}
+
+template <typename T>
+s32 WriteIfPresent(T* dest, std::string name, std::vector<DataEntry*>& data)
+{
+    for (DataEntry* entry : data)
+    {
+        if (entry->name == name)
+        {
+            return WriteFromData<T>(dest, entry);
+        }
+    }
+    return 0;
+}
+
 template <typename T>
 void AssignComponent(Scene &scene, EntityID entity)
 {
@@ -42,7 +70,6 @@ void AddComponent(const char *name)
 {
     compName<T> = name;
     ComponentID id = MakeComponentId(name);
-    stringToId[name] = id;
     typeToId[std::type_index(typeid(T))] = id;
     compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
 }
@@ -52,7 +79,6 @@ void AddComponent(const char *name, const char *icon)
 {
     compName<T> = name;
     ComponentID id = MakeComponentId(name);
-    stringToId[name] = id;
     typeToId[std::type_index(typeid(T))] = id;
     compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name, icon});
 }
@@ -69,7 +95,6 @@ void AddComponent(const char *name, const char *icon)
     f(type, a1) \
     __VA_OPT__(__FOR_FIELDS PARENS (f, type, __VA_ARGS__))
 #define __FOR_FIELDS() _FOR_FIELDS
-
 
 #define WRITE_FIELD(type, field) \
     rv |= WriteIfPresent<decltype(type::field)>(&dest->field, #field, data->structVal);
