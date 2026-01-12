@@ -102,6 +102,9 @@ void AddComponent(const char *name, const char *icon)
 #define READ_FIELD(type, field) \
     data->structVal.push_back(ReadToData<decltype(type::field)>(&src->field, #field));
 
+#define DECLARE_EXTERNS(type, field) \
+    extern template DataEntry* ReadToData<decltype(type::field)>(decltype(type::field)* src, std::string name);
+
 #define SERIALIZE(name, ...) \
     template<> \
     s32 WriteFromData<name>(name* dest, DataEntry* data) \
