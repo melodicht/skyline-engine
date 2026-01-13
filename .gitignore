@@ -414,7 +414,7 @@ out
 
 # Ignores contents of build folder but not the folder itself.
 build/*
-!build/.gitkeep 
+!build/.gitkeep
 
 
 /build_external
