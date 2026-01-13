@@ -3,6 +3,7 @@
 #ifdef REGISTRY
 
 #include <scene_loader.h>
+#include <typeinfo>
 #include <typeindex>
 
 template <typename T>

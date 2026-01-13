@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <typeinfo>
 #include <typeindex>
 
 #include <memory.h>
@@ -127,7 +128,7 @@ ComponentID GetComponentId()
         return count;
     }
 
-    printf("Invalid component ID: %s\n", typeid(T).name());
+    printf("Invalid component ID");
     exit(1);
 }
 
