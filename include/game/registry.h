@@ -3,7 +3,6 @@
 #ifdef REGISTRY
 
 #include <scene_loader.h>
-#include <serialize.h>
 #include <typeindex>
 
 template <typename T>
@@ -100,10 +99,11 @@ void AddComponent(const char *name, const char *icon)
     data->structVal.push_back(ReadToData<decltype(type::field)>(&src->field, #field));
 
 #define DECLARE_EXTERNS(type, field) \
-    extern template s32 WriteFromData<decltype(type::field)>(decltype(type::field)* dest, DataEntry* data) \
+    extern template s32 WriteFromData<decltype(type::field)>(decltype(type::field)* dest, DataEntry* data); \
     extern template DataEntry* ReadToData<decltype(type::field)>(decltype(type::field)* src, std::string name);
 
 #define SERIALIZE(name, ...) \
+    FOR_FIELDS(DECLARE_EXTERNS, name, __VA_ARGS__) \
     template<> \
     s32 WriteFromData<name>(name* dest, DataEntry* data) \
     { \
