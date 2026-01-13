@@ -941,20 +941,20 @@ void InitPipelines(RenderPipelineInitInfo& info)
     mainCamIndex = CreateCameraBuffer(1);
 
     // Create shader stages
-    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
+    VkShaderModule depthShader = CreateShaderModuleFromFile("../shaderbin/depth.vert.spv");
     
-    VkShaderModule shadowVertShader = CreateShaderModuleFromFile("shaders/shadow.vert.spv");
-    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.frag.spv");
+    VkShaderModule shadowVertShader = CreateShaderModuleFromFile("../shaderbin/shadow.vert.spv");
+    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("../shaderbin/shadow.frag.spv");
 
-    const char* colorFragPath = editor ? "shaders/editor.frag.spv" : "shaders/color.frag.spv";
+    const char* colorFragPath = editor ? "../shaderbin/editor.frag.spv" : "../shaderbin/color.frag.spv";
     
-    VkShaderModule colorVertShader = CreateShaderModuleFromFile("shaders/color.vert.spv");
+    VkShaderModule colorVertShader = CreateShaderModuleFromFile("../shaderbin/color.vert.spv");
     VkShaderModule colorFragShader = CreateShaderModuleFromFile(colorFragPath);
 
-    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile("shaders/dirshadow.frag.spv");
+    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile("../shaderbin/dirshadow.frag.spv");
 
-    VkShaderModule iconVertShader = CreateShaderModuleFromFile("shaders/icon.vert.spv");
-    VkShaderModule iconFragShader = CreateShaderModuleFromFile("shaders/icon.frag.spv");
+    VkShaderModule iconVertShader = CreateShaderModuleFromFile("../shaderbin/icon.vert.spv");
+    VkShaderModule iconFragShader = CreateShaderModuleFromFile("../shaderbin/icon.frag.spv");
     
     VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader);
     VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader);
