@@ -115,12 +115,7 @@ public:
     virtual ~System() = default;
 };
 
-extern u32 numComponents;
-
 extern std::unordered_map<std::type_index, ComponentID> typeToId;
-
-// Maps a new component ID to the given component name, and produces that component ID.
-ComponentID MakeComponentId(std::string name);
 
 template<typename T>
 ComponentID GetComponentId()
@@ -382,7 +377,7 @@ public:
         T *result = nullptr;
         ComponentID componentId = GetComponentId<T>();
 
-        if (numComponents <= componentId) // Invalid component
+        if (GetNumCompTypes() <= componentId) // Invalid component
         {
             printf("Invalid component. Components must be defined in components.\n");
             exit(1);

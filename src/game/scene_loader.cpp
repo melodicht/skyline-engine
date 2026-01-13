@@ -9,17 +9,23 @@
 
 file_global std::string currentSceneName = "";
 
-std::vector<ComponentInfo> compInfos;
 std::unordered_map<std::string, EntityID> entityIds;
 std::vector<IconGizmo> iconGizmos;
 file_global std::unordered_map<std::string, ComponentID> stringToId;
 
+std::vector<ComponentInfo>& CompInfos()
+{
+    file_global std::vector<ComponentInfo> compInfos;
+    return compInfos;
+}
+
 void RegisterComponents(Scene& scene, bool editor)
 {
-    for (ComponentID id = 0; id < compInfos.size(); id++)
+    for (ComponentID id = 0; id < CompInfos().size(); id++)
     {
-        ComponentInfo& compInfo = compInfos[id];
+        ComponentInfo& compInfo = CompInfos()[id];
         stringToId[compInfo.name] = id;
+        typeToId[compInfo.type] = id;
         scene.AddComponentPool(compInfo.size);
         if (editor && compInfo.iconPath.length() > 0)
         {
@@ -65,7 +71,7 @@ s32 LoadScene(Scene& scene, std::string name)
                 return -1;
             }
             ComponentID compIndex = stringToId[comp->name];
-            ComponentInfo& compInfo = compInfos[compIndex];
+            ComponentInfo& compInfo = CompInfos()[compIndex];
             compInfo.assignFunc(scene, id);
         }
     }
@@ -76,7 +82,7 @@ s32 LoadScene(Scene& scene, std::string name)
         for (DataEntry* comp : entity->structVal)
         {
             ComponentID compIndex = stringToId[comp->name];
-            ComponentInfo& compInfo = compInfos[compIndex];
+            ComponentInfo& compInfo = CompInfos()[compIndex];
             rv |= compInfo.writeFunc(scene, id, comp);
         }
     }
@@ -91,7 +97,7 @@ DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
     DataEntry* data = new DataEntry(nameComp->name);
     for (ComponentID comp : EntityView(scene, ent))
     {
-        ComponentInfo& compInfo = compInfos[comp];
+        ComponentInfo& compInfo = CompInfos()[comp];
         if (compInfo.name != NAME_COMPONENT)
         {
             data->structVal.push_back(compInfo.readFunc(scene, ent));

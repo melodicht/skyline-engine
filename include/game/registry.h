@@ -4,6 +4,7 @@
 
 #include <scene_loader.h>
 #include <serialize.h>
+#include <typeindex>
 
 template <typename T>
 const char* compName;
@@ -69,18 +70,14 @@ template <typename T>
 void AddComponent(const char *name)
 {
     compName<T> = name;
-    ComponentID id = MakeComponentId(name);
-    typeToId[std::type_index(typeid(T))] = id;
-    compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name});
+    CompInfos().push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), std::type_index(typeid(T)), name});
 }
 
 template <typename T>
 void AddComponent(const char *name, const char *icon)
 {
     compName<T> = name;
-    ComponentID id = MakeComponentId(name);
-    typeToId[std::type_index(typeid(T))] = id;
-    compInfos.push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), name, icon});
+    CompInfos().push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), std::type_index(typeid(T)), name, icon});
 }
 
 #define PARENS ()
@@ -103,6 +100,7 @@ void AddComponent(const char *name, const char *icon)
     data->structVal.push_back(ReadToData<decltype(type::field)>(&src->field, #field));
 
 #define DECLARE_EXTERNS(type, field) \
+    extern template s32 WriteFromData<decltype(type::field)>(decltype(type::field)* dest, DataEntry* data) \
     extern template DataEntry* ReadToData<decltype(type::field)>(decltype(type::field)* src, std::string name);
 
 #define SERIALIZE(name, ...) \

@@ -283,7 +283,7 @@ void EditorSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
             // NOTE(marvin): Component interactive tree view
             for (ComponentID componentID : EntityView(*scene, selectedEntityID))
             {
-                ComponentInfo compInfo = compInfos[componentID];
+                ComponentInfo& compInfo = CompInfos()[componentID];
                 if (compInfo.name == NAME_COMPONENT)
                 {
                     continue;
@@ -323,7 +323,7 @@ void EditorSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
                 {
                     for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
                     {
-                        ComponentInfo compInfo = compInfos[componentID];
+                        ComponentInfo& compInfo = CompInfos()[componentID];
                         if (ImGui::Button(compInfo.name.c_str()))
                         {
                             compInfo.assignFunc(*scene, selectedEntityID);
