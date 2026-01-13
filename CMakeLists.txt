@@ -271,12 +271,6 @@ add_dependencies(platform game-module)
 if (EMSCRIPTEN)
     set_target_properties(platform PROPERTIES SUFFIX ".html")
 endif()
-
-if (WIN32)
-    add_custom_command(TARGET platform POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
-            COMMAND_EXPAND_LISTS)
-endif()
 #==============================================================================
 # POST-BUILD
 #==============================================================================
