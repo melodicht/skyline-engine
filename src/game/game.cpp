@@ -75,7 +75,7 @@ GAME_INITIALIZE(GameInitialize)
     }
     else
     {
-        RegisterSystem(&scene, SKLPhysicsSystem);
+        RegisterSystem(&scene, SKLPhysicsSystem, &remainingArena);
         RegisterSystem(&scene, MovementSystem);
         RegisterSystem(&scene, BuilderSystem, slowStep);
 

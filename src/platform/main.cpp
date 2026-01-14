@@ -26,6 +26,9 @@
 
 #include <game_platform.h>
 #include <render_backend.h>
+#include <main.h>
+
+SDLState globalSDLState = {};
 
 struct SDLGameCode
 {
@@ -276,6 +279,8 @@ int main(int argc, char** argv)
 {
     std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     srand(static_cast<unsigned>(time(0)));
+
+    InitSDLState(&globalSDLState);
 
     SDL_Window *window = NULL;
     SDL_Surface *screenSurface = NULL;

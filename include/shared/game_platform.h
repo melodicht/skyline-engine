@@ -18,20 +18,26 @@ struct GameInput
 };
 
 #define ASSET_UTIL_FUNCS(method)\
-    method(MeshAsset*,LoadMeshAsset,(std::string name))\
+    method(MeshAsset *,LoadMeshAsset,(std::string name))\
     method(TextureAsset*,LoadTextureAsset,(std::string name))\
     method(void,LoadSkyboxAsset,(std::array<std::string,6> names))\
-    method(DataEntry*,LoadDataAsset,(std::string path))\
-    method(s32,WriteDataAsset,(std::string path, DataEntry* data))
+    method(DataEntry *,LoadDataAsset,(std::string path))\
+    method(s32,WriteDataAsset,(std::string path, DataEntry *data))
 DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
+
+#define ALLOCATOR_FUNCS(method) \
+    method(void *,AlignedAllocate,(siz size, siz alignment)) \
+    method(void,AlignedFree,(void *block)) \
+    method(void *,Allocate,(siz size)) \
+    method(void,Free,(void *block)) \
+    method(void *,Realloc,(void *block, siz oldSize, siz newSize))
+DEFINE_GAME_MODULE_API(PlatformAllocator, ALLOCATOR_FUNCS)
 
 struct PlatformAPI
 {
-    // Asset Utility
     PlatformAssetUtils assetUtils;
-
-    // Renderer
     PlatformRenderer renderer;
+    PlatformAllocator allocator;
 };
 
 struct ImGuiContext;

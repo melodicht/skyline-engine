@@ -26,11 +26,14 @@
 
 #include <meta_definitions.h>
 #include <skl_math_types.h>
+#include <game.h>
 #include <physics.h>
 #include <components.h>
 #include <utils.h>
 #include <scene_view.h>
 
+
+constexpr siz TEMPORARY_MEMORY_SIZE = Megabytes(16);
 
 /* From the Jolt 5.3.0 documentation:
   
@@ -127,6 +130,52 @@ class SklObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
 };
 
 
+// NOTE(marvin): There is the invariant that the base of the arena is
+// aligned to what Jolt expects, and every size allocated to the arena
+// is a multiple of the alignment. Thus, the resulting addresses are
+// also aligned. After the sub arena is created, the memory arena WILL
+// NOT align memory anymore, as they should already be aligned!
+// This implementation closely mirrors TempAllocatorImpl. 
+SklJoltAllocator::SklJoltAllocator(MemoryArena *remainingArena)
+{
+    ArenaParams arenaParams = {};
+    arenaParams.alignment = JPH_RVECTOR_ALIGNMENT;
+    this->arena = SubArena(remainingArena, TEMPORARY_MEMORY_SIZE);
+}
+
+void *SklJoltAllocator::Allocate(u32 requestedSize)
+{
+    void *result = {};
+        
+    if (requestedSize != 0)
+    {
+        u32 alignedRequestedSize = JPH::AlignUp(requestedSize, JPH_RVECTOR_ALIGNMENT);
+        ArenaParams arenaParams = {};
+        result = PushSize(&this->arena, alignedRequestedSize, arenaParams);
+    }
+
+    Assert(((uintptr_t)result % JPH_RVECTOR_ALIGNMENT) == 0);
+
+    return result;
+}
+
+void SklJoltAllocator::Free(void *address, u32 size)
+{
+    if (address == nullptr)
+    {
+        // TODO(marvin): Using JPH_ASSERT since that's what TempAllocatorImpl uses... should we just use our own?
+        JPH_ASSERT(size == 0);
+    }
+    else
+    {
+        u32 alignedSize = JPH::AlignUp(size, JPH_RVECTOR_ALIGNMENT);
+        PopSize(&this->arena, alignedSize);
+        Assert((this->arena.base + this->arena.used) == address &&
+               "Freeing in the wrong order or a bug in the SklJolt allocator.");
+    }
+}
+
+
 
 inline JPH::Vec3 OurToJoltCoordinateSystem(glm::vec3 ourVec3)
 {
@@ -186,8 +235,55 @@ void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsS
     pc->characterVirtual = characterVirtual;
 }
 
-SKLPhysicsSystem::SKLPhysicsSystem()
+/**
+ * JOLT ALLOCATION FUNCTIONS
+ */
+
+// NOTE(marvin): Using size_t instead of our own because that's what
+// the Jolt signatures use.
+
+void *JoltAlignedAllocate(size_t size, size_t alignment)
 {
+    void *result = globalPlatformAPI.allocator.AlignedAllocate(size, alignment);
+    return result;
+}
+
+void JoltAlignedFree(void *block)
+{
+    globalPlatformAPI.allocator.AlignedFree(block);
+}
+
+void *JoltAllocate(size_t size)
+{
+    void *result = globalPlatformAPI.allocator.Allocate(size);
+    return result;
+}
+
+void JoltFree(void *block)
+{
+    globalPlatformAPI.allocator.Free(block);
+}
+
+void *JoltReallocate(void *block, size_t oldSize, size_t newSize)
+{
+    void *result = globalPlatformAPI.allocator.Realloc(block, oldSize, newSize);
+    return result;
+}
+
+
+
+/**
+ * SYSTEM DEFINITION
+ */
+
+SKLPhysicsSystem::SKLPhysicsSystem(MemoryArena *remainingArena)
+{
+    JPH::AlignedAllocate = JoltAlignedAllocate;
+    JPH::AlignedFree = JoltAlignedFree;
+    JPH::Allocate = JoltAllocate;
+    JPH::Free = JoltFree;
+    JPH::Reallocate = JoltReallocate;
+    
     JPH::RegisterDefaultAllocator();
     JPH::Factory::sInstance = new JPH::Factory();
     JPH::RegisterTypes();
@@ -217,7 +313,7 @@ SKLPhysicsSystem::SKLPhysicsSystem()
     this->physicsSystem = physicsSystem;
     this->jobSystem = jobSystem;
     // TODO(marvin): Is it possible for Jolt's temp allocator to take from our memory arenas (after we have them)?
-    this->allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+    this->allocator = new SklJoltAllocator(remainingArena);
 }
 
 SKLPhysicsSystem::~SKLPhysicsSystem()

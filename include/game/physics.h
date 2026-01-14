@@ -12,18 +12,32 @@ namespace JPH
     class Vec3;
 }
 
+class SklJoltAllocator final : public JPH::TempAllocator
+{
+private:
+    MemoryArena arena;
+public:
+    JPH_OVERRIDE_NEW_DELETE
+    
+    explicit SklJoltAllocator(MemoryArena *remainingArena);
+
+    virtual void *Allocate(u32 requestedSize) override;
+
+    virtual void Free(void *address, u32 size) override;
+};
+
 class SKLPhysicsSystem : public System
 {
 private:
     JPH::PhysicsSystem *physicsSystem;
-    JPH::TempAllocatorImpl *allocator;
+    SklJoltAllocator *allocator;
     JPH::JobSystem *jobSystem;
 
     void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
                               JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime);
 
 public:
-    SKLPhysicsSystem();
+    SKLPhysicsSystem(MemoryArena *remainingArena);
 
     ~SKLPhysicsSystem();
 
