@@ -384,7 +384,7 @@ Texture CreateDepthCubemap(u32 width, u32 height)
 TextureID UploadTexture(RenderUploadTextureInfo& info)
 {
     AllocatedImage texImage = CreateImage(allocator,
-                                          VK_FORMAT_R8G8B8A8_UNORM, 0,
+                                          VK_FORMAT_R8G8B8A8_SRGB, 0,
                                           VK_IMAGE_USAGE_TRANSFER_DST_BIT
                                           | VK_IMAGE_USAGE_SAMPLED_BIT,
                                           {info.width, info.height, 1}, 1,
@@ -398,7 +398,7 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = texImage.image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
         .subresourceRange
         {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -550,7 +550,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
     // Create the swapchain
     vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
 
-    swapchainFormat = VK_FORMAT_B8G8R8A8_UNORM;
+    swapchainFormat = VK_FORMAT_B8G8R8A8_SRGB;
 
     vkb::Swapchain vkbSwapchain = swapBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = swapchainFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
@@ -2006,7 +2006,7 @@ void RenderUpdate(RenderFrameInfo& info)
         TextureID tex = meshInfo.texture;
         glm::vec3 color = meshInfo.rgbColor;
 
-        objects[offsets[mesh]] = {model, tex, glm::vec4(color.r, color.g, color.b, 1.0f)};
+        objects[offsets[mesh]] = {model, tex, sRGBToLinear(glm::vec4(color.r, color.g, color.b, 1.0f))};
         ids[offsets[mesh]++] = meshInfo.id;
     }
 
@@ -2099,7 +2099,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
         dirLightData.push_back({dirTransform->GetForwardVector(),
                                 lightEntry.shadowMap.descriptorIndex,
-                                dirInfo.diffuse, dirInfo.specular});
+                                sRGBToLinear(dirInfo.diffuse), sRGBToLinear(dirInfo.specular)});
     }
 
 
@@ -2136,7 +2136,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
 
         spotLightData.push_back({spotProj * spotView, spotPos, spotTransform->GetForwardVector(),
-                                 lightEntry.shadowMap.descriptorIndex, spotInfo.diffuse, spotInfo.specular,
+                                 lightEntry.shadowMap.descriptorIndex, sRGBToLinear(spotInfo.diffuse), sRGBToLinear(spotInfo.specular),
                                  cosf(glm::radians(spotInfo.innerCone)), cosf(glm::radians(spotInfo.outerCone)),
                                  spotInfo.range});
     }
@@ -2182,7 +2182,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
 
         pointLightData.push_back({pointPos, lightEntry.shadowMap.descriptorIndex,
-                                  pointInfo.diffuse, pointInfo.specular,
+                                  sRGBToLinear(pointInfo.diffuse), sRGBToLinear(pointInfo.specular),
                                   pointInfo.radius, pointInfo.falloff});
     }
 
@@ -2203,7 +2203,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
     BeginColorPass(CullMode::BACK);
 
-    SetLights({0.1f, 0.1f, 0.1f},
+    SetLights(sRGBToLinear({0.1f, 0.1f, 0.1f}),
               dirLightData.size(), dirLightData.data(), cascades.data(),
               spotLightData.size(), spotLightData.data(),
               pointLightData.size(), pointLightData.data());

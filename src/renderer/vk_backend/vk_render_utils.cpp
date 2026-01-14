@@ -150,3 +150,33 @@ VkCullModeFlags GetCullModeFlags(CullMode cullMode)
             return VK_CULL_MODE_BACK_BIT;
     }
 };
+
+f32 sRGBToLinear(f32 sRGB)
+{
+    return sRGB > 0.04045f ? std::powf((sRGB + 0.055f) / 1.055, 2.4f) : sRGB / 12.92f;
+}
+
+f32 linearToSRGB(f32 linear)
+{
+    return linear > 0.0031308f ? 1.055f * std::powf(linear, 1.0f / 2.4f) - 0.055f : linear * 12.92f;
+}
+
+glm::vec3 sRGBToLinear(glm::vec3 sRGB)
+{
+    return {sRGBToLinear(sRGB.x), sRGBToLinear(sRGB.y), sRGBToLinear(sRGB.z)};
+}
+
+glm::vec3 linearToSRGB(glm::vec3 linear)
+{
+    return {linearToSRGB(linear.x), linearToSRGB(linear.y), linearToSRGB(linear.z)};
+}
+
+glm::vec4 sRGBToLinear(glm::vec4 sRGB)
+{
+    return {sRGBToLinear(sRGB.x), sRGBToLinear(sRGB.y), sRGBToLinear(sRGB.z), sRGB.a};
+}
+
+glm::vec4 linearToSRGB(glm::vec4 linear)
+{
+    return {linearToSRGB(linear.x), linearToSRGB(linear.y), linearToSRGB(linear.z), linear.a};
+}
