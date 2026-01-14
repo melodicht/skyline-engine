@@ -76,7 +76,7 @@ s32 WriteFromData<MeshAsset*>(MeshAsset** dest, DataEntry* data)
         printf("entry must be string but instead is %d\n", data->type);
         return -1;
     }
-    *dest = globalPlatformAPI.assetUtils.LoadMeshAsset(data->stringVal);
+    *dest = assetUtils.LoadMeshAsset(data->stringVal);
     return 0;
 }
 
@@ -90,7 +90,7 @@ s32 WriteFromData<TextureAsset*>(TextureAsset** dest, DataEntry* data)
     }
     if (data->stringVal != "")
     {
-        *dest = globalPlatformAPI.assetUtils.LoadTextureAsset(data->stringVal);
+        *dest = assetUtils.LoadTextureAsset(data->stringVal);
     }
     return 0;
 }

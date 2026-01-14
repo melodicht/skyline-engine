@@ -29,7 +29,7 @@ void RegisterComponents(Scene& scene, bool editor)
         scene.AddComponentPool(compInfo.size);
         if (editor && compInfo.iconPath.length() > 0)
         {
-            TextureAsset* icon = globalPlatformAPI.assetUtils.LoadTextureAsset(compInfo.iconPath);
+            TextureAsset* icon = assetUtils.LoadTextureAsset(compInfo.iconPath);
             if (icon != nullptr)
             {
                 iconGizmos.push_back({id, icon});
@@ -47,7 +47,7 @@ inline std::string GetCurrentSceneName()
 s32 LoadScene(Scene& scene, std::string name)
 {
     std::string filepath = "scenes/" + name + ".toml";
-    DataEntry* data = globalPlatformAPI.assetUtils.LoadDataAsset(filepath);
+    DataEntry* data = assetUtils.LoadDataAsset(filepath);
     if (data->type != STRUCT_ENTRY)
     {
         return -1;
@@ -115,7 +115,7 @@ void SaveScene(Scene& scene, std::string name)
     }
 
     std::string filepath = "scenes/" + name + ".toml";
-    globalPlatformAPI.assetUtils.WriteDataAsset(filepath, sceneData);
+    assetUtils.WriteDataAsset(filepath, sceneData);
     delete sceneData;
 }
 

@@ -15,7 +15,8 @@
 #include <draw_scene.h>
 
 
-PlatformAPI globalPlatformAPI;
+PlatformAssetUtils assetUtils;
+PlatformRenderer renderer;
 
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
@@ -45,12 +46,13 @@ GAME_INITIALIZE(GameInitialize)
     Scene &scene = gameState->scene;
 
     gameState->isEditor = editor;
-    globalPlatformAPI = memory.platformAPI;
+    assetUtils = memory.platformAPI.assetUtils;
+    renderer = memory.platformAPI.renderer;
 
     RenderPipelineInitInfo initDesc {};
-    globalPlatformAPI.renderer.InitPipelines(initDesc);
+    renderer.InitPipelines(initDesc);
 
-    globalPlatformAPI.assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
+    assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
     RegisterComponents(scene, editor);
 
@@ -97,7 +99,8 @@ GAME_LOAD(GameLoad)
 
     DebugUpdate(memory);
 
-    globalPlatformAPI = memory.platformAPI;
+    assetUtils = memory.platformAPI.assetUtils;
+    renderer = memory.platformAPI.renderer;
 }
 
 local void LogDebugRecords();

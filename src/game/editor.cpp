@@ -207,7 +207,7 @@ void EditorSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
 
         if (input->keysDown.contains("Mouse 1"))
         {
-            u32 cursorEntityIndex = globalPlatformAPI.renderer.GetIndexAtCursor();
+            u32 cursorEntityIndex = renderer.GetIndexAtCursor();
             selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
         }
 
