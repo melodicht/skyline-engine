@@ -49,9 +49,6 @@ GAME_INITIALIZE(GameInitialize)
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;
 
-    RenderPipelineInitInfo initDesc {};
-    renderer.InitPipelines(initDesc);
-
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
     CreateComponentPools(scene);

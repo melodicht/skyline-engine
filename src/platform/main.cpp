@@ -335,6 +335,9 @@ int main(int argc, char** argv)
     };
     InitRenderer(initDesc);
 
+    RenderPipelineInitInfo pipelinesInfo;
+    InitPipelines(pipelinesInfo);
+
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
     gameMemory.permanentStorageSize = Megabytes(512 + 128);
