@@ -128,7 +128,7 @@ ComponentID GetComponentId()
         return count;
     }
 
-    printf("Invalid component ID");
+    Assert(false && "Invalid component ID");
     exit(1);
 }
 
