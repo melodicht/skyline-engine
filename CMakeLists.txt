@@ -131,6 +131,7 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
         imgui
         skl-math
+        m
         COMPILE_OPTIONS
 )
 
