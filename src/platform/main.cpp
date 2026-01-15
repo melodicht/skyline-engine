@@ -70,6 +70,8 @@ file_global f32 mouseDeltaY = 0;
 file_global f32 mouseX = 0;
 file_global f32 mouseY = 0;
 
+file_global u32 reloadCount = 0;
+
 local const char *SDLGetGameCodeSrcFilePath()
 {
     const char *result;
@@ -102,22 +104,22 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
     // NOTE(marvin): Could make a macro to generalize, but lazy and
     // unsure of impact on compile time.
-    const char *gameCodeUseFilePath;
+    std::string gameCodeUseFilePath;
 #ifdef PLATFORM_WINDOWS
-    gameCodeUseFilePath = GAME_CODE_USE_FILE_NAME ".dll";
+    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "{}.dll", reloadCount);
 #else
-    gameCodeUseFilePath = "./lib" GAME_CODE_USE_FILE_NAME ".so";
+    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "{}.so", reloadCount);
 #endif
 
     // NOTE(marvin): Need to have a copy for the platform executable
     // to use so that when recompile, allowed to rewrite the source
     // without it being locked by the platform executable.
-    if(!SDL_CopyFile(gameCodeSrcFilePath, gameCodeUseFilePath))
+    if(!SDL_CopyFile(gameCodeSrcFilePath, gameCodeUseFilePath.c_str()))
     {
         LOG_ERROR("Unable to copy game module source to used.");
         LOG_ERROR(SDL_GetError());
     }
-    result.sharedObjectHandle = SDL_LoadObject(gameCodeUseFilePath);
+    result.sharedObjectHandle = SDL_LoadObject(gameCodeUseFilePath.c_str());
     if (!result.sharedObjectHandle)
     {
         LOG_ERROR("Game code loading failed.");
@@ -152,27 +154,13 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
 {
     if(gameCode->sharedObjectHandle)
     {
-        // NOTE(marvin): Not sure if there is a better to test whether
-        // a shared object handle is still loaded other than to check
-        // if we can load a function...
         SDL_UnloadObject(gameCode->sharedObjectHandle);
-        SDL_FunctionPointer functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
-
-        // TODO(marvin): Interestingly, always need to unload another 11 more times for the DLL to actually get unloaded. WHY?!
-        while(functionPtr != NULL)
-        {
-            LOG_ERROR("Failed to unload game module DLL, trying again.");
-            SDL_Delay(100);
-            SDL_UnloadObject(gameCode->sharedObjectHandle);
-            functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
-        } 
-
         gameCode->sharedObjectHandle = 0;
-
     }
     gameCode->gameInitialize = 0;
     gameCode->gameLoad = 0;
     gameCode->gameUpdateAndRender = 0;
+    reloadCount++;
 }
 
 local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
