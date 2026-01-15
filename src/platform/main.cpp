@@ -335,10 +335,10 @@ int main(int argc, char** argv)
 
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
-    gameMemory.permanentStorageSize = Megabytes(512 + 128);
+    gameMemory.permanentStorageSize = Megabytes(512 + 256);
     gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
 #if SKL_INTERNAL
-    gameMemory.debugStorageSize = Megabytes(256 + 128);
+    gameMemory.debugStorageSize = Megabytes(256);
     gameMemory.debugStorage = SDL_malloc(static_cast<size_t>(gameMemory.debugStorageSize));
 
     if (!gameMemory.debugStorage)

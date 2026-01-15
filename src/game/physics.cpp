@@ -312,7 +312,6 @@ SKLPhysicsSystem::SKLPhysicsSystem(MemoryArena *remainingArena)
 
     this->physicsSystem = physicsSystem;
     this->jobSystem = jobSystem;
-    // TODO(marvin): Is it possible for Jolt's temp allocator to take from our memory arenas (after we have them)?
     this->allocator = new SklJoltAllocator(remainingArena);
 }
 

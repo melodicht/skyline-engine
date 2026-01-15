@@ -88,9 +88,7 @@ void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene *scene, GameInput *inp
     }
 }
 
-// NOTE(marvin): Remaining arena decreases after each initialization,
-// and the components arena takes all the rest, as that's the least
-// predictable and most memory-consuming.
+// NOTE(marvin): Remaining arena decreases after each initialization.
 Scene::Scene(MemoryArena *remainingArena)
 {
     this->entities = InitEntitiesPool(remainingArena);
@@ -98,8 +96,7 @@ Scene::Scene(MemoryArena *remainingArena)
     this->systemsBuffer = InitSystemsBuffer(remainingArena);
     this->systemsArena = SubArena(remainingArena, SYSTEMS_MEMORY);
     this->componentPools = ComponentPoolsBuffer(remainingArena);
-    this->componentPoolsArena = *remainingArena;
-
+    this->componentPoolsArena = SubArena(remainingArena, COMPONENT_POOLS_MEMORY);
 }
 
 Scene::~Scene()
