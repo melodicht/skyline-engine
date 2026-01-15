@@ -48,15 +48,17 @@ struct AppInformation
     bool playing;
     u64 now;
     u64 last;
+    b32 editor;
 
-    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast) :
+    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast, b32 setEditor) :
         window(setWindow),
         gameCode(gameCode),
         gameMemory(gameMemory),
         e(setE),
         playing(setPlaying),
         now(setNow),
-        last(setLast)
+        last(setLast),
+        editor(setEditor)
     { }
 };
 
@@ -190,7 +192,7 @@ void updateLoop(void* appInfo) {
         SDLUnloadGameCode(&gameCode);
         info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
         gameCode = info->gameCode;
-        gameCode.gameLoad(info->gameMemory);
+        gameCode.gameLoad(info->gameMemory, info->editor);
     }
 
     while (SDL_PollEvent(&info->e))
@@ -333,15 +335,15 @@ int main(int argc, char** argv)
     gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
+    gameCode.gameLoad(gameMemory, editor);
     gameCode.gameInitialize(gameMemory, mapName, editor);
-    gameCode.gameLoad(gameMemory);
 
     SDL_Event e;
     bool playing = true;
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last);
+    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last, editor);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {

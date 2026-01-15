@@ -19,14 +19,13 @@ std::vector<ComponentInfo>& CompInfos()
     return compInfos;
 }
 
-void RegisterComponents(Scene& scene, bool editor)
+void RegisterComponents(bool editor)
 {
     for (ComponentID id = 0; id < CompInfos().size(); id++)
     {
         ComponentInfo& compInfo = CompInfos()[id];
         stringToId[compInfo.name] = id;
         typeToId[compInfo.type] = id;
-        scene.AddComponentPool(compInfo.size);
         if (editor && compInfo.iconPath.length() > 0)
         {
             TextureAsset* icon = assetUtils.LoadTextureAsset(compInfo.iconPath);
@@ -35,6 +34,15 @@ void RegisterComponents(Scene& scene, bool editor)
                 iconGizmos.push_back({id, icon});
             }
         }
+    }
+}
+
+void CreateComponentPools(Scene& scene)
+{
+    for (ComponentID id = 0; id < CompInfos().size(); id++)
+    {
+        ComponentInfo& compInfo = CompInfos()[id];
+        scene.AddComponentPool(compInfo.size);
     }
 }
 

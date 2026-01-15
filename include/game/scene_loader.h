@@ -38,7 +38,9 @@ extern std::vector<IconGizmo> iconGizmos;
 
 std::vector<ComponentInfo>& CompInfos();
 
-void RegisterComponents(Scene& scene, bool editor);
+void RegisterComponents(bool editor);
+
+void CreateComponentPools(Scene& scene);
 
 s32 LoadScene(Scene& scene, std::string name);
 

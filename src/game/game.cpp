@@ -54,7 +54,7 @@ GAME_INITIALIZE(GameInitialize)
 
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
-    RegisterComponents(scene, editor);
+    CreateComponentPools(scene);
 
     s32 rv = LoadScene(scene, mapName);
     if (rv != 0)
@@ -96,6 +96,8 @@ GAME_LOAD(GameLoad)
 #if SKL_ENABLED_EDITOR
     ImGui::SetCurrentContext(memory.imGuiContext);
 #endif
+
+    RegisterComponents(editor);
 
     DebugUpdate(memory);
 
