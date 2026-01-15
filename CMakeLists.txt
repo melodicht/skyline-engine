@@ -131,9 +131,13 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
         imgui
         skl-math
-        m
         COMPILE_OPTIONS
 )
+
+find_library(MATH_LIBRARY m)
+if(MATH_LIBRARY)
+        target_link_libraries(SHARED_DEPENDENCIES PUBLIC ${MATH_LIBRARY})
+endif()
 
 add_library(RENDERING_BACKEND INTERFACE)
 
