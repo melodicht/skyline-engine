@@ -5,6 +5,7 @@ position = [5.0, 0.0, 0.0]
 [cube.MeshComponent]
 mesh = "cube"
 texture = "diamond_ore"
+[cube.Spin]
 
 ## Player character
 
