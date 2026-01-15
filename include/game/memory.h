@@ -74,18 +74,21 @@ inline siz GetAlignmentOffset(MemoryArena *arena, siz alignment)
 {
     siz result = 0;
 
-    u32 alignmentMask = alignment - 1;
-
-    Assert(((alignment & alignmentMask) == 0) &&
-           "Alignment must be a power of 2 due to C++ specifications.");
-
-    siz targetAddress = (siz)arena->base + arena->used;
-    siz masked = targetAddress & alignmentMask;
-    if (masked != 0)
+    if (alignment > 0)
     {
-        result = alignment - masked;
-    }
+        u32 alignmentMask = alignment - 1;
 
+        Assert(((alignment & alignmentMask) == 0) &&
+               "Alignment must be a power of 2 due to C++ specifications.");
+
+        siz targetAddress = (siz)arena->base + arena->used;
+        siz masked = targetAddress & alignmentMask;
+        if (masked != 0)
+        {
+            result = alignment - masked;
+        }
+    }
+    
     return result;
 }
 

@@ -33,7 +33,7 @@
 #include <scene_view.h>
 
 
-constexpr siz TEMPORARY_MEMORY_SIZE = Megabytes(16);
+constexpr siz TEMPORARY_MEMORY_SIZE = Megabytes(32);
 
 /* From the Jolt 5.3.0 documentation:
   
