@@ -111,7 +111,7 @@ Any other dependencies of our project are installed when cmake is run.
 2. To build the build system, in the `build` directory:
    `cmake .. -G {Generator} -DCMAKE_C_COMPILER={path/to/c/compiler} -DCMAKE_CXX_COMPILER={path/to/cxx/compiler} -DSKL_RENDER_SYS="Vulkan" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`
 3. To use the build system that was just generated:
-   `make`
+   `make` or `ninja`, whichever you put as the generator, you can also add `-j <number of threads>` to make it use multiple threads while compiling
 4. To run the game engine, in the `bin` directory: `skyline-engine.exe`
 
 
