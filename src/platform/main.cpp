@@ -157,6 +157,23 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
     if(gameCode->sharedObjectHandle)
     {
         SDL_UnloadObject(gameCode->sharedObjectHandle);
+
+#ifdef PLATFORM_WINDOWS
+        // NOTE(marvin): Not sure if there is a better way to test
+        // whether a shared object handle is still loaded other than
+        // to check if we can load a function...
+        SDL_FunctionPointer functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
+
+        // TODO(marvin): Interestingly, on Windows, always need to unload some constnt number of times for the DLL to actually get unloaded. And Linux just tries to unload infinitely... WHY?!
+        while(functionPtr != NULL)
+        {
+            LOG_ERROR("Failed to unload game module DLL, trying again.");
+            SDL_Delay(100);
+            SDL_UnloadObject(gameCode->sharedObjectHandle);
+            functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
+        }
+#endif
+        
         gameCode->sharedObjectHandle = 0;
     }
     gameCode->gameInitialize = 0;
