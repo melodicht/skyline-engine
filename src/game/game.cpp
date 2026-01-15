@@ -97,12 +97,12 @@ GAME_LOAD(GameLoad)
     ImGui::SetCurrentContext(memory.imGuiContext);
 #endif
 
+    assetUtils = memory.platformAPI.assetUtils;
+    renderer = memory.platformAPI.renderer;
+
     RegisterComponents(editor);
 
     DebugUpdate(memory);
-
-    assetUtils = memory.platformAPI.assetUtils;
-    renderer = memory.platformAPI.renderer;
 }
 
 local void LogDebugRecords();
