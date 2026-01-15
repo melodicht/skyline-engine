@@ -136,7 +136,7 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
 
 find_library(MATH_LIBRARY m)
 if(MATH_LIBRARY)
-        target_link_libraries(SHARED_DEPENDENCIES PUBLIC ${MATH_LIBRARY})
+        target_link_libraries(SHARED_DEPENDENCIES INTERFACE ${MATH_LIBRARY})
 endif()
 
 add_library(RENDERING_BACKEND INTERFACE)
