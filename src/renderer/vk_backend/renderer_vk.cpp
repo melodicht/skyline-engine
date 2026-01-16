@@ -163,12 +163,7 @@ u32 CreateCameraBuffer(u32 viewCount)
 {
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        frames[i].cameraBuffers.push_back(CreateBuffer(device, allocator,
-                                                       sizeof(CameraData) * viewCount,
-                                                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                       | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
+        frames[i].cameraBuffers.push_back(CreateShaderBuffer(device, allocator, sizeof(CameraData) * viewCount));
     }
 
     return frames[0].cameraBuffers.size() - 1;
