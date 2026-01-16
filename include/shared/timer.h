@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef _WIN32
+#ifndef _WIN32
 #include <x86intrin.h>
 #endif
 
