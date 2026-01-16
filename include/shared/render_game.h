@@ -6,15 +6,6 @@
 
 // The subset of renderer interface used by the game module.
 
-// Set up the render pipelines
-struct RenderPipelineInitInfo {
-    // Shared 
-
-    // Vulkan Specific
-
-    // WGPU Specific
-};
-
 struct MeshRenderInfo {
     // Shared
     glm::mat4 matrix;
@@ -105,7 +96,6 @@ struct RenderFrameInfo {
 };
 
 #define RENDERER_FUNCS(method) \
-    method(void, InitPipelines, (RenderPipelineInitInfo& info))\
     method(LightID,AddDirLight,())\
     method(LightID,AddSpotLight,())\
     method(LightID,AddPointLight,())\

@@ -35,7 +35,7 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         DirLight *l = scene.Get<DirLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.renderer.AddDirLight();
+            l->lightID = renderer.AddDirLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -49,7 +49,7 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         SpotLight *l = scene.Get<SpotLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.renderer.AddSpotLight();
+            l->lightID = renderer.AddSpotLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -64,7 +64,7 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         PointLight *l = scene.Get<PointLight>(ent);
         if (l->lightID == -1)
         {
-            l->lightID = globalPlatformAPI.renderer.AddPointLight();
+            l->lightID = renderer.AddPointLight();
         }
 
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
@@ -118,5 +118,5 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         .icons = icons
     };
 
-    globalPlatformAPI.renderer.RenderUpdate(sendState);
+    renderer.RenderUpdate(sendState);
 }

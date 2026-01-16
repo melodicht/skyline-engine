@@ -19,7 +19,8 @@
 #include <draw_scene.h>
 
 
-PlatformAPI globalPlatformAPI;
+PlatformAssetUtils assetUtils;
+PlatformRenderer renderer;
 
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
@@ -49,14 +50,12 @@ GAME_INITIALIZE(GameInitialize)
     Scene &scene = gameState->scene;
 
     gameState->isEditor = editor;
-    globalPlatformAPI = memory.platformAPI;
+    assetUtils = memory.platformAPI.assetUtils;
+    renderer = memory.platformAPI.renderer;
 
-    RenderPipelineInitInfo initDesc {};
-    globalPlatformAPI.renderer.InitPipelines(initDesc);
+    assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
-    globalPlatformAPI.assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
-
-    RegisterComponents(scene, editor);
+    CreateComponentPools(scene);
 
     s32 rv = LoadScene(scene, mapName);
     if (rv != 0)
@@ -101,9 +100,12 @@ GAME_LOAD(GameLoad)
 {
     ImGui::SetCurrentContext(memory.imGuiContext);
 
-    DebugUpdate(memory);
+    assetUtils = memory.platformAPI.assetUtils;
+    renderer = memory.platformAPI.renderer;
 
-    globalPlatformAPI = memory.platformAPI;
+    RegisterComponents(editor);
+
+    DebugUpdate(memory);
 }
 
 local void LogDebugRecords();

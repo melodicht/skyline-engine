@@ -11,6 +11,12 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaderbin)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
 #==============================================================================
@@ -116,6 +122,11 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         SKL_COMPILE_OPTIONS
 )
 
+find_library(MATH_LIBRARY m)
+if(MATH_LIBRARY)
+        target_link_libraries(SHARED_DEPENDENCIES INTERFACE ${MATH_LIBRARY})
+endif()
+
 add_library(RENDERING_BACKEND INTERFACE)
 
 #==============================================================================
@@ -218,7 +229,8 @@ set(PCH_HEADERS
         <string>
         <vector>
         <glm/glm.hpp>
-        <glm/gtc/type_ptr.hpp>
+        <glm/gtc/quaternion.hpp>
+        <glm/gtc/matrix_transform.hpp>
         <Jolt/Jolt.h>
         <Jolt/Core/JobSystemThreadPool.h>
         <Jolt/Physics/PhysicsSystem.h>
@@ -255,12 +267,6 @@ add_dependencies(platform game-module)
 if (EMSCRIPTEN)
     set_target_properties(platform PROPERTIES SUFFIX ".html")
 endif()
-
-if (WIN32)
-    add_custom_command(TARGET platform POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
-            COMMAND_EXPAND_LISTS)
-endif()
 #==============================================================================
 # POST-BUILD
 #==============================================================================
@@ -280,8 +286,7 @@ if(NOT EMSCRIPTEN)
         endif()
 
         set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-        set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
-        file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
+        set(SHADERS_OUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin")
 
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
@@ -313,14 +318,11 @@ if(NOT EMSCRIPTEN)
                 add_dependencies(platform build_shaders)
         elseif(SKL_RENDER_SYS STREQUAL "WebGPU")
                 add_custom_command(TARGET platform PRE_LINK
-                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${BUILD_DIR}/shaders"
+                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin"
                 )
         endif()
 
         # Imports other resources into build
-        add_custom_target(copy_data ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${BUILD_DIR})
-
-        add_dependencies(platform copy_data)
 
 # Preloads files for emscripten
 else()
