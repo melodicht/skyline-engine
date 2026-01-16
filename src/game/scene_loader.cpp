@@ -54,7 +54,7 @@ inline std::string GetCurrentSceneName()
 
 s32 LoadScene(Scene& scene, std::string name)
 {
-    std::string filepath = "scenes/" + name;
+    std::string filepath = "maps/" + name;
     DataEntry* data = assetUtils.LoadDataAsset(filepath);
     if (data->type != STRUCT_ENTRY)
     {
@@ -122,7 +122,7 @@ void SaveScene(Scene& scene, std::string name)
         sceneData->structVal.push_back(ReadEntityToData(scene, ent));
     }
 
-    std::string filepath = "scenes/" + name;
+    std::string filepath = "maps/" + name;
     assetUtils.WriteDataAsset(filepath, sceneData);
     delete sceneData;
 }
