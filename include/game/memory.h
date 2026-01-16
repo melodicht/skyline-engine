@@ -3,31 +3,7 @@
 #include <memory_types.h>
 #include <debug.h>
 
-inline ArenaParams NoClearArenaParams()
-{
-    ArenaParams result = {};
-    result.alignment = 4;
-    return result;
-}
-
-inline ArenaParams DefaultArenaParams()
-{
-    ArenaParams result = NoClearArenaParams();
-    result.flags = clear_to_zero;
-    return result;
-}
-
-inline void ZeroSize(void *base, siz size)
-{
-    u8 *cursor = static_cast<u8 *>(base);
-    while(size--)
-    {
-        *cursor++ = 0;
-    }
-}
-
 #if SKL_INTERNAL
-
 #define INTERNAL_MEMORY_PARAM const char *internalDebugID, 
 #define INTERNAL_MEMORY_PASS  internalDebugID,
 #define INTERNAL_MEMORY_PASS_NAME  internalDebugID, name,
@@ -50,6 +26,28 @@ inline void ZeroSize(void *base, siz size)
 #define MAKE_DEBUG_ID_COMMA
 
 #endif
+inline ArenaParams NoClearArenaParams()
+{
+    ArenaParams result = {};
+    result.alignment = 4;
+    return result;
+}
+
+inline ArenaParams DefaultArenaParams()
+{
+    ArenaParams result = NoClearArenaParams();
+    result.flags = clear_to_zero;
+    return result;
+}
+
+inline void ZeroSize(void *base, siz size)
+{
+    u8 *cursor = static_cast<u8 *>(base);
+    while(size--)
+    {
+        *cursor++ = 0;
+    }
+}
 
 #define InitMemoryArena(...) InitMemoryArena_(MAKE_DEBUG_ID_COMMA __VA_ARGS__)
 #define SubArena(...) SubArena_(MAKE_DEBUG_ID_COMMA __VA_ARGS__)

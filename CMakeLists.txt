@@ -5,7 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # TODO(marvin): Work towards getting this out by doing things properly
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+if (WIN32)
+        set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -32,57 +34,43 @@ if(NOT DEFINED SKL_RENDER_SYS)
         set_property(CACHE SKL_RENDER_SYS PROPERTY STRINGS "Default" "WebGPU" "Vulkan")
 endif()
 
-if(NOT DEFINED SKL_ENABLE_EDITOR_MODE)
-        if(${EMSCRIPTEN})
-                option(SKL_ENABLE_EDITOR_MODE "Whether editor is enabled" OFF)
-                if(${SKL_EDITOR_MODE})
-                        message(FATAL_ERROR "Editor functionality should not be active with emscripten")
-                endif()
-        else()
-                option(SKL_ENABLE_EDITOR_MODE "Whether editor is enabled" ON)
-        endif()
+# SKL_EDITOR specifies whether the editor should be included in the build or not
+if(NOT DEFINED SKL_ENABLED_EDITOR)
+        option(SKL_ENABLED_EDITOR "Whether editor is enabled" 1)
 endif()
 
-# Determines whether debugging functionality is enabled
-if(NOT DEFINED SKL_ENABLE_DEBUGGING)
-        option(SKL_ENABLE_DEBUGGING "Whether debug functionality is enabled" ON)
+# SKL_INTERNAL specifies whether a build is being made for debug purposes or not
+if(NOT DEFINED SKL_INTERNAL)
+        option(SKL_INTERNAL "Whether debug functionality is enabled" 1)
 endif()
 
 # When debugging mode is active, determines whether logging should also be enabled.
-if(NOT DEFINED SKL_ENABLE_LOGGING)
-        if(${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" ON)
-        elseif(NOT ${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" OFF)
+if(NOT DEFINED SKL_ENABLED_LOGGING)
+        if(${SKL_INTERNAL})
+                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 1)
+        elseif(NOT ${SKL_INTERNAL})
+                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 0)
                 message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
         endif()
 endif()
 
-# When debugging mode is active, determines whether hard stopping asserts should also be enabled.
-# Currently not implemented.
-if(NOT DEFINED SKL_ENABLE_ASSERTS)
-        if(${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" ON)
-        elseif(NOT ${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" OFF)
-                if(${SKL_ENABLE_ASSERTS})
+# SKL_SLOW allows for slower but more safe code.
+# Currently only controls hard stopping asserts.
+if(NOT DEFINED SKL_SLOW)
+        if(${SKL_INTERNAL})
+                option(SKL_SLOW "Whether logging should be enabled or not" 1)
+        elseif(NOT ${SKL_INTERNAL})
+                option(SKL_SLOW "Whether logging should be enabled or not" 0)
+                if(${SKL_SLOW})
                         message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
                 endif()
         endif()
 endif()
 
-# Assumes a development build when not specified otherwise
-if(NOT DEFINED SKL_INTERNAL)
-        set(SKL_INTERNAL 1)
-endif()
-if(NOT DEFINED SKL_SLOW)
-        set(SKL_SLOW 1)
-endif()
-
-add_library(COMPILE_OPTIONS INTERFACE)
-target_compile_definitions(COMPILE_OPTIONS INTERFACE
-        SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
-        SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
+add_library(SKL_COMPILE_OPTIONS INTERFACE)
+target_compile_definitions(SKL_COMPILE_OPTIONS INTERFACE
+        SKL_ENABLED_EDITOR=${SKL_ENABLED_EDITOR}
+        SKL_ENABLED_LOGGING=${SKL_ENABLED_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_SLOW=${SKL_SLOW}
         GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -131,7 +119,7 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
         imgui
         skl-math
-        COMPILE_OPTIONS
+        SKL_COMPILE_OPTIONS
 )
 
 find_library(MATH_LIBRARY m)
@@ -249,8 +237,8 @@ set(PCH_HEADERS
         <imgui.h>
 )
 
-if(WIN32)
-    list(APPEND PCH_HEADERS <windows.h>)
+if (WIN32)
+        list(APPEND PCH_HEADERS <windows.h>)
 endif()
 
 target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
@@ -292,7 +280,7 @@ if(NOT EMSCRIPTEN)
         if(XCODE)
                 # This makes the assumption that if SKL_ENABLE_DEBUGGING is true, xcode is also running in debug mode
                 # This behavior needs to be enforced by XCODE
-                if(SKL_ENABLE_DEBUGGING)
+                if(SKL_INTERNAL)
                        set(BUILD_DIR ${CMAKE_BINARY_DIR}/Debug)
                 endif()
         endif()

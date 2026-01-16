@@ -2,6 +2,10 @@
 
 #include <imgui.h>
 
+#if SKL_ENABLED_EDITOR
+#include <editor.h>
+#endif
+
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
@@ -10,7 +14,7 @@
 #include <physics.h>
 #include <overlay.h>
 #include <city_builder.h>
-#include <editor.h>
+
 #include <movement.h>
 #include <draw_scene.h>
 
@@ -64,6 +68,7 @@ GAME_INITIALIZE(GameInitialize)
 
     if (editor)
     {
+        #if SKL_ENABLED_EDITOR
         gameState->overlayMode = overlayMode_ecsEditor;
         gameState->currentCamera = scene.NewEntity();
         CameraComponent* camera = scene.Assign<CameraComponent>(gameState->currentCamera);
@@ -71,6 +76,9 @@ GAME_INITIALIZE(GameInitialize)
         scene.Assign<Transform3D>(gameState->currentCamera);
 
         EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
+        #else
+        LOG_ERROR("Editor compatibility needs to be enabled on cmake before use");
+        #endif
     }
     else
     {
@@ -90,9 +98,7 @@ __declspec(dllexport)
 #endif
 GAME_LOAD(GameLoad)
 {
-#if SKL_ENABLED_EDITOR
     ImGui::SetCurrentContext(memory.imGuiContext);
-#endif
 
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/skl_math_types.h"
+#include <skl_math_types.h>
 
 #include <webgpu/webgpu.h>
 

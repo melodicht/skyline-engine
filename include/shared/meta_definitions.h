@@ -37,7 +37,7 @@ typedef size_t   siz;
 #define local_persist static
 
 // Logging
-#if SKL_LOGGING_ENABLED
+#if SKL_ENABLED_LOGGING
 
 #include <iostream>
 #include <cassert>

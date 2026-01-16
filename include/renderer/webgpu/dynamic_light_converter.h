@@ -1,15 +1,14 @@
 #pragma once
 
-#include "skl_logger.h"
-#include "math/skl_math_utils.h"
+#include <render_types_wgpu.h>
+#include <render_backend.h>
+
+#include <meta_definitions.h>
 
 #include <cassert>
 #include <vector>
 #include <utility>
 #include <functional>
-
-#include "renderer/wgpu_backend/render_types_wgpu.h"
-#include "renderer/render_backend.h"
 
 // This prepares gpu side directional lights.
 // Light spaces are added on per cascade, 
@@ -17,7 +16,7 @@
 std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     std::vector<DirLightRenderInfo>& cpuType,
     std::vector<glm::mat4x4>& lightSpacesOutput,
-    int lightSpacesCascadeCount,
+    s32 lightSpacesCascadeCount,
     const glm::mat4x4& camSpaceMat,
     const std::vector<float>& cascadeRatios,
     float cascadeBleed,
@@ -27,7 +26,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
 std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
     std::vector<PointLightRenderInfo>& cpuType,
     std::vector<glm::mat4x4>& lightSpacesOutput,
-    int shadowHeight,
-    int shadowWidth);
+    s32 shadowHeight,
+    s32 shadowWidth);
 
 std::vector<WGPUBackendDynamicShadowedSpotLightData> ConvertSpotLights(std::vector<SpotLightRenderInfo>& cpuType);

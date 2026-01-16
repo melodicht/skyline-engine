@@ -12,10 +12,8 @@
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 
-#if SKL_ENABLED_EDITOR
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
-#endif
 
 #if EMSCRIPTEN
 #include <emscripten/html5.h>
@@ -215,9 +213,8 @@ void updateLoop(void* appInfo) {
     while (SDL_PollEvent(&info->e))
     {
         // Cut off Imgui until we actually implement a base renderer for WGPU
-        #if SKL_ENABLED_EDITOR
         ImGui_ImplSDL3_ProcessEvent(&info->e);
-        #endif
+
         switch (info->e.type)
         {
             case SDL_EVENT_QUIT:
@@ -250,7 +247,6 @@ void updateLoop(void* appInfo) {
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
     // Cut off Imgui until we actually implement a base renderer for WGPU
-    #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     ImGuiIO& io = ImGui::GetIO();
@@ -259,7 +255,6 @@ void updateLoop(void* appInfo) {
     {
         keysDown.erase("Mouse 1");
     }
-    #endif
 
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
@@ -299,11 +294,9 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    #if SKL_ENABLED_EDITOR
     ImGuiContext *imGuiContext = ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
-    #endif
 
     std::string mapName = "test";
     bool editor = false;

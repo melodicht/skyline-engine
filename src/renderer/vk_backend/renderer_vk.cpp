@@ -1377,7 +1377,6 @@ void InitPipelines(RenderPipelineInitInfo& info)
     vkDestroyShaderModule(device, iconFragShader, nullptr);
 #endif
 
-#if SKL_ENABLED_EDITOR
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo
     {
@@ -1398,15 +1397,12 @@ void InitPipelines(RenderPipelineInitInfo& info)
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
-#endif
 }
 
 // Set up frame and begin capturing draw calls
 bool InitFrame()
 {
-#if SKL_ENABLED_EDITOR
     ImGui_ImplVulkan_NewFrame();
-#endif
 
     imageBarriers.clear();
 
@@ -2221,9 +2217,7 @@ void RenderUpdate(RenderFrameInfo& info)
         DrawIcons(info.icons);
     }
 
-#if SKL_ENABLED_EDITOR
     DrawImGui();
-#endif
     EndPass();
     EndFrame(info.cursorPos);
 }

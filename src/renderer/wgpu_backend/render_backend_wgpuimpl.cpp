@@ -1,9 +1,9 @@
-#include "renderer/render_backend.h"
+#include <render_backend.h>
 
 #include <map>
 #include <random>
 
-#include "renderer/wgpu_backend/renderer_wgpu.h"
+#include <renderer_wgpu.h>
 
 
 // This is done to force encapsulation of the wgpu renderer and renderer types

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <meta_definitions.h>
+
 #if SKL_INTERNAL
 
 #include <memory_types.h>

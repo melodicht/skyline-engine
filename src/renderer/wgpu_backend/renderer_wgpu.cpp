@@ -1,26 +1,21 @@
-#include "renderer/wgpu_backend/renderer_wgpu.h"
+#include <renderer_wgpu.h>
+#include <utils_wgpu.h>
+#include <sdl3webgpu.h>
+#include <dynamic_light_converter.h>
 
-#include "renderer/wgpu_backend/utils_wgpu.h"
-
-#include "webgpu/sdl3webgpu-main/sdl3webgpu.h"
-
-#include "skl_logger.h"
-
-#include "math/skl_math_utils.h"
-
-#include "renderer/wgpu_backend/dynamic_light_converter.h"
+#include <meta_definitions.h>
+#include <skl_math_utils.h>
 
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
 #endif
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 
-#if SKL_ENABLED_EDITOR
 #include <backends/imgui_impl_wgpu.h>
-#endif
 
 // Much of this was taken from https://eliemichel.github.io/LearnWebGPU
 
@@ -33,7 +28,7 @@ void WGPURenderBackend::printDeviceSpecs() {
   wgpuDeviceGetFeatures(m_wgpuCore.m_device, &features);
 
   LOG("Device features:");
-  for (int iter = 0; iter < features.featureCount ; iter++) {
+  for (s32 iter = 0; iter < features.featureCount ; iter++) {
       LOG(" - 0x" << features.features[iter]);
   }
 
@@ -180,9 +175,7 @@ void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType t
 }
 
 bool WGPURenderBackend::InitFrame() {
-  #if SKL_ENABLED_EDITOR
   ImGui_ImplWGPU_NewFrame();
-  #endif
 
   // Gets current color texture
   wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &m_surfaceTexture);
@@ -393,8 +386,6 @@ void WGPURenderBackend::EndPass() {
 }
 
 void WGPURenderBackend::DrawImGui() {
-  #if SKL_ENABLED_EDITOR
-
   WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("Imgui Encoder Descriptor")
@@ -446,7 +437,6 @@ void WGPURenderBackend::DrawImGui() {
 
   wgpuQueueSubmit(m_wgpuQueue, 1, &imguiCommand);
   wgpuCommandBufferRelease(imguiCommand);
-  #endif
 }
 #pragma endregion
 
@@ -587,7 +577,6 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   m_depthTexture.m_textureView = wgpuTextureCreateView(m_depthTexture.m_texture, &depthViewDescriptor);
 
   // Initializes imgui
-  #if SKL_ENABLED_EDITOR
   ImGui_ImplWGPU_InitInfo imguiInit;
   imguiInit.Device = m_wgpuCore.m_device;
   imguiInit.RenderTargetFormat = m_wgpuTextureFormat;
@@ -597,7 +586,6 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   ImGui_ImplWGPU_Init(&imguiInit);
 
   ImGui_ImplWGPU_NewFrame();
-  #endif
 }
 
 WGPUShaderModule loadShader(const WGPUDevice& device, std::string fileName, std::string shaderLabel) {
