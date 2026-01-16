@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef _WIN32
+#if defined(__x86_64__) && !defined(_WIN32)
 #include <x86intrin.h>
 #endif
 
