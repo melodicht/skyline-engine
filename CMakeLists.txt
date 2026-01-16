@@ -5,13 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # TODO(marvin): Work towards getting this out by doing things properly
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+if (WIN32)
+        set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-
-set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
-set(GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game.cpp)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
@@ -30,59 +28,47 @@ if(NOT DEFINED SKL_RENDER_SYS)
         set_property(CACHE SKL_RENDER_SYS PROPERTY STRINGS "Default" "WebGPU" "Vulkan")
 endif()
 
-if(NOT DEFINED SKL_ENABLE_EDITOR_MODE)
-        if(${EMSCRIPTEN})
-                option(SKL_ENABLE_EDITOR_MODE "Whether editor is enabled" OFF)
-                if(${SKL_EDITOR_MODE})
-                        message(FATAL_ERROR "Editor functionality should not be active with emscripten")
-                endif()
-        else()
-                option(SKL_ENABLE_EDITOR_MODE "Whether editor is enabled" ON)
-        endif()
+# SKL_EDITOR specifies whether the editor should be included in the build or not
+if(NOT DEFINED SKL_ENABLED_EDITOR)
+        option(SKL_ENABLED_EDITOR "Whether editor is enabled" 1)
 endif()
 
-# Determines whether debugging functionality is enabled
-if(NOT DEFINED SKL_ENABLE_DEBUGGING)
-        option(SKL_ENABLE_DEBUGGING "Whether debug functionality is enabled" ON)
+# SKL_INTERNAL specifies whether a build is being made for debug purposes or not
+if(NOT DEFINED SKL_INTERNAL)
+        option(SKL_INTERNAL "Whether debug functionality is enabled" 1)
 endif()
 
 # When debugging mode is active, determines whether logging should also be enabled.
-if(NOT DEFINED SKL_ENABLE_LOGGING)
-        if(${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" ON)
-        elseif(NOT ${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" OFF)
+if(NOT DEFINED SKL_ENABLED_LOGGING)
+        if(${SKL_INTERNAL})
+                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 1)
+        elseif(NOT ${SKL_INTERNAL})
+                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 0)
                 message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
         endif()
 endif()
 
-# When debugging mode is active, determines whether hard stopping asserts should also be enabled.
-# Currently not implemented.
-if(NOT DEFINED SKL_ENABLE_ASSERTS)
-        if(${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" ON)
-        elseif(NOT ${SKL_ENABLE_DEBUGGING})
-                option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" OFF)
-                if(${SKL_ENABLE_ASSERTS})
+# SKL_SLOW allows for slower but more safe code.
+# Currently only controls hard stopping asserts.
+if(NOT DEFINED SKL_SLOW)
+        if(${SKL_INTERNAL})
+                option(SKL_SLOW "Whether logging should be enabled or not" 1)
+        elseif(NOT ${SKL_INTERNAL})
+                option(SKL_SLOW "Whether logging should be enabled or not" 0)
+                if(${SKL_SLOW})
                         message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
                 endif()
         endif()
 endif()
 
-# Assumes a development build when not specified otherwise
-if(NOT DEFINED SKL_INTERNAL)
-        set(SKL_INTERNAL 1)
-endif()
-if(NOT DEFINED SKL_SLOW)
-        set(SKL_SLOW 1)
-endif()
-
-add_library(COMPILE_OPTIONS INTERFACE)
-target_compile_definitions(COMPILE_OPTIONS INTERFACE
-        SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
-        SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
+add_library(SKL_COMPILE_OPTIONS INTERFACE)
+target_compile_definitions(SKL_COMPILE_OPTIONS INTERFACE
+        SKL_ENABLED_EDITOR=${SKL_ENABLED_EDITOR}
+        SKL_ENABLED_LOGGING=${SKL_ENABLED_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
-        SKL_SLOW=${SKL_SLOW})
+        SKL_SLOW=${SKL_SLOW}
+        GLM_FORCE_DEPTH_ZERO_TO_ONE
+        GLM_FORCE_LEFT_HANDED)
 
 #==============================================================================
 # PACKAGE MANAGER
@@ -117,7 +103,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
 add_library(imgui SHARED ${imgui_sources})
 target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 #==============================================================================
 # SHARED DEPENDENCIES (Between platform, rendering backend, and game)
@@ -125,12 +110,10 @@ list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 add_library(SHARED_DEPENDENCIES INTERFACE)
 target_link_libraries(SHARED_DEPENDENCIES INTERFACE
-        SDL3::SDL3
         glm::glm
         imgui
         skl-math
-        tomlplusplus::tomlplusplus
-        COMPILE_OPTIONS
+        SKL_COMPILE_OPTIONS
 )
 
 add_library(RENDERING_BACKEND INTERFACE)
@@ -185,14 +168,14 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
                 ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
+                SDL3::SDL3
                 Vulkan::Headers)
         if (APPLE)
             target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
         endif()
         target_include_directories(vulkan-backend PRIVATE
-                ${CMAKE_CURRENT_SOURCE_DIR}/include
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
-                ${CMAKE_CURRENT_SOURCE_DIR}/src)
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/renderer/vulkan
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/shared)
         target_compile_definitions(vulkan-backend PRIVATE VK_NO_PROTOTYPES)
         target_compile_definitions(RENDERING_BACKEND INTERFACE
                 SKL_RENDERER=0
@@ -211,6 +194,8 @@ endif()
 #==============================================================================
 # GAME MODULE
 #==============================================================================
+file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
+
 add_library(game-module MODULE ${GAME_SRC})
 # Version the PDB file to avoid locking issues
 string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
@@ -224,8 +209,8 @@ target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         Jolt)
 target_include_directories(game-module PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/include/shared
+        ${CMAKE_SOURCE_DIR}/include/game
         ${JoltPhysics_SOURCE_DIR})
 
 set(PCH_HEADERS
@@ -237,11 +222,10 @@ set(PCH_HEADERS
         <Jolt/Jolt.h>
         <Jolt/Core/JobSystemThreadPool.h>
         <Jolt/Physics/PhysicsSystem.h>
-        # TODO(marvin): Precompiling imgui header causes problems.
-        # <imgui.h>
+        <imgui.h>
 )
 
-if(WIN32)
+if (WIN32)
         list(APPEND PCH_HEADERS <windows.h>)
 endif()
 
@@ -250,29 +234,33 @@ target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
 #==============================================================================
 # PLATFORM
 #==============================================================================
-add_executable(platform ${PLATFORM_SRC})
+file(GLOB_RECURSE PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/*.cpp)
+
+add_executable(platform ${PLATFORM_SRC} ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 set_target_properties(platform PROPERTIES
         OUTPUT_NAME ${PROJECT_NAME}
 )
 target_include_directories(platform PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/shared
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/platform)
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
-        fastgltf::fastgltf)
+        fastgltf::fastgltf
+        SDL3::SDL3
+        tomlplusplus::tomlplusplus)
 
 add_dependencies(platform game-module)
 
 if (EMSCRIPTEN)
-        set_target_properties(platform PROPERTIES SUFFIX ".html")
-elseif (WIN32)
-        add_custom_command(TARGET platform POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
-                COMMAND_EXPAND_LISTS)
+    set_target_properties(platform PROPERTIES SUFFIX ".html")
 endif()
 
+if (WIN32)
+    add_custom_command(TARGET platform POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
+            COMMAND_EXPAND_LISTS)
+endif()
 #==============================================================================
 # POST-BUILD
 #==============================================================================
@@ -286,7 +274,7 @@ if(NOT EMSCRIPTEN)
         if(XCODE)
                 # This makes the assumption that if SKL_ENABLE_DEBUGGING is true, xcode is also running in debug mode
                 # This behavior needs to be enforced by XCODE
-                if(SKL_ENABLE_DEBUGGING)
+                if(SKL_INTERNAL)
                        set(BUILD_DIR ${CMAKE_BINARY_DIR}/Debug)
                 endif()
         endif()
@@ -297,35 +285,28 @@ if(NOT EMSCRIPTEN)
 
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
-                file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
-
-                set(SLANGC "slangc")
-
-                foreach(SHADER ${SHADERS})
-                get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
-                set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
-                list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
-                add_custom_command(
-                        MAIN_DEPENDENCY ${SHADER}
-                        OUTPUT ${SHADER_OUT_NAME}
-                        COMMAND ${SLANGC} ${SHADER} -o ${SHADER_OUT_NAME} -target spirv -fvk-use-entrypoint-name -emit-spirv-directly -fvk-use-scalar-layout -matrix-layout-row-major
-                        VERBATIM)
-                endforeach()
-
-                file(GLOB_RECURSE GLSL_SHADERS "${SHADERS_IN_DIR}/glsl/*.glsl")
-
                 set(GLSLANG "glslangValidator")
 
-                foreach(SHADER ${GLSL_SHADERS})
-                    get_filename_component(SHADER_NAME ${SHADER} NAME_WLE)
-                    set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
-                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
+                macro(add_shader inName outName)
+                    set(SHADER_IN_PATH "${SHADERS_IN_DIR}/vulkan/${inName}.glsl")
+                    set(SHADER_OUT_PATH "${SHADERS_OUT_DIR}/${outName}.spv")
+                    list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_PATH})
                     add_custom_command(
-                            MAIN_DEPENDENCY ${SHADER}
-                            OUTPUT ${SHADER_OUT_NAME}
-                            COMMAND ${GLSLANG} ${SHADER} -o ${SHADER_OUT_NAME} --target-env vulkan1.3
+                            MAIN_DEPENDENCY ${SHADER_IN_PATH}
+                            OUTPUT ${SHADER_OUT_PATH}
+                            COMMAND ${GLSLANG} ${SHADER_IN_PATH} -o ${SHADER_OUT_PATH} --target-env vulkan1.3 ${ARGN}
                             VERBATIM)
-                endforeach()
+                endmacro()
+
+                add_shader("color.vert" "depth.vert")
+                add_shader("color.vert" "shadow.vert" -DWORLDPOS)
+                add_shader("color.vert" "color.vert" -DWORLDPOS -DVERTATTR)
+                add_shader("color.frag" "color.frag")
+                add_shader("color.frag" "editor.frag" -DEDITOR)
+                add_shader("shadow.frag" "shadow.frag")
+                add_shader("dirshadow.frag" "dirshadow.frag")
+                add_shader("icon.vert" "icon.vert")
+                add_shader("icon.frag" "icon.frag")
 
                 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 

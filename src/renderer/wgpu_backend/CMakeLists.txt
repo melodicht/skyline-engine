@@ -37,13 +37,17 @@ set(SKL_WGPU_SOURCES
         bind_group_wgpu.cpp
         dynamic_shadow_array.cpp
         dynamic_light_converter.cpp
-        single_textures_wgpu.cpp)
+        single_textures_wgpu.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
+
+set(SKL_WGPU_TARGET_INCLUDE_LIST 
+        ${CMAKE_SOURCE_DIR}/include/shared
+        ${CMAKE_SOURCE_DIR}/include/renderer/webgpu
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 
 if(EMSCRIPTEN)
         add_library(wgpu-backend SHARED ${SKL_WGPU_SOURCES})
-        target_include_directories(wgpu-backend PRIVATE 
-                ${CMAKE_SOURCE_DIR}/include 
-                ${CMAKE_SOURCE_DIR}/src)
+        target_include_directories(wgpu-backend PRIVATE ${SKL_WGPU_TARGET_INCLUDE_LIST})
 
         add_library(webgpu INTERFACE)
         # Fetches emscripten Dawn port
@@ -58,22 +62,12 @@ if(EMSCRIPTEN)
                 --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
         target_compile_options(webgpu INTERFACE 
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
-                -DDAWN_DEBUG_BREAK_ON_ERROR=1)
+                -DDAWN_DEBUG_BREAK_ON_ERROR=1
+                IMGUI_DISABLE)
         set_property(TARGET webgpu APPEND PROPERTY LINK_DEPENDS 
                 ../notes.txt
         )
 else()
-        set(SKL_WGPU_TARGET_INCLUDE_LIST 
-                ${CMAKE_SOURCE_DIR}/src
-                ${CMAKE_SOURCE_DIR}/include)
-
-        if(${SKL_ENABLE_EDITOR_MODE})
-                list(APPEND SKL_WGPU_SOURCES
-                        ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
-                list(APPEND SKL_WGPU_TARGET_INCLUDE_LIST
-                        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-        endif()
-
         add_library(wgpu-backend SHARED ${SKL_WGPU_SOURCES})
         target_include_directories(wgpu-backend PRIVATE ${SKL_WGPU_TARGET_INCLUDE_LIST})
 
@@ -91,18 +85,17 @@ else()
 endif()
 
 # Includes ported SDL3-webgpu conduit
-add_subdirectory(${CMAKE_SOURCE_DIR}/include/webgpu/sdl3webgpu-main sdl3webgpu)
+add_subdirectory(${CMAKE_SOURCE_DIR}/include/renderer/webgpu/sdl3webgpu-main sdl3webgpu)
 
 set(SKL_WGPU_PCH_HEADERS
         <iostream>
         <string>
         <vector>
         <algorithm>
-        <webgpu/webgpu.h>
-)
+        <webgpu/webgpu.h>)
 
 target_precompile_headers(wgpu-backend PRIVATE ${SKL_WGPU_PCH_HEADERS})
 
-target_link_libraries(wgpu-backend PRIVATE COMPILE_OPTIONS)
+target_link_libraries(wgpu-backend PRIVATE SKL_COMPILE_OPTIONS)
 
 target_link_libraries(wgpu-backend PRIVATE glm::glm sdl3webgpu imgui skl-math)

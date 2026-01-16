@@ -1,0 +1,17 @@
+#version 460
+
+#extension GL_EXT_scalar_block_layout : require
+
+layout (push_constant, scalar) uniform PushConstants
+{
+    layout (offset = 24) vec3 lightPos;
+    float farPlane;
+} pcs;
+
+layout(location = 0) in vec4 worldPos;
+
+void main()
+{
+    float distance = length(worldPos.xyz - pcs.lightPos) / pcs.farPlane;
+    gl_FragDepth = distance + (3 * fwidth(distance));
+}

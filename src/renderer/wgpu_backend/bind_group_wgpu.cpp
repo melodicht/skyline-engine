@@ -1,4 +1,4 @@
-#include "renderer/wgpu_backend/bind_group_wgpu.h"
+#include <bind_group_wgpu.h>
 
 void WGPUBackendBindGroup::Init(const char* label, WGPUBindGroupLayout& bindLayout) {
     m_bindGroupLayout = bindLayout;

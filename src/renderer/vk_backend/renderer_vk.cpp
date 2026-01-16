@@ -10,9 +10,6 @@
 		}                                                           \
 	} while (0)
 
-#define DEFAULT_SLANG false
-
-#include "meta_definitions.h"
 
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
@@ -20,27 +17,27 @@
 #define VK_USE_PLATFORM_MACOS_MVK
 #endif
 #define VOLK_IMPLEMENTATION
-#include <vulkan/volk.h>
+#include <volk.h>
 
-#include "vulkan/vma_no_warnings.h"
+#include <vma_no_warnings.h>
 #include <iostream>
 
 #include <imgui_impl_vulkan.h>
 
-#include "asset_types.h"
-#include "renderer/render_backend.h"
-#include "renderer/vk_backend/vk_render_types.h"
-#include "renderer/vk_backend/vk_render_utils.cpp"
+#include <asset_types.h>
+#include <render_backend.h>
+#include "vk_render_types.h"
+#include "vk_render_utils.cpp"
 
-#include <vulkan/VkBootstrap.h>
+#include <VkBootstrap.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <unordered_map>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_LEFT_HANDED
-
-#include "math/skl_math_types.h"
-#include "math/skl_math_utils.h"
+#include <skl_math_types.h>
+#include <skl_math_utils.h>
+#include <meta_definitions.h>
 
 // Vulkan structures
 VkInstance instance;
@@ -701,14 +698,14 @@ void InitRenderer(RenderInitInfo& info)
     // Create window surface
     SDL_Vulkan_CreateSurface(info.window, instance, vkbInstance.allocation_callbacks, &surface);
 
-    VkPhysicalDeviceFeatures feat10{.depthClamp = true, .shaderInt64 = true};
+    VkPhysicalDeviceFeatures feat10{.depthClamp = true};
 
     if (editor)
     {
         feat10.independentBlend = true;
     }
 
-    VkPhysicalDeviceVulkan11Features feat11{.multiview = true, .shaderDrawParameters = true};
+    VkPhysicalDeviceVulkan11Features feat11{.multiview = true};
 
     VkPhysicalDeviceVulkan12Features feat12
     {
@@ -871,14 +868,14 @@ VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
     return shaderModule;
 }
 
-VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule, const char *entryPointName)
+VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule)
 {
     VkPipelineShaderStageCreateInfo stageInfo
     {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = shaderStage,
         .module = shaderModule,
-        .pName = entryPointName
+        .pName = "main"
     };
     return stageInfo;
 }
@@ -944,19 +941,6 @@ void InitPipelines(RenderPipelineInitInfo& info)
     mainCamIndex = CreateCameraBuffer(1);
 
     // Create shader stages
-#if DEFAULT_SLANG
-    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.spv");
-    
-    VkShaderModule cubemapShader = CreateShaderModuleFromFile("shaders/cubemap.spv");
-    VkShaderModule cubemapVertShader = cubemapShader;
-    VkShaderModule cubemapFragShader = cubemapShader;
-
-    VkShaderModule colorShader = CreateShaderModuleFromFile("shaders/color.spv");
-    VkShaderModule colorVertShader = colorShader;
-    VkShaderModule colorFragShader = colorShader;
-
-    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("shaders/shadow.spv");
-#else
     VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
     
     VkShaderModule shadowVertShader = CreateShaderModuleFromFile("shaders/shadow.vert.spv");
@@ -971,24 +955,15 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VkShaderModule iconVertShader = CreateShaderModuleFromFile("shaders/icon.vert.spv");
     VkShaderModule iconFragShader = CreateShaderModuleFromFile("shaders/icon.frag.spv");
-#endif
-
-#if DEFAULT_SLANG
-    const char *vertEntryPointName = "vertexMain";
-    const char *fragEntryPointName = "fragmentMain";
-#else
-    const char *vertEntryPointName = "main";
-    const char *fragEntryPointName = "main";
-#endif
     
-    VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo shadowVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, shadowVertShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader, fragEntryPointName);
-    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
-    VkPipelineShaderStageCreateInfo dirShadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, dirShadowFragShader, fragEntryPointName);
-    VkPipelineShaderStageCreateInfo iconVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, iconVertShader, vertEntryPointName);
-    VkPipelineShaderStageCreateInfo iconFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, iconFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader);
+    VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader);
+    VkPipelineShaderStageCreateInfo shadowVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, shadowVertShader);
+    VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader);
+    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader);
+    VkPipelineShaderStageCreateInfo dirShadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, dirShadowFragShader);
+    VkPipelineShaderStageCreateInfo iconVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, iconVertShader);
+    VkPipelineShaderStageCreateInfo iconFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, iconFragShader);
     
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
     VkPipelineShaderStageCreateInfo shadowShaderStages[] = {shadowVertStageInfo, shadowFragStageInfo};
@@ -1402,7 +1377,6 @@ void InitPipelines(RenderPipelineInitInfo& info)
     vkDestroyShaderModule(device, iconFragShader, nullptr);
 #endif
 
-#if SKL_ENABLED_EDITOR
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo
     {
@@ -1423,15 +1397,12 @@ void InitPipelines(RenderPipelineInitInfo& info)
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
-#endif
 }
 
 // Set up frame and begin capturing draw calls
 bool InitFrame()
 {
-#if SKL_ENABLED_EDITOR
     ImGui_ImplVulkan_NewFrame();
-#endif
 
     imageBarriers.clear();
 
@@ -2246,9 +2217,7 @@ void RenderUpdate(RenderFrameInfo& info)
         DrawIcons(info.icons);
     }
 
-#if SKL_ENABLED_EDITOR
     DrawImGui();
-#endif
     EndPass();
     EndFrame(info.cursorPos);
 }
