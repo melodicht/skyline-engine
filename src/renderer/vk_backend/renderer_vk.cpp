@@ -138,40 +138,8 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
-    AllocatedBuffer stagingBuffer = CreateBuffer(device, allocator,
-                                                 indexSize + vertSize,
-                                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-    void* stagingData = stagingBuffer.allocation->GetMappedData();
-    memcpy(stagingData, indices, indexSize);
-    memcpy((char*)stagingData + indexSize, vertices, vertSize);
-
-    VkCommandBuffer cmd = BeginImmediateCommands(device, mainCommandPool);
-
-    VkBufferCopy indexCopy
-    {
-        .srcOffset = 0,
-        .dstOffset = 0,
-        .size = indexSize
-    };
-
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1, &indexCopy);
-
-    VkBufferCopy vertCopy
-    {
-        .srcOffset = indexSize,
-        .dstOffset = 0,
-        .size = vertSize
-    };
-
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertBuffer.buffer, 1, &vertCopy);
-
-    EndImmediateCommands(device, graphicsQueue, mainCommandPool, cmd);
-    DestroyBuffer(allocator, stagingBuffer);
-
+    StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, mesh.indexBuffer, indices, indexSize);
+    StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, mesh.vertBuffer, vertices, vertSize);
 
     mesh.indexCount = indexCount;
 
@@ -823,32 +791,8 @@ void InitRenderer(RenderInitInfo& info)
                                        | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                        0,
                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        AllocatedBuffer stagingBuffer = CreateBuffer(device, allocator,
-                                                     6 * sizeof(u16),
-                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                     VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                     | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
         u16 indices[6] = {0, 2, 1, 1, 2, 3};
-
-        void* stagingData = stagingBuffer.allocation->GetMappedData();
-        memcpy(stagingData, indices, 6 * sizeof(u16));
-
-        VkCommandBuffer cmd = BeginImmediateCommands(device, mainCommandPool);
-
-        VkBufferCopy indexCopy
-        {
-            .srcOffset = 0,
-            .dstOffset = 0,
-            .size = 6 * sizeof(u16)
-        };
-
-        vkCmdCopyBuffer(cmd, stagingBuffer.buffer, iconIndexBuffer.buffer, 1, &indexCopy);
-
-        EndImmediateCommands(device, graphicsQueue, mainCommandPool, cmd);
-        DestroyBuffer(allocator, stagingBuffer);
+        StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, iconIndexBuffer, indices, 6 * sizeof(u16));
     }
 }
 
@@ -885,56 +829,20 @@ void InitPipelines(RenderPipelineInitInfo& info)
     // Create object and light buffers
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        frames[i].objectBuffer = CreateBuffer(device, allocator,
-                                              sizeof(ObjectData) * 4096,
-                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                              | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-        frames[i].dirLightBuffer = CreateBuffer(device, allocator,
-                                                sizeof(VkDirLightData) * 4,
-                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].dirCascadeBuffer = CreateBuffer(device, allocator,
-                                                  sizeof(LightCascade) * NUM_CASCADES * 4,
-                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].spotLightBuffer = CreateBuffer(device, allocator,
-                                                 sizeof(VkSpotLightData) * 256,
-                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].pointLightBuffer = CreateBuffer(device, allocator,
-                                                  sizeof(VkPointLightData) * 256,
-                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].objectBuffer = CreateShaderBuffer(device, allocator, sizeof(ObjectData) * 4096);
+        frames[i].dirLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkDirLightData) * 4);
+        frames[i].dirCascadeBuffer = CreateShaderBuffer(device, allocator, sizeof(LightCascade) * NUM_CASCADES * 4);
+        frames[i].spotLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkSpotLightData) * 256);
+        frames[i].pointLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkPointLightData) * 256);
         if (editor)
         {
-            frames[i].idBuffer = CreateBuffer(device, allocator,
-                                              sizeof(u32) * 4096,
-                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                              | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+            frames[i].idBuffer = CreateShaderBuffer(device, allocator, sizeof(u32) * 4096);
             frames[i].idTransferBuffer = CreateBuffer(device, allocator,
                                                       32, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                       | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-            frames[i].iconBuffer = CreateBuffer(device, allocator,
-                                                sizeof(IconData) * 1024,
-                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+            frames[i].iconBuffer = CreateShaderBuffer(device, allocator, sizeof(IconData) * 1024);
         }
     }
 
