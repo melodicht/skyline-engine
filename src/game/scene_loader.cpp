@@ -122,7 +122,7 @@ void SaveScene(Scene& scene, std::string name)
         sceneData->structVal.push_back(ReadEntityToData(scene, ent));
     }
 
-    std::string filepath = "scenes/" + name + ".toml";
+    std::string filepath = "../scenes/" + name + ".toml";
     assetUtils.WriteDataAsset(filepath, sceneData);
     delete sceneData;
 }

@@ -309,6 +309,10 @@ s32 WriteDataAsset(std::string path, DataEntry* data)
     SaveDataToTable(data->structVal, &file);
 
     std::ofstream output(path);
+    if (!output.is_open())
+    {
+        LOG_ERROR("could not open file");
+    }
     output << file;
 
     return 0;
