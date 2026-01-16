@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <typeindex>
 
 struct NameComponent
 {
@@ -21,6 +22,7 @@ struct ComponentInfo
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
+    std::type_index type;
     std::string name;
     std::string iconPath;
 };
@@ -31,11 +33,14 @@ struct IconGizmo
     TextureAsset* texture;
 };
 
-extern std::vector<ComponentInfo> compInfos;
 extern std::unordered_map<std::string, EntityID> entityIds;
 extern std::vector<IconGizmo> iconGizmos;
 
-void RegisterComponents(Scene& scene, bool editor);
+std::vector<ComponentInfo>& CompInfos();
+
+void RegisterComponents(bool editor);
+
+void CreateComponentPools(Scene& scene);
 
 s32 LoadScene(Scene& scene, std::string name);
 

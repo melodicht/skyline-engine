@@ -60,7 +60,7 @@ void BuilderSystem::Step(Scene *scene)
             {
                 // Build antenna
                 f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-                BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
+                BuildPart(scene, ent, t, assetUtils.LoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
                 t->AddLocalPosition({0, 0, -antennaWidth / 2});
 
                 if (pointLightCount < 64)
@@ -119,7 +119,7 @@ void BuilderSystem::Step(Scene *scene)
                 }
 
                 f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
-                BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
+                BuildPart(scene, ent, t, assetUtils.LoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
 
                 EntityID newPlane = scene->NewEntity();
                 Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -141,7 +141,7 @@ void BuilderSystem::Step(Scene *scene)
                 }
 
                 f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
+                BuildPart(scene, ent, t, assetUtils.LoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
 
                 scene->Remove<Plane>(ent);
                 break;
@@ -155,7 +155,7 @@ void BuilderSystem::Step(Scene *scene)
                 }
 
                 f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
+                BuildPart(scene, ent, t, assetUtils.LoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
 
                 scene->Remove<Plane>(ent);
                 break;
@@ -167,7 +167,7 @@ void BuilderSystem::Step(Scene *scene)
             {
                 // Build Cuboid
                 f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
-                BuildPart(scene, ent, t, globalPlatformAPI.assetUtils.LoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
+                BuildPart(scene, ent, t, assetUtils.LoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
 
                 EntityID newPlane = scene->NewEntity();
                 Transform3D *newT = scene->Assign<Transform3D>(newPlane);

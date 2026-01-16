@@ -5,17 +5,7 @@
  * ENTITY FUNCTIONALITY
  */
 
-u32 numComponents = 0;
-
 std::unordered_map<std::type_index, ComponentID> typeToId;
-
-// Maps a new component ID to the given component name, and produces that component ID.
-ComponentID MakeComponentId(std::string name)
-{
-    ComponentID result = numComponents;
-    numComponents++;
-    return result;
-}
 
 /*
  * COMPONENT POOL

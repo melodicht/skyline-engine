@@ -11,6 +11,12 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaderbin)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
 #==============================================================================
@@ -29,8 +35,8 @@ if(NOT DEFINED SKL_RENDER_SYS)
 endif()
 
 # SKL_EDITOR specifies whether the editor should be included in the build or not
-if(NOT DEFINED SKL_ENABLED_EDITOR)
-        option(SKL_ENABLED_EDITOR "Whether editor is enabled" 1)
+if(NOT DEFINED SKL_ENABLE_EDITOR)
+        option(SKL_ENABLE_EDITOR "Whether editor is enabled" 1)
 endif()
 
 # SKL_INTERNAL specifies whether a build is being made for debug purposes or not
@@ -39,11 +45,11 @@ if(NOT DEFINED SKL_INTERNAL)
 endif()
 
 # When debugging mode is active, determines whether logging should also be enabled.
-if(NOT DEFINED SKL_ENABLED_LOGGING)
+if(NOT DEFINED SKL_ENABLE_LOGGING)
         if(${SKL_INTERNAL})
-                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 1)
+                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 1)
         elseif(NOT ${SKL_INTERNAL})
-                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 0)
+                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 0)
                 message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
         endif()
 endif()
@@ -63,8 +69,8 @@ endif()
 
 add_library(SKL_COMPILE_OPTIONS INTERFACE)
 target_compile_definitions(SKL_COMPILE_OPTIONS INTERFACE
-        SKL_ENABLED_EDITOR=${SKL_ENABLED_EDITOR}
-        SKL_ENABLED_LOGGING=${SKL_ENABLED_LOGGING}
+        SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR}
+        SKL_ENABLED_LOGGING=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_SLOW=${SKL_SLOW}
         GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -115,6 +121,11 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         skl-math
         SKL_COMPILE_OPTIONS
 )
+
+find_library(MATH_LIBRARY m)
+if(MATH_LIBRARY)
+        target_link_libraries(SHARED_DEPENDENCIES INTERFACE ${MATH_LIBRARY})
+endif()
 
 add_library(RENDERING_BACKEND INTERFACE)
 
@@ -218,7 +229,8 @@ set(PCH_HEADERS
         <string>
         <vector>
         <glm/glm.hpp>
-        <glm/gtc/type_ptr.hpp>
+        <glm/gtc/quaternion.hpp>
+        <glm/gtc/matrix_transform.hpp>
         <Jolt/Jolt.h>
         <Jolt/Core/JobSystemThreadPool.h>
         <Jolt/Physics/PhysicsSystem.h>
@@ -255,12 +267,6 @@ add_dependencies(platform game-module)
 if (EMSCRIPTEN)
     set_target_properties(platform PROPERTIES SUFFIX ".html")
 endif()
-
-if (WIN32)
-    add_custom_command(TARGET platform POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:platform> $<TARGET_FILE_DIR:platform>
-            COMMAND_EXPAND_LISTS)
-endif()
 #==============================================================================
 # POST-BUILD
 #==============================================================================
@@ -280,8 +286,7 @@ if(NOT EMSCRIPTEN)
         endif()
 
         set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-        set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
-        file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
+        set(SHADERS_OUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin")
 
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
@@ -313,14 +318,11 @@ if(NOT EMSCRIPTEN)
                 add_dependencies(platform build_shaders)
         elseif(SKL_RENDER_SYS STREQUAL "WebGPU")
                 add_custom_command(TARGET platform PRE_LINK
-                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${BUILD_DIR}/shaders"
+                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin"
                 )
         endif()
 
         # Imports other resources into build
-        add_custom_target(copy_data ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${BUILD_DIR})
-
-        add_dependencies(platform copy_data)
 
 # Preloads files for emscripten
 else()

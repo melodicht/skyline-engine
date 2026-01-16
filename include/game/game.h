@@ -23,4 +23,5 @@ struct GameState
     OverlayMode overlayMode;
 };
 
-extern PlatformAPI globalPlatformAPI;
+extern PlatformAssetUtils assetUtils;
+extern PlatformRenderer renderer;
