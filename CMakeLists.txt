@@ -35,8 +35,8 @@ if(NOT DEFINED SKL_RENDER_SYS)
 endif()
 
 # SKL_EDITOR specifies whether the editor should be included in the build or not
-if(NOT DEFINED SKL_ENABLED_EDITOR)
-        option(SKL_ENABLED_EDITOR "Whether editor is enabled" 1)
+if(NOT DEFINED SKL_ENABLE_EDITOR)
+        option(SKL_ENABLE_EDITOR "Whether editor is enabled" 1)
 endif()
 
 # SKL_INTERNAL specifies whether a build is being made for debug purposes or not
@@ -45,11 +45,11 @@ if(NOT DEFINED SKL_INTERNAL)
 endif()
 
 # When debugging mode is active, determines whether logging should also be enabled.
-if(NOT DEFINED SKL_ENABLED_LOGGING)
+if(NOT DEFINED SKL_ENABLE_LOGGING)
         if(${SKL_INTERNAL})
-                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 1)
+                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 1)
         elseif(NOT ${SKL_INTERNAL})
-                option(SKL_ENABLED_LOGGING "Whether logging should be enabled or not" 0)
+                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 0)
                 message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
         endif()
 endif()
@@ -69,8 +69,8 @@ endif()
 
 add_library(SKL_COMPILE_OPTIONS INTERFACE)
 target_compile_definitions(SKL_COMPILE_OPTIONS INTERFACE
-        SKL_ENABLED_EDITOR=${SKL_ENABLED_EDITOR}
-        SKL_ENABLED_LOGGING=${SKL_ENABLED_LOGGING}
+        SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR}
+        SKL_ENABLED_LOGGING=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_SLOW=${SKL_SLOW}
         GLM_FORCE_DEPTH_ZERO_TO_ONE
