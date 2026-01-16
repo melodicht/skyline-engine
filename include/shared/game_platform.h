@@ -21,8 +21,8 @@ struct GameInput
     method(MeshAsset*,LoadMeshAsset,(std::string name))\
     method(TextureAsset*,LoadTextureAsset,(std::string name))\
     method(void,LoadSkyboxAsset,(std::array<std::string,6> names))\
-    method(DataEntry*,LoadDataAsset,(std::string path))\
-    method(s32,WriteDataAsset,(std::string path, DataEntry* data))
+    method(DataEntry*,LoadDataAsset,(std::string name))\
+    method(s32,WriteDataAsset,(std::string name, DataEntry* data))
 DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
 
 struct PlatformAPI
