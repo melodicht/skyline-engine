@@ -45,7 +45,7 @@ void BuilderSystem::Step(Scene *scene)
     {
         Transform3D *t = scene->Get<Transform3D>(ent);
         Spin *s = scene->Get<Spin>(ent);
-        t->AddLocalRotation({0, 0, s->speed * 0.25f});
+        t->AddLocalRotation({0, 0, s->speed * 1.25f});
     }
 
     // Plane Rules
@@ -235,15 +235,17 @@ BuilderSystem::BuilderSystem(bool slowStep)
     this->slowStep = slowStep;
 }
 
-void BuilderSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+MAKE_SYSTEM_MANUAL_VTABLE(BuilderSystem);
+
+SYSTEM_ON_UPDATE(BuilderSystem)
 {
-    if (slowStep && timer > 0.0f)
+    if (this->slowStep && this->timer > 0.0f)
     {
-        timer -= deltaTime;
+        this->timer -= deltaTime;
     }
     else
     {
-        timer = 1.0f / rate;
+        this->timer = 1.0f / this->rate;
         Step(scene);
     }
 }

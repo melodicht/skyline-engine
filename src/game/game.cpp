@@ -10,6 +10,7 @@
 #include <meta_definitions.h>
 #include <scene.h>
 #include <scene_loader.h>
+#include <system_registry.h>
 #include <components.h>
 #include <physics.h>
 #include <overlay.h>
@@ -104,6 +105,7 @@ GAME_LOAD(GameLoad)
     renderer = memory.platformAPI.renderer;
 
     RegisterComponents(editor);
+    RegisterSystems();
 
     DebugUpdate(memory);
 }
