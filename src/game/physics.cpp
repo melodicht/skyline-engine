@@ -243,29 +243,29 @@ void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsS
 
 void *JoltAlignedAllocate(size_t size, size_t alignment)
 {
-    void *result = globalPlatformAPI.allocator.AlignedAllocate(size, alignment);
+    void *result = allocator.AlignedAllocate(size, alignment);
     return result;
 }
 
 void JoltAlignedFree(void *block)
 {
-    globalPlatformAPI.allocator.AlignedFree(block);
+    allocator.AlignedFree(block);
 }
 
 void *JoltAllocate(size_t size)
 {
-    void *result = globalPlatformAPI.allocator.Allocate(size);
+    void *result = allocator.Allocate(size);
     return result;
 }
 
 void JoltFree(void *block)
 {
-    globalPlatformAPI.allocator.Free(block);
+    allocator.Free(block);
 }
 
 void *JoltReallocate(void *block, size_t oldSize, size_t newSize)
 {
-    void *result = globalPlatformAPI.allocator.Realloc(block, oldSize, newSize);
+    void *result = allocator.Realloc(block, oldSize, newSize);
     return result;
 }
 

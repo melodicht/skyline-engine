@@ -22,6 +22,7 @@
 
 PlatformAssetUtils assetUtils;
 PlatformRenderer renderer;
+PlatformAllocator allocator;
 
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
@@ -103,6 +104,7 @@ GAME_LOAD(GameLoad)
 
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;
+    allocator = memory.platformAPI.allocator;
 
     RegisterComponents(editor);
     RegisterSystems();

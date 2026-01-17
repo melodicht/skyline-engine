@@ -25,3 +25,4 @@ struct GameState
 
 extern PlatformAssetUtils assetUtils;
 extern PlatformRenderer renderer;
+extern PlatformAllocator allocator;
