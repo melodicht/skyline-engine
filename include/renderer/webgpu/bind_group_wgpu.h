@@ -1,7 +1,7 @@
 #pragma once
 
-#include "math/skl_math_types.h"
-#include "renderer/wgpu_backend/utils_wgpu.h"
+#include <skl_math_types.h>
+#include <utils_wgpu.h>
 
 #include <webgpu/webgpu.h>
 

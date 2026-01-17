@@ -4,7 +4,7 @@
 #include <meta_definitions.h>
 #include <skl_math_types.h>
 #include <asset_types.h>
-#include <registry.h>
+#include <component_registry.h>
 
 // Define the game's components here
 

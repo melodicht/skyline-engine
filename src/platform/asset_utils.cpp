@@ -284,12 +284,12 @@ void LoadSkyboxAsset(std::array<std::string,6> names) {
     SetSkyboxTexture(setInfo);
 }
 
-DataEntry* LoadDataAsset(std::string path)
+DataEntry* LoadDataAsset(std::string name)
 {
     toml::table file;
     try
     {
-        file = toml::parse_file("../" + path);
+        file = toml::parse_file("../" + name + ".toml");
         return LoadTableToData("Scene", &file);
     }
     catch (const toml::parse_error& error)
@@ -299,7 +299,7 @@ DataEntry* LoadDataAsset(std::string path)
     }
 }
 
-s32 WriteDataAsset(std::string path, DataEntry* data)
+s32 WriteDataAsset(std::string name, DataEntry* data)
 {
     if (data->type != STRUCT_ENTRY)
     {
@@ -308,7 +308,11 @@ s32 WriteDataAsset(std::string path, DataEntry* data)
     toml::table file;
     SaveDataToTable(data->structVal, &file);
 
-    std::ofstream output(path);
+    std::ofstream output("../" + name + ".toml");
+    if (!output.is_open())
+    {
+        LOG_ERROR("could not open file");
+    }
     output << file;
 
     return 0;

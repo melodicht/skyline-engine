@@ -138,40 +138,8 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
-    AllocatedBuffer stagingBuffer = CreateBuffer(device, allocator,
-                                                 indexSize + vertSize,
-                                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-    void* stagingData = stagingBuffer.allocation->GetMappedData();
-    memcpy(stagingData, indices, indexSize);
-    memcpy((char*)stagingData + indexSize, vertices, vertSize);
-
-    VkCommandBuffer cmd = BeginImmediateCommands(device, mainCommandPool);
-
-    VkBufferCopy indexCopy
-    {
-        .srcOffset = 0,
-        .dstOffset = 0,
-        .size = indexSize
-    };
-
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1, &indexCopy);
-
-    VkBufferCopy vertCopy
-    {
-        .srcOffset = indexSize,
-        .dstOffset = 0,
-        .size = vertSize
-    };
-
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertBuffer.buffer, 1, &vertCopy);
-
-    EndImmediateCommands(device, graphicsQueue, mainCommandPool, cmd);
-    DestroyBuffer(allocator, stagingBuffer);
-
+    StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, mesh.indexBuffer, indices, indexSize);
+    StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, mesh.vertBuffer, vertices, vertSize);
 
     mesh.indexCount = indexCount;
 
@@ -195,12 +163,7 @@ u32 CreateCameraBuffer(u32 viewCount)
 {
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        frames[i].cameraBuffers.push_back(CreateBuffer(device, allocator,
-                                                       sizeof(CameraData) * viewCount,
-                                                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                       | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
+        frames[i].cameraBuffers.push_back(CreateShaderBuffer(device, allocator, sizeof(CameraData) * viewCount));
     }
 
     return frames[0].cameraBuffers.size() - 1;
@@ -384,7 +347,7 @@ Texture CreateDepthCubemap(u32 width, u32 height)
 TextureID UploadTexture(RenderUploadTextureInfo& info)
 {
     AllocatedImage texImage = CreateImage(allocator,
-                                          VK_FORMAT_R8G8B8A8_UNORM, 0,
+                                          VK_FORMAT_R8G8B8A8_SRGB, 0,
                                           VK_IMAGE_USAGE_TRANSFER_DST_BIT
                                           | VK_IMAGE_USAGE_SAMPLED_BIT,
                                           {info.width, info.height, 1}, 1,
@@ -398,7 +361,7 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = texImage.image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
         .subresourceRange
         {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -437,7 +400,9 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
 
     VkCommandBuffer commandBuffer = BeginImmediateCommands(device, mainCommandPool);
 
-    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(texImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_COPY_BIT);
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(texImage.image,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_2_COPY_BIT);
     VkDependencyInfo depInfo
     {
         .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
@@ -464,7 +429,9 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
 
     vkCmdCopyBufferToImage(commandBuffer, uploadBuffer.buffer, texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-    imageBarrier = ImageBarrier(texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_COPY_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+    imageBarrier = ImageBarrier(texImage.image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_COPY_BIT, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
     vkCmdPipelineBarrier2(commandBuffer, &depInfo);
     EndImmediateCommands(device, graphicsQueue, mainCommandPool, commandBuffer);
 
@@ -550,7 +517,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
     // Create the swapchain
     vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
 
-    swapchainFormat = VK_FORMAT_B8G8R8A8_UNORM;
+    swapchainFormat = VK_FORMAT_B8G8R8A8_SRGB;
 
     vkb::Swapchain vkbSwapchain = swapBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = swapchainFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
@@ -823,32 +790,8 @@ void InitRenderer(RenderInitInfo& info)
                                        | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                        0,
                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        AllocatedBuffer stagingBuffer = CreateBuffer(device, allocator,
-                                                     6 * sizeof(u16),
-                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                     VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                     | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
         u16 indices[6] = {0, 2, 1, 1, 2, 3};
-
-        void* stagingData = stagingBuffer.allocation->GetMappedData();
-        memcpy(stagingData, indices, 6 * sizeof(u16));
-
-        VkCommandBuffer cmd = BeginImmediateCommands(device, mainCommandPool);
-
-        VkBufferCopy indexCopy
-        {
-            .srcOffset = 0,
-            .dstOffset = 0,
-            .size = 6 * sizeof(u16)
-        };
-
-        vkCmdCopyBuffer(cmd, stagingBuffer.buffer, iconIndexBuffer.buffer, 1, &indexCopy);
-
-        EndImmediateCommands(device, graphicsQueue, mainCommandPool, cmd);
-        DestroyBuffer(allocator, stagingBuffer);
+        StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, iconIndexBuffer, indices, 6 * sizeof(u16));
     }
 }
 
@@ -885,56 +828,20 @@ void InitPipelines(RenderPipelineInitInfo& info)
     // Create object and light buffers
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        frames[i].objectBuffer = CreateBuffer(device, allocator,
-                                              sizeof(ObjectData) * 4096,
-                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                              | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-        frames[i].dirLightBuffer = CreateBuffer(device, allocator,
-                                                sizeof(VkDirLightData) * 4,
-                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].dirCascadeBuffer = CreateBuffer(device, allocator,
-                                                  sizeof(LightCascade) * NUM_CASCADES * 4,
-                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].spotLightBuffer = CreateBuffer(device, allocator,
-                                                 sizeof(VkSpotLightData) * 256,
-                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        frames[i].pointLightBuffer = CreateBuffer(device, allocator,
-                                                  sizeof(VkPointLightData) * 256,
-                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].objectBuffer = CreateShaderBuffer(device, allocator, sizeof(ObjectData) * 4096);
+        frames[i].dirLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkDirLightData) * 4);
+        frames[i].dirCascadeBuffer = CreateShaderBuffer(device, allocator, sizeof(LightCascade) * NUM_CASCADES * 4);
+        frames[i].spotLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkSpotLightData) * 256);
+        frames[i].pointLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkPointLightData) * 256);
         if (editor)
         {
-            frames[i].idBuffer = CreateBuffer(device, allocator,
-                                              sizeof(u32) * 4096,
-                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                              | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+            frames[i].idBuffer = CreateShaderBuffer(device, allocator, sizeof(u32) * 4096);
             frames[i].idTransferBuffer = CreateBuffer(device, allocator,
                                                       32, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                       | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-            frames[i].iconBuffer = CreateBuffer(device, allocator,
-                                                sizeof(IconData) * 1024,
-                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+            frames[i].iconBuffer = CreateShaderBuffer(device, allocator, sizeof(IconData) * 1024);
         }
     }
 
@@ -1377,7 +1284,6 @@ void InitPipelines(RenderPipelineInitInfo& info)
     vkDestroyShaderModule(device, iconFragShader, nullptr);
 #endif
 
-#if SKL_ENABLED_EDITOR
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo
     {
@@ -1398,15 +1304,12 @@ void InitPipelines(RenderPipelineInitInfo& info)
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
-#endif
 }
 
 // Set up frame and begin capturing draw calls
 bool InitFrame()
 {
-#if SKL_ENABLED_EDITOR
     ImGui_ImplVulkan_NewFrame();
-#endif
 
     imageBarriers.clear();
 
@@ -1518,14 +1421,18 @@ void BeginDepthPass(CullMode cullMode)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
     currentLayout = &depthPipelineLayout;
 
-    imageBarriers.push_back(ImageBarrier(depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT));
+    imageBarriers.push_back(ImageBarrier(depthImage.image,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT));
 }
 
 void BeginShadowPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
 
     VkDependencyInfo depInfo
     {
@@ -1556,14 +1463,18 @@ void BeginShadowPass(Texture target, CullMode cullMode)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline);
     currentLayout = &depthPipelineLayout;
 
-    imageBarriers.push_back(ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
+    imageBarriers.push_back(ImageBarrier(target.texture.image,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
 }
 
 void BeginCascadedPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
 
     VkDependencyInfo depInfo
     {
@@ -1594,14 +1505,18 @@ void BeginCascadedPass(Texture target, CullMode cullMode)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cascadedPipeline);
     currentLayout = &depthPipelineLayout;
 
-    imageBarriers.push_back(ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
+    imageBarriers.push_back(ImageBarrier(target.texture.image,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
 }
 
 void BeginCubemapShadowPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
 
     VkDependencyInfo depInfo
     {
@@ -1632,14 +1547,18 @@ void BeginCubemapShadowPass(Texture target, CullMode cullMode)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubemapPipeline);
     currentLayout = &shadowPipelineLayout;
 
-    imageBarriers.push_back(ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
+    imageBarriers.push_back(ImageBarrier(target.texture.image,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
 }
 
 void BeginColorPass(CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    imageBarriers.push_back(ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT));
+    imageBarriers.push_back(ImageBarrier(swapImages[swapIndex],
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT));
 
     //set dynamic viewport and scissor
     VkViewport viewport
@@ -1720,7 +1639,9 @@ void BeginColorPass(CullMode cullMode)
         renderInfo.colorAttachmentCount = 2;
         renderInfo.pColorAttachments = attachments;
 
-        imageBarriers.push_back(ImageBarrier(idImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT));
+        imageBarriers.push_back(ImageBarrier(idImage.image,
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT));
 
         vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                            3 * sizeof(VkDeviceAddress), sizeof(VkDeviceAddress), &frames[frameNum].idBuffer.address);
@@ -1859,8 +1780,12 @@ void EndFrame(glm::ivec2 cursorPos)
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
-    VkImageMemoryBarrier2 idBarrier = ImageBarrier(idImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_COPY_BIT);
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(swapImages[swapIndex],
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
+    VkImageMemoryBarrier2 idBarrier = ImageBarrier(idImage.image,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_COPY_BIT);
 
     VkImageMemoryBarrier2 barriers[2] = {imageBarrier, idBarrier};
 
@@ -2006,7 +1931,7 @@ void RenderUpdate(RenderFrameInfo& info)
         TextureID tex = meshInfo.texture;
         glm::vec3 color = meshInfo.rgbColor;
 
-        objects[offsets[mesh]] = {model, tex, glm::vec4(color.r, color.g, color.b, 1.0f)};
+        objects[offsets[mesh]] = {model, tex, sRGBToLinear(glm::vec4(color.r, color.g, color.b, 1.0f))};
         ids[offsets[mesh]++] = meshInfo.id;
     }
 
@@ -2099,7 +2024,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
         dirLightData.push_back({dirTransform->GetForwardVector(),
                                 lightEntry.shadowMap.descriptorIndex,
-                                dirInfo.diffuse, dirInfo.specular});
+                                sRGBToLinear(dirInfo.diffuse), sRGBToLinear(dirInfo.specular)});
     }
 
 
@@ -2136,7 +2061,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
 
         spotLightData.push_back({spotProj * spotView, spotPos, spotTransform->GetForwardVector(),
-                                 lightEntry.shadowMap.descriptorIndex, spotInfo.diffuse, spotInfo.specular,
+                                 lightEntry.shadowMap.descriptorIndex, sRGBToLinear(spotInfo.diffuse), sRGBToLinear(spotInfo.specular),
                                  cosf(glm::radians(spotInfo.innerCone)), cosf(glm::radians(spotInfo.outerCone)),
                                  spotInfo.range});
     }
@@ -2182,7 +2107,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
 
         pointLightData.push_back({pointPos, lightEntry.shadowMap.descriptorIndex,
-                                  pointInfo.diffuse, pointInfo.specular,
+                                  sRGBToLinear(pointInfo.diffuse), sRGBToLinear(pointInfo.specular),
                                   pointInfo.radius, pointInfo.falloff});
     }
 
@@ -2203,7 +2128,7 @@ void RenderUpdate(RenderFrameInfo& info)
 
     BeginColorPass(CullMode::BACK);
 
-    SetLights({0.1f, 0.1f, 0.1f},
+    SetLights(sRGBToLinear({0.1f, 0.1f, 0.1f}),
               dirLightData.size(), dirLightData.data(), cascades.data(),
               spotLightData.size(), spotLightData.data(),
               pointLightData.size(), pointLightData.data());
@@ -2221,9 +2146,7 @@ void RenderUpdate(RenderFrameInfo& info)
         DrawIcons(info.icons);
     }
 
-#if SKL_ENABLED_EDITOR
     DrawImGui();
-#endif
     EndPass();
     EndFrame(info.cursorPos);
 }

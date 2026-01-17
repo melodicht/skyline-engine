@@ -1,15 +1,16 @@
 #pragma once
 
+#include <render_backend.h>
+
+#include <bind_group_wgpu.h>
+#include <utils_wgpu.h>
+#include <render_types_wgpu.h>
+#include <dynamic_shadow_array.h>
+#include <single_textures_wgpu.h>
+
+#include <skl_math_types.h>
+
 #include <webgpu/webgpu.h>
-
-#include "renderer/render_backend.h"
-#include "renderer/wgpu_backend/bind_group_wgpu.h"
-#include "renderer/wgpu_backend/utils_wgpu.h"
-#include "renderer/wgpu_backend/render_types_wgpu.h"
-#include "renderer/wgpu_backend/dynamic_shadow_array.h"
-#include "renderer/wgpu_backend/single_textures_wgpu.h"
-
-#include "math/skl_math_types.h"
 
 #include <SDL3/SDL.h>
 

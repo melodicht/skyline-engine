@@ -32,6 +32,17 @@ struct RenderInitInfo {
 };
 void InitRenderer(RenderInitInfo& info);
 
+// Set up the render pipelines
+struct RenderPipelineInitInfo {
+    // Shared
+
+    // Vulkan Specific
+
+    // WGPU Specific
+};
+
+void InitPipelines(RenderPipelineInitInfo& info);
+
 // Moves a mesh to the GPU,
 // Returns a uint that represents the mesh's ID
 struct RenderUploadMeshInfo {

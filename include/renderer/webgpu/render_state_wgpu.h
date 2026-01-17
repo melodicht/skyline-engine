@@ -1,7 +1,7 @@
 #pragma once
 
-#include "math/skl_math_types.h"
-#include "renderer/render_types.h"
+#include <skl_math_types.h>
+#include <render_types.h>
 
 #include <map>
 #include <vector>

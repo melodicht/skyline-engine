@@ -12,10 +12,8 @@
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
 
-#if SKL_ENABLED_EDITOR
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
-#endif
 
 #if EMSCRIPTEN
 #include <emscripten/html5.h>
@@ -51,15 +49,17 @@ struct AppInformation
     bool playing;
     u64 now;
     u64 last;
+    b32 editor;
 
-    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast) :
+    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast, b32 setEditor) :
         window(setWindow),
         gameCode(gameCode),
         gameMemory(gameMemory),
         e(setE),
         playing(setPlaying),
         now(setNow),
-        last(setLast)
+        last(setLast),
+        editor(setEditor)
     { }
 };
 
@@ -72,6 +72,8 @@ file_global f32 mouseDeltaY = 0;
 
 file_global f32 mouseX = 0;
 file_global f32 mouseY = 0;
+
+file_global u32 reloadCount = 0;
 
 local const char *SDLGetGameCodeSrcFilePath()
 {
@@ -105,22 +107,22 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
     // NOTE(marvin): Could make a macro to generalize, but lazy and
     // unsure of impact on compile time.
-    const char *gameCodeUseFilePath;
+    std::string gameCodeUseFilePath;
 #ifdef PLATFORM_WINDOWS
-    gameCodeUseFilePath = GAME_CODE_USE_FILE_NAME ".dll";
+    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "{}.dll", reloadCount);
 #else
-    gameCodeUseFilePath = "./lib" GAME_CODE_USE_FILE_NAME ".so";
+    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "{}.so", reloadCount);
 #endif
 
     // NOTE(marvin): Need to have a copy for the platform executable
     // to use so that when recompile, allowed to rewrite the source
     // without it being locked by the platform executable.
-    if(!SDL_CopyFile(gameCodeSrcFilePath, gameCodeUseFilePath))
+    if(!SDL_CopyFile(gameCodeSrcFilePath, gameCodeUseFilePath.c_str()))
     {
         LOG_ERROR("Unable to copy game module source to used.");
         LOG_ERROR(SDL_GetError());
     }
-    result.sharedObjectHandle = SDL_LoadObject(gameCodeUseFilePath);
+    result.sharedObjectHandle = SDL_LoadObject(gameCodeUseFilePath.c_str());
     if (!result.sharedObjectHandle)
     {
         LOG_ERROR("Game code loading failed.");
@@ -155,27 +157,30 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
 {
     if(gameCode->sharedObjectHandle)
     {
-        // NOTE(marvin): Not sure if there is a better to test whether
-        // a shared object handle is still loaded other than to check
-        // if we can load a function...
         SDL_UnloadObject(gameCode->sharedObjectHandle);
+
+#ifdef PLATFORM_WINDOWS
+        // NOTE(marvin): Not sure if there is a better way to test
+        // whether a shared object handle is still loaded other than
+        // to check if we can load a function...
         SDL_FunctionPointer functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
 
-        // TODO(marvin): Interestingly, always need to unload another 11 more times for the DLL to actually get unloaded. WHY?!
+        // TODO(marvin): Interestingly, on Windows, always need to unload some constnt number of times for the DLL to actually get unloaded. And Linux just tries to unload infinitely... WHY?!
         while(functionPtr != NULL)
         {
             LOG_ERROR("Failed to unload game module DLL, trying again.");
             SDL_Delay(100);
             SDL_UnloadObject(gameCode->sharedObjectHandle);
             functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
-        } 
-
+        }
+#endif
+        
         gameCode->sharedObjectHandle = 0;
-
     }
     gameCode->gameInitialize = 0;
     gameCode->gameLoad = 0;
     gameCode->gameUpdateAndRender = 0;
+    reloadCount++;
 }
 
 local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
@@ -205,15 +210,14 @@ void updateLoop(void* appInfo) {
         SDLUnloadGameCode(&gameCode);
         info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
         gameCode = info->gameCode;
-        gameCode.gameLoad(info->gameMemory);
+        gameCode.gameLoad(info->gameMemory, info->editor);
     }
 
     while (SDL_PollEvent(&info->e))
     {
         // Cut off Imgui until we actually implement a base renderer for WGPU
-        #if SKL_ENABLED_EDITOR
         ImGui_ImplSDL3_ProcessEvent(&info->e);
-        #endif
+
         switch (info->e.type)
         {
             case SDL_EVENT_QUIT:
@@ -246,7 +250,6 @@ void updateLoop(void* appInfo) {
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
     // Cut off Imgui until we actually implement a base renderer for WGPU
-    #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     ImGuiIO& io = ImGui::GetIO();
@@ -255,7 +258,6 @@ void updateLoop(void* appInfo) {
     {
         keysDown.erase("Mouse 1");
     }
-    #endif
 
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
@@ -297,11 +299,9 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    #if SKL_ENABLED_EDITOR
     ImGuiContext *imGuiContext = ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
-    #endif
 
     std::string mapName = "test";
     bool editor = false;
@@ -333,6 +333,9 @@ int main(int argc, char** argv)
     };
     InitRenderer(initDesc);
 
+    RenderPipelineInitInfo pipelinesInfo;
+    InitPipelines(pipelinesInfo);
+
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
     gameMemory.permanentStorageSize = Megabytes(512 + 256);
@@ -350,15 +353,15 @@ int main(int argc, char** argv)
     gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
+    gameCode.gameLoad(gameMemory, editor);
     gameCode.gameInitialize(gameMemory, mapName, editor);
-    gameCode.gameLoad(gameMemory);
 
     SDL_Event e;
     bool playing = true;
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last);
+    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last, editor);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {

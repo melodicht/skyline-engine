@@ -1,12 +1,14 @@
-#include "renderer/wgpu_backend/dynamic_light_converter.h"
+#include <dynamic_light_converter.h>
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <skl_math_utils.h>
 // This prepares gpu side directional lights.
 // Light spaces are added on per cascade, 
 // (i.e. if lightSpacesCascadeCount == 2 and cpuType comprised of {a,b} then the added lightSpaces would be {(a cascade 1), (b cascade 1), (a cascade 2), (b cascade 2)})
 std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     std::vector<DirLightRenderInfo>& cpuType,
     std::vector<glm::mat4x4>& lightSpacesOutput,
-    int lightSpacesCascadeCount,
+    s32 lightSpacesCascadeCount,
     const glm::mat4x4& camSpaceMat,
     const std::vector<float>& cascadeRatios,
     float cascadeBleed,
@@ -51,7 +53,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     // The cascade inserted should contain the same amount of ratios as the amount of cascades
     assert(cascadeRatios.size() == lightSpacesCascadeCount);
 
-    for (int cascadeIterator = 0; cascadeIterator < lightSpacesCascadeCount; cascadeIterator++)
+    for (s32 cascadeIterator = 0; cascadeIterator < lightSpacesCascadeCount; cascadeIterator++)
     {
         float startRatio;
         if (cascadeIterator == 0) {
@@ -80,7 +82,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
             }
         }
 
-        for (int cpuIter = 0; cpuIter < cpuType.size() ; cpuIter++) {
+        for (s32 cpuIter = 0; cpuIter < cpuType.size() ; cpuIter++) {
             f32 minX = std::numeric_limits<f32>::max();
             f32 maxX = std::numeric_limits<f32>::lowest();
             f32 minY = std::numeric_limits<f32>::max();
@@ -117,8 +119,8 @@ inline glm::mat4x4 lookAtHelper(glm::vec3 location, glm::vec3 forward, glm::vec3
 std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
     std::vector<PointLightRenderInfo>& cpuType,
     std::vector<glm::mat4x4>& lightSpacesOutput,
-    int shadowHeight,
-    int shadowWidth) {
+    s32 shadowHeight,
+    s32 shadowWidth) {
 
     std::vector<WGPUBackendDynamicShadowedPointLightData> ret{ };
     ret.reserve(cpuType.size());

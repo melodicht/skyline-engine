@@ -415,6 +415,8 @@ out
 # Ignores contents of build folder but not the folder itself.
 build/*
 !build/.gitkeep
+build-release/*
+!build-release/.gitkeep
 
 
 /build_external
@@ -427,4 +429,3 @@ build/*
 .DS_Store
 /cmake-build-debug-clang
 /cmake-build-release-clang
-/build-release

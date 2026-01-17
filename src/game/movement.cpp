@@ -4,12 +4,14 @@
 #include <utils.h>
 #include <scene_view.h>
 
+MAKE_SYSTEM_MANUAL_VTABLE(MovementSystem);
+
 void MovementSystem::CapVerticalRotationForward(Transform3D *t)
 {
     t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
 }
 
-void MovementSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+SYSTEM_ON_UPDATE(MovementSystem)
 {
     // TODO(marvin): Duplicate looking code between FlyingMovement and the XLook family of components.
     for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
@@ -40,3 +42,4 @@ void MovementSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
         this->CapVerticalRotationForward(t);
     }
 }
+

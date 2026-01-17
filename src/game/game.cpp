@@ -2,20 +2,26 @@
 
 #include <imgui.h>
 
+#if SKL_ENABLED_EDITOR
+#include <editor.h>
+#endif
+
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
 #include <scene_loader.h>
+#include <system_registry.h>
 #include <components.h>
 #include <physics.h>
 #include <overlay.h>
 #include <city_builder.h>
-#include <editor.h>
+
 #include <movement.h>
 #include <draw_scene.h>
 
 
-PlatformAPI globalPlatformAPI;
+PlatformAssetUtils assetUtils;
+PlatformRenderer renderer;
 
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
@@ -45,14 +51,12 @@ GAME_INITIALIZE(GameInitialize)
     Scene &scene = gameState->scene;
 
     gameState->isEditor = editor;
-    globalPlatformAPI = memory.platformAPI;
+    assetUtils = memory.platformAPI.assetUtils;
+    renderer = memory.platformAPI.renderer;
 
-    RenderPipelineInitInfo initDesc {};
-    globalPlatformAPI.renderer.InitPipelines(initDesc);
+    assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
-    globalPlatformAPI.assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
-
-    RegisterComponents(scene, editor);
+    CreateComponentPools(scene);
 
     s32 rv = LoadScene(scene, mapName);
     if (rv != 0)
@@ -65,6 +69,7 @@ GAME_INITIALIZE(GameInitialize)
 
     if (editor)
     {
+        #if SKL_ENABLED_EDITOR
         gameState->overlayMode = overlayMode_ecsEditor;
         gameState->currentCamera = scene.NewEntity();
         CameraComponent* camera = scene.Assign<CameraComponent>(gameState->currentCamera);
@@ -72,6 +77,9 @@ GAME_INITIALIZE(GameInitialize)
         scene.Assign<Transform3D>(gameState->currentCamera);
 
         EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
+        #else
+        LOG_ERROR("Editor compatibility needs to be enabled on cmake before use");
+        #endif
     }
     else
     {
@@ -91,13 +99,15 @@ __declspec(dllexport)
 #endif
 GAME_LOAD(GameLoad)
 {
-#if SKL_ENABLED_EDITOR
     ImGui::SetCurrentContext(memory.imGuiContext);
-#endif
+
+    assetUtils = memory.platformAPI.assetUtils;
+    renderer = memory.platformAPI.renderer;
+
+    RegisterComponents(editor);
+    RegisterSystems();
 
     DebugUpdate(memory);
-
-    globalPlatformAPI = memory.platformAPI;
 }
 
 local void LogDebugRecords();

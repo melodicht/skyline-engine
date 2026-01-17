@@ -21,8 +21,8 @@ struct GameInput
     method(MeshAsset *,LoadMeshAsset,(std::string name))\
     method(TextureAsset*,LoadTextureAsset,(std::string name))\
     method(void,LoadSkyboxAsset,(std::array<std::string,6> names))\
-    method(DataEntry *,LoadDataAsset,(std::string path))\
-    method(s32,WriteDataAsset,(std::string path, DataEntry *data))
+    method(DataEntry*,LoadDataAsset,(std::string name))\
+    method(s32,WriteDataAsset,(std::string name, DataEntry* data))
 DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
 
 #define ALLOCATOR_FUNCS(method) \
@@ -59,13 +59,17 @@ struct GameMemory
 };
 
 
-// NOTE(marvin): Initialize is anything has to be done at the start ONCE, whereas load is anything that has to be done after the game module is loaded in, including after hot reloads.
+// NOTE(marvin): Load is for setting up infrastructure, anything that
+// has to be done after the game module is loaded in, including after
+// hot reloads, whereas initialize is anything has to be done at the
+// start ONCE. Thus, load happens before game initialize on game boot,
+// and also before game update and render on hot reload (obviously).
 
-#define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, bool editor)
-typedef GAME_INITIALIZE(game_initialize_t);
-
-#define GAME_LOAD(name) void name(GameMemory &memory)
+#define GAME_LOAD(name) void name(GameMemory &memory, b32 editor)
 typedef GAME_LOAD(game_load_t);
+
+#define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, b32 editor)
+typedef GAME_INITIALIZE(game_initialize_t);
 
 #define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 deltaTime)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);

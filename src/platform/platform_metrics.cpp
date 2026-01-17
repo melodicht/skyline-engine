@@ -4,69 +4,13 @@
 #include <meta_definitions.h>
 #include <timer.h>
 
-#if __APPLE__ || __EMSCRIPTEN__
-static u64 GetOSTimerFreq(void)
-{
-    return 0;
-}
+// Finds the frequency of ticks per second on OS
+static u64 GetOSTimerFreq(void);
 
-static u64 ReadOSTimer(void)
-{
-    return 0;
-}
+// Finds the amount of ticks passed
+static u64 ReadOSTimer(void);
 
-
-inline u64 ReadCPUTimer(void)
-{
-    return 0;
-}
-
-static u64 EstimateCPUTimerFreq(void)
-{
-    return 0;
-}
-
-#else
-
-#if _WIN32
-
-#include <intrin.h>
-#include <windows.h>
-
-static u64 GetOSTimerFreq(void)
-{
-    LARGE_INTEGER Freq;
-    QueryPerformanceFrequency(&Freq);
-    return Freq.QuadPart;
-}
-
-static u64 ReadOSTimer(void)
-{
-    LARGE_INTEGER Value;
-    QueryPerformanceCounter(&Value);
-    return Value.QuadPart;
-}
-
-#else
-
-#include <x86intrin.h>
-#include <sys/time.h>
-
-static u64 GetOSTimerFreq(void)
-{
-	return 1000000;
-}
-
-static u64 ReadOSTimer(void)
-{
-	struct timeval Value;
-	gettimeofday(&Value, 0);
-	
-	u64 Result = GetOSTimerFreq()*(u64)Value.tv_sec + (u64)Value.tv_usec;
-	return Result;
-}
-#endif
-
+// Estimates the frequency of ticks per second on CPU
 static u64 EstimateCPUTimerFreq(void)
 {
     u64 MillisecondsToWait = 100;
@@ -95,6 +39,68 @@ static u64 EstimateCPUTimerFreq(void)
     return CPUFreq;
 }
 
-#endif
-#endif
+#if defined(__aarch64__)
+static u64 GetOSTimerFreq(void)
+{
+    uint64_t freq;
+    asm volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+    return freq;
+}
 
+static u64 ReadOSTimer(void)
+{
+    uint64_t cntvct;
+    asm volatile("mrs %0, cntvct_el0" : "=r"(cntvct) :: "memory");
+    return cntvct;
+}
+
+#elif defined(_WIN32)
+
+#include <intrin.h>
+#include <windows.h>
+
+static u64 GetOSTimerFreq(void)
+{
+    LARGE_INTEGER Freq;
+    QueryPerformanceFrequency(&Freq);
+    return Freq.QuadPart;
+}
+
+static u64 ReadOSTimer(void)
+{
+    LARGE_INTEGER Value;
+    QueryPerformanceCounter(&Value);
+    return Value.QuadPart;
+}
+
+#elif (defined(__GNUC__) || defined(__clang__)) && (defined(__x86_64__) || defined(__i386__))
+
+#include <x86intrin.h>
+#include <sys/time.h>
+
+static u64 GetOSTimerFreq(void)
+{
+	return 1000000;
+}
+
+static u64 ReadOSTimer(void)
+{
+	struct timeval Value;
+	gettimeofday(&Value, 0);
+	
+	u64 Result = GetOSTimerFreq()*(u64)Value.tv_sec + (u64)Value.tv_usec;
+	return Result;
+}
+#else
+#warning "Platform is unsupported by skyline engine timer"
+static u64 GetOSTimerFreq(void)
+{
+	return 0;
+}
+
+static u64 ReadOSTimer(void)
+{
+	return 0;
+}
+#endif
+#endif

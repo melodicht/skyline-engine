@@ -17,8 +17,11 @@ private:
     void Step(Scene *scene);
 
     void BuildPart(Scene *scene, EntityID ent, Transform3D *t, MeshAsset *mesh, glm::vec3 scale);
-public:
+
     BuilderSystem(bool slowStep);
 
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime);
+    MAKE_SYSTEM_DECLARATIONS(BuilderSystem);
+    
+public:
+    SYSTEM_ON_UPDATE();
 };

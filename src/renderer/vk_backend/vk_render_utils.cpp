@@ -27,6 +27,15 @@ AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t all
     return newBuffer;
 }
 
+AllocatedBuffer CreateShaderBuffer(VkDevice device, VmaAllocator allocator, size_t allocSize)
+{
+    return CreateBuffer(device, allocator, allocSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        VMA_ALLOCATION_CREATE_MAPPED_BIT
+        | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+}
+
 void DestroyBuffer(VmaAllocator allocator, AllocatedBuffer buffer)
 {
     vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
@@ -138,6 +147,33 @@ void EndImmediateCommands(VkDevice device, VkQueue graphicsQueue, VkCommandPool 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 };
 
+void StagedCopyToBuffer(VkDevice device, VmaAllocator allocator, VkCommandPool commandPool,
+    VkQueue graphicsQueue, AllocatedBuffer buffer, void* src, size_t size)
+{
+    AllocatedBuffer stagingBuffer = CreateBuffer(device, allocator, size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VMA_ALLOCATION_CREATE_MAPPED_BIT
+        | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+    void* stagingData = stagingBuffer.allocation->GetMappedData();
+    memcpy(stagingData, src, size);
+
+    VkCommandBuffer cmd = BeginImmediateCommands(device, commandPool);
+
+    VkBufferCopy copy
+    {
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = size
+    };
+
+    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, buffer.buffer, 1, &copy);
+
+    EndImmediateCommands(device, graphicsQueue, commandPool, cmd);
+    DestroyBuffer(allocator, stagingBuffer);
+}
+
 VkCullModeFlags GetCullModeFlags(CullMode cullMode)
 {
     switch (cullMode)
@@ -150,3 +186,33 @@ VkCullModeFlags GetCullModeFlags(CullMode cullMode)
             return VK_CULL_MODE_BACK_BIT;
     }
 };
+
+f32 sRGBToLinear(f32 sRGB)
+{
+    return sRGB > 0.04045f ? std::powf((sRGB + 0.055f) / 1.055, 2.4f) : sRGB / 12.92f;
+}
+
+f32 linearToSRGB(f32 linear)
+{
+    return linear > 0.0031308f ? 1.055f * std::powf(linear, 1.0f / 2.4f) - 0.055f : linear * 12.92f;
+}
+
+glm::vec3 sRGBToLinear(glm::vec3 sRGB)
+{
+    return {sRGBToLinear(sRGB.x), sRGBToLinear(sRGB.y), sRGBToLinear(sRGB.z)};
+}
+
+glm::vec3 linearToSRGB(glm::vec3 linear)
+{
+    return {linearToSRGB(linear.x), linearToSRGB(linear.y), linearToSRGB(linear.z)};
+}
+
+glm::vec4 sRGBToLinear(glm::vec4 sRGB)
+{
+    return {sRGBToLinear(sRGB.x), sRGBToLinear(sRGB.y), sRGBToLinear(sRGB.z), sRGB.a};
+}
+
+glm::vec4 linearToSRGB(glm::vec4 linear)
+{
+    return {linearToSRGB(linear.x), linearToSRGB(linear.y), linearToSRGB(linear.z), linear.a};
+}

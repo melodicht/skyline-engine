@@ -75,7 +75,7 @@ void StartAllSystems(SystemsBuffer *systemsBuffer, Scene *scene)
     for (u32 i = 0; i < systemsBuffer->count; ++i)
     {
         System *system = systemsBuffer->base[i];
-        system->OnStart(scene);
+        system->vtable->onStart(system, scene);
     }
 }
 
@@ -84,7 +84,7 @@ void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene *scene, GameInput *inp
     for (u32 i = 0; i < systemsBuffer->count; ++i)
     {
         System *system = systemsBuffer->base[i];
-        system->OnUpdate(scene, input, deltaTime);
+        system->vtable->onUpdate(system, scene, input, deltaTime);
     }
 }
 

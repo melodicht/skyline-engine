@@ -9,6 +9,7 @@ position = [5.0, 0.0, 0.0]
 [cube.MeshComponent]
 mesh = "cube"
 texture = "diamond_ore"
+[cube.Spin]
 
 [floor.Transform3D]
 position = [0.0, 0.0, -5.0]
