@@ -540,7 +540,7 @@ public:
 #define RegisterSystem(scene, T, ...) \
     ({ \
         Scene *_scene = (scene); \
-        T *_system = T::Initialize(PushSystem(_scene, T), __VA_ARGS__); \
+        T *_system = T::Initialize(PushSystem(_scene, T)__VA_OPT__(,) __VA_ARGS__); \
         _scene->AddSystem(_system); \
         _system->UpdateVTable();     \
         _system; })
