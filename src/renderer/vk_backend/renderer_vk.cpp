@@ -1274,8 +1274,6 @@ void InitPipelines(RenderPipelineInitInfo& info)
 #else
     vkDestroyShaderModule(device, colorVertShader, nullptr);
     vkDestroyShaderModule(device, colorFragShader, nullptr);
-    vkDestroyShaderModule(device, depthShader, nullptr);
-    vkDestroyShaderModule(device, dirShadowFragShader, nullptr);
     vkDestroyShaderModule(device, shadowVertShader, nullptr);
     vkDestroyShaderModule(device, shadowFragShader, nullptr);
     vkDestroyShaderModule(device, iconVertShader, nullptr);
