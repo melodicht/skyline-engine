@@ -9,7 +9,7 @@
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <system_registry.h>
 #include <components.h>
 #include <physics.h>
@@ -50,7 +50,6 @@ GAME_INITIALIZE(GameInitialize)
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
-    gameState->isEditor = editor;
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;
 
@@ -58,18 +57,18 @@ GAME_INITIALIZE(GameInitialize)
 
     CreateComponentPools(scene);
 
-    s32 rv = LoadScene(scene, mapName);
+    s32 rv = LoadMap(scene, mapName);
     if (rv != 0)
     {
-        std::cout << "Failed to load scene\n";
+        std::cout << "Failed to load map\n";
         exit(-1);
     }
 
     b32 slowStep = false;
-
+    #if SKL_ENABLED_EDITOR
+    gameState->isEditor = editor;
     if (editor)
     {
-        #if SKL_ENABLED_EDITOR
         gameState->overlayMode = overlayMode_ecsEditor;
         gameState->currentCamera = scene.NewEntity();
         CameraComponent* camera = scene.Assign<CameraComponent>(gameState->currentCamera);
@@ -77,18 +76,18 @@ GAME_INITIALIZE(GameInitialize)
         scene.Assign<Transform3D>(gameState->currentCamera);
 
         EditorSystem *editorSystem = AddSystemToScene(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
-        #else
-        LOG_ERROR("Editor compatibility needs to be enabled on cmake before use");
-        #endif
     }
     else
     {
+    #endif
         AddSystemToScene(&scene, SKLPhysicsSystem);
         AddSystemToScene(&scene, MovementSystem);
         AddSystemToScene(&scene, BuilderSystem, slowStep);
 
         FindCamera(*gameState);
+    #if SKL_ENABLED_EDITOR
     }
+    #endif
 
     scene.InitSystems();
 }

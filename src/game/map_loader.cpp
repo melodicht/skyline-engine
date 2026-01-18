@@ -2,12 +2,12 @@
 
 #include <meta_definitions.h>
 #include <scene.h>
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <game.h>
 #include <scene_view.h>
 #include <entity_view.h>
 
-file_global std::string currentSceneName = "";
+file_global std::string currentMapName = "";
 
 std::unordered_map<std::string, EntityID> entityIds;
 std::vector<IconGizmo> iconGizmos;
@@ -46,13 +46,13 @@ void CreateComponentPools(Scene& scene)
     }
 }
 
-inline std::string GetCurrentSceneName()
+inline std::string GetCurrentMapName()
 {
-    std::string result = currentSceneName;
+    std::string result = currentMapName;
     return result;
 }
 
-s32 LoadScene(Scene& scene, std::string name)
+s32 LoadMap(Scene& scene, std::string name)
 {
     std::string filepath = "maps/" + name;
     DataEntry* data = assetUtils.LoadDataAsset(filepath);
@@ -95,7 +95,7 @@ s32 LoadScene(Scene& scene, std::string name)
         }
     }
     delete data;
-    currentSceneName = name;
+    currentMapName = name;
     return rv;
 }
 
@@ -114,7 +114,7 @@ DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
     return data;
 }
 
-void SaveScene(Scene& scene, std::string name)
+void SaveMap(Scene& scene, std::string name)
 {
     DataEntry* sceneData = new DataEntry("Scene");
     for (EntityID ent : SceneView<NameComponent>(scene))
@@ -127,7 +127,7 @@ void SaveScene(Scene& scene, std::string name)
     delete sceneData;
 }
 
-void SaveCurrentScene(Scene& scene)
+void SaveCurrentMap(Scene& scene)
 {
-    SaveScene(scene, GetCurrentSceneName());
+    SaveMap(scene, GetCurrentMapName());
 }

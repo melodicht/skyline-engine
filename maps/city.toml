@@ -8,7 +8,7 @@ nearPlane = 0.2
 moveSpeed = 200.0
 
 [startPlane.Transform3D]
-[startPlane.Plane]
+[startPlane.BuilderPlane]
 width = 4096.0
 length = 4096.0
 

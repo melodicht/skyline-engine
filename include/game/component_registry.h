@@ -2,7 +2,7 @@
 
 #ifdef REGISTRY
 
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <typeinfo>
 #include <typeindex>
 
