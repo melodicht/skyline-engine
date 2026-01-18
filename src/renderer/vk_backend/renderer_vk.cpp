@@ -1403,6 +1403,19 @@ void BeginDepthPass(CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(depthImage.image,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier
+    };
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
+
     //set dynamic viewport and scissor
     VkViewport viewport
     {
