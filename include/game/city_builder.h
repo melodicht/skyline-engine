@@ -1,6 +1,7 @@
 #pragma once
 
 #include <scene.h>
+#include <system_registry.h>
 
 struct Transform3D;
 struct MeshAsset;
@@ -25,3 +26,4 @@ private:
 public:
     SYSTEM_ON_UPDATE();
 };
+SYSTEM(BuilderSystem);

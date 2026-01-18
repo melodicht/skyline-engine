@@ -2,6 +2,7 @@
 
 #include <scene.h>
 #include <overlay.h>
+#include <system_registry.h>
 
 struct DataEntry;
 
@@ -43,3 +44,4 @@ private:
 public:
     SYSTEM_ON_UPDATE();
 };
+SYSTEM(EditorSystem);

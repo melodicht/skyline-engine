@@ -30,4 +30,4 @@ void AddSystem()
 
 // NOTE(marvin): The (...) assigned to a variable which we ignore, for
 // the purpose executing the function on static init.
-#define SYSTEM(type) [[maybe_unused]] static int ignore_add##type = (AddSystem<type>());
+#define SYSTEM(type) [[maybe_unused]] static int ignore_add##type = (AddSystem<type>(), 0);

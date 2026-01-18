@@ -2,6 +2,7 @@
 
 #include <scene.h>
 #include <components.h>
+#include <system_registry.h>
 
 namespace JPH
 {
@@ -31,5 +32,4 @@ public:
 
     SYSTEM_ON_UPDATE();
 };
-
-
+SYSTEM(SKLPhysicsSystem);

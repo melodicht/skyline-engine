@@ -1,6 +1,7 @@
 #pragma once
 
 #include <scene.h>
+#include <system_registry.h>
 
 struct Transform3D;
 
@@ -22,3 +23,4 @@ private:
     void CapVerticalRotationForward(Transform3D *t);
 
 };
+SYSTEM(MovementSystem);
