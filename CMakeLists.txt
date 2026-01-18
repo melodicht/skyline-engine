@@ -20,7 +20,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
 #==============================================================================
-# COMPILATION OPTIONS
+# COMPILATION DEFINITIONS
 #==============================================================================
 
 add_compile_definitions(NOMINMAX)
@@ -67,12 +67,21 @@ if(NOT DEFINED SKL_SLOW)
         endif()
 endif()
 
-add_library(SKL_COMPILE_OPTIONS INTERFACE)
-target_compile_definitions(SKL_COMPILE_OPTIONS INTERFACE
+if (XCODE)
+        set(SKL_BASE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
+elseif(EMSCRIPTEN)
+        set(SKL_BASE_PATH ".")
+else()
+        set(SKL_BASE_PATH "..")
+endif()
+
+add_library(SKL_COMPILE_DEFINITIONS INTERFACE)
+target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR}
         SKL_ENABLED_LOGGING=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_SLOW=${SKL_SLOW}
+        SKL_BASE_PATH="${SKL_BASE_PATH}"
         GLM_FORCE_DEPTH_ZERO_TO_ONE
         GLM_FORCE_LEFT_HANDED)
 
@@ -119,7 +128,7 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
         imgui
         skl-math
-        SKL_COMPILE_OPTIONS
+        SKL_COMPILE_DEFINITIONS
 )
 
 find_library(MATH_LIBRARY m)
@@ -327,9 +336,10 @@ if(NOT EMSCRIPTEN)
 # Preloads files for emscripten
 else()
         target_link_options(platform PRIVATE
-                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/shaders/webgpu@/shaders/" #This isn't great, would be better to encapsulate all of this into a specific folder
-                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/models@/models/"
-                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/fonts@/fonts/"
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/shaders/webgpu@/shaderbin/" #This isn't great, would be better to encapsulate all of this into a specific folder
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/models@/models/"
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/fonts@/fonts/"
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/textures@/textures/"
                 --preload-plugins
         )
 endif()

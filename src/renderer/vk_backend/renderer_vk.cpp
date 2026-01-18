@@ -941,20 +941,20 @@ void InitPipelines(RenderPipelineInitInfo& info)
     mainCamIndex = CreateCameraBuffer(1);
 
     // Create shader stages
-    VkShaderModule depthShader = CreateShaderModuleFromFile("../shaderbin/depth.vert.spv");
+    VkShaderModule depthShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/depth.vert.spv");
     
-    VkShaderModule shadowVertShader = CreateShaderModuleFromFile("../shaderbin/shadow.vert.spv");
-    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("../shaderbin/shadow.frag.spv");
+    VkShaderModule shadowVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/shadow.vert.spv");
+    VkShaderModule shadowFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/shadow.frag.spv");
 
-    const char* colorFragPath = editor ? "../shaderbin/editor.frag.spv" : "../shaderbin/color.frag.spv";
+    const char* colorFragPath = editor ? SKL_BASE_PATH "/shaderbin/editor.frag.spv" : SKL_BASE_PATH "/shaderbin/color.frag.spv";
     
-    VkShaderModule colorVertShader = CreateShaderModuleFromFile("../shaderbin/color.vert.spv");
+    VkShaderModule colorVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/color.vert.spv");
     VkShaderModule colorFragShader = CreateShaderModuleFromFile(colorFragPath);
 
-    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile("../shaderbin/dirshadow.frag.spv");
+    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/dirshadow.frag.spv");
 
-    VkShaderModule iconVertShader = CreateShaderModuleFromFile("../shaderbin/icon.vert.spv");
-    VkShaderModule iconFragShader = CreateShaderModuleFromFile("../shaderbin/icon.frag.spv");
+    VkShaderModule iconVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/icon.vert.spv");
+    VkShaderModule iconFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/icon.frag.spv");
     
     VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader);
     VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader);

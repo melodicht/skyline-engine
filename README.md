@@ -3,10 +3,10 @@ Skyline Engine
 
 # Directory Overview
 
-- `build`: Artifacts of the build process. Delete the contents of this folder and add back in the `.gitkeep` in order to build from scratch.
+## Development Folders
 - `cmake`: For CMake add-ons and scripts, used by our build process.
 - `data`: The assets for our game, containing models and fonts.
-- `include`: Contains headers of external libraries.
+- `include`: Contains headers of src files and external libraries.
 - `shaders`: Contains shader code.
   - The root holds `slang` shaders.
   - `webgpu`: Contains WebGPU shaders.
@@ -16,7 +16,18 @@ Skyline Engine
 - `README.md`: Provides informative and instructional content related to the game engine.
 - `notes.txt`: Notes taken from code walks.
 
+## Asset Folders
+- `scenes`: Contains specific scene toml layouts.
+- `fonts`: Contains text fonts in ttf folder.
+- `textures`: Contains textures.
+- `models`: Contains gltf models.
 
+## Build Folders
+- `build`: Artifacts of the build process. Delete the contents of this folder and add back in the `.gitkeep` in order to build from scratch.
+- `bin`: Holds binaries of dynamic libraries.
+- `shaderbin`: Holds shaders processed on compilation.
+- `build_external`: Holds build artifacts from external libraries.
+- `build-release`: ???? <IDK what that does someone else please specify> ????
 
 # Game-as-a-service Architecture
 
@@ -86,7 +97,57 @@ When there are several translation units in a project, and some of them referenc
   - main.h
 
 
+# Render Backend
 
+## Vulkan 
+Currently the most up to date graphics backend.
+
+Install instructions:
+- https://vulkan.lunarg.com/sdk/home
+- Install the latest version. As of writing this, we know that 1.4.328.1
+  works.
+- When installing, don't need to tick any of the boxes when asking to install addons.
+
+## WebGPU
+May not yet support certain features that Vulkan backend has, however works on more platforms. 
+
+Install Instructions:
+- Installation instructions depend on what lower level graphics API you want to use underneath WebGPU
+- Find supported WebGPU backends [here] (https://github.com/google/dawn/blob/main/docs/support.md)
+
+# Build options
+
+### SKL_RENDER_SYS
+Currently defines what graphics API backend that the game engine will use.
+
+Current options include "Vulkan", "WebGPU", and "Default"
+
+Defaults to Vulkan, however if Vulkan found or able to be run natively the WebGPU backend is used instead.
+
+### SKL_INTERNAL
+To be turned on when the engine itself is being developed, 
+allows certain logging and debugging functionality.
+
+By default this is on.
+
+### SKL_ENABLE_EDITOR
+When turned on, enables game editing features to be run.
+
+By default this is on.
+
+### SKL_ENABLE_LOGGING
+When turned on, allows for console logging code to be run.
+
+It will be default turned on when SKL_Internal is on.
+
+Can only be turned on if SKL_INTERNAL is on.
+
+### SKL_SLOW
+When turned on enables slower code that either avoids or breaks on certain issues.
+
+It will be default turned on when SKL_Internal is on.
+
+Can only be turned on if SKL_INTERNAL is on.
 
 # Building and running the Project
 
@@ -95,25 +156,29 @@ When there are several translation units in a project, and some of them referenc
 1. Generator: Download Ninja or make
    - We know Ninja works.
 2. C++ Compiler: On windows, use Clang. On Unix, either gcc or Clang works.
-3. Vulkan:
-   - https://vulkan.lunarg.com/sdk/home
-   - Install the latest version. As of writing this, we know that 1.4.328.1
-     works.
-   - When installing, don't need to tick any of the boxes when asking to install addons.
+3. Installed necessary SDK for rendering backend (See [Render Backend](#Render Backend) for more detail)
 4. CMake
 5. Install the latest graphic drivers on your system.
 
 Any other dependencies of our project are installed when cmake is run.
 
-## Steps
+## Command Line Example Build Steps
 
 1. Clone the project
 2. To build the build system, in the `build` directory:
-   `cmake .. -G {Generator} -DCMAKE_C_COMPILER={path/to/c/compiler} -DCMAKE_CXX_COMPILER={path/to/cxx/compiler} -DSKL_RENDER_SYS="Vulkan" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`
+   `cmake .. -G {Generator} -DCMAKE_C_COMPILER={path/to/c/compiler} -DCMAKE_CXX_COMPILER={path/to/cxx/compiler} -DSKL_RENDER_SYS="Default" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`
 3. To use the build system that was just generated:
    `make` or `ninja`, whichever you put as the generator, you can also add `-j <number of threads>` to make it use multiple threads while compiling
 4. To run the game engine, in the `bin` directory: `skyline-engine.exe`
 
+## XCode Example Build Steps
+
+1. Clone the project.
+2. To build the build system, in the 'xcodebuild' directory (It could be named really anything xcodebuild just differentiates it from build folder).
+3. `cmake -G Xcode -DSKL_RENDER_SYS="Default" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`.
+4. Open up xcodebuild/skyline-engine.xcodeproj while in Xcode.
+5. Click auto generate schemes and select 'platform' scheme.
+6. Hit run.
 
 # Design Notes
 

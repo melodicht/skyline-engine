@@ -49,7 +49,6 @@ GAME_INITIALIZE(GameInitialize)
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
-    gameState->isEditor = editor;
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;
 
@@ -65,10 +64,10 @@ GAME_INITIALIZE(GameInitialize)
     }
 
     b32 slowStep = false;
-
+    #if SKL_ENABLED_EDITOR
+    gameState->isEditor = editor;
     if (editor)
     {
-        #if SKL_ENABLED_EDITOR
         gameState->overlayMode = overlayMode_ecsEditor;
         gameState->currentCamera = scene.NewEntity();
         CameraComponent* camera = scene.Assign<CameraComponent>(gameState->currentCamera);
@@ -76,18 +75,18 @@ GAME_INITIALIZE(GameInitialize)
         scene.Assign<Transform3D>(gameState->currentCamera);
 
         EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
-        #else
-        LOG_ERROR("Editor compatibility needs to be enabled on cmake before use");
-        #endif
     }
     else
     {
+    #endif
         RegisterSystem(&scene, SKLPhysicsSystem);
         RegisterSystem(&scene, MovementSystem);
         RegisterSystem(&scene, BuilderSystem, slowStep);
 
         FindCamera(*gameState);
+    #if SKL_ENABLED_EDITOR
     }
+    #endif
 
     scene.InitSystems();
 }

@@ -159,7 +159,7 @@ MeshAsset* LoadMeshAsset(std::string name)
         return &meshAssets[name];
     }
 
-    std::filesystem::path path = "../models/" + name + ".glb";
+    std::filesystem::path path = SKL_BASE_PATH "/models/" + name + ".glb";
     fastgltf::Expected<fastgltf::GltfDataBuffer> dataFile = fastgltf::GltfDataBuffer::FromPath(path);
     fastgltf::GltfDataBuffer data;
     if (dataFile)
@@ -239,7 +239,7 @@ TextureAsset* LoadTextureAsset(std::string name)
         return &texAssets[name];
     }
 
-    std::filesystem::path path = "../textures/" + name + ".png";
+    std::filesystem::path path = SKL_BASE_PATH "/textures/" + name + ".png";
     ImageData info{path};
     if (!info.loaded) {
         return nullptr;
@@ -259,12 +259,12 @@ TextureAsset* LoadTextureAsset(std::string name)
 void LoadSkyboxAsset(std::array<std::string,6> names) {
     std::vector<ImageData> cubemapData;
     cubemapData.reserve(6);
-    std::filesystem::path firstPath = "../textures/" + names[0] + ".png";
+    std::filesystem::path firstPath = SKL_BASE_PATH "/textures/" + names[0] + ".png";
     ImageData& firstInfo = cubemapData.emplace_back(firstPath);
     u32 firstWidth = firstInfo.width;
     u32 firstHeight = firstInfo.height;
     for (u32 i = 1 ; i < 6 ; i ++) {
-        std::filesystem::path path = "../textures/" + names[i] + ".png";
+        std::filesystem::path path = SKL_BASE_PATH "/textures/" + names[i] + ".png";
         ImageData& info = cubemapData.emplace_back(path);
         if (!info.loaded || info.width != firstWidth || info.height != firstHeight ) {
             LOG_ERROR("Images provided for cubemap do not have uniform dimensions");
@@ -289,7 +289,7 @@ DataEntry* LoadDataAsset(std::string path)
     toml::table file;
     try
     {
-        file = toml::parse_file("../" + path);
+        file = toml::parse_file(SKL_BASE_PATH "/" + path);
         return LoadTableToData("Scene", &file);
     }
     catch (const toml::parse_error& error)
