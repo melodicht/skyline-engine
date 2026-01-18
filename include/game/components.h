@@ -76,13 +76,13 @@ SERIALIZE(VerticalLook, turnSpeed)
 COMPONENT(VerticalLook)
 
 
-struct Plane
+struct BuilderPlane
 {
     f32 width = 1;
     f32 length = 1;
 };
-SERIALIZE(Plane, width, length)
-COMPONENT(Plane)
+SERIALIZE(BuilderPlane, width, length)
+COMPONENT(BuilderPlane)
 
 
 struct DirLight
