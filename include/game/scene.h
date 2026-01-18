@@ -132,7 +132,7 @@ typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
 // "public:".
 #define MAKE_SYSTEM_DECLARATIONS(T)                                     \
     private:                                                            \
-    inline static T* instance = nullptr;                                \
+    static T* instance;                                                 \
 public:                                                                 \
  T(const T&) = delete;                                                  \
  T& operator=(const T&) = delete;                                       \
@@ -141,13 +141,13 @@ public:                                                                 \
  template<typename... Args>                                             \
  static T *Initialize(void* base, Args&&... args)                       \
  {                                                                      \
-     Assert(instance == nullptr && #T " has already been initialized."); \
+     PrintAssert(instance == nullptr, #T " has already been initialized."); \
      instance = new (base) T(std::forward<Args>(args) ...);             \
      return instance;                                                   \
  }                                                                      \
  static T& Get()                                                        \
  {                                                                      \
-     Assert(instance != nullptr && #T " hasn't been initialized.");     \
+     PrintAssert(instance != nullptr, #T " hasn't been initialized.");  \
      return *instance;                                                  \
  }                                                                      \
  SYSTEM_UPDATE_VTABLE();                                                \
@@ -187,6 +187,7 @@ public:
 };
 
 #define MAKE_SYSTEM_MANUAL_VTABLE(T)                        \
+    T::instance = nullptr;                                  \
     SYSTEM(T);                                              \
     SYSTEM_VTABLE_ON_START(NameConcat(T, _OnStart))         \
     {                                                       \

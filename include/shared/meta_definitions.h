@@ -68,10 +68,14 @@ typedef size_t   siz;
 #endif
 
 #define Assert(Expression) if(!(Expression)) { DEBUG_BREAK(); }
+#define PrintAssert(Expression, Message) if(!(Expression)) { fputs(Message, stderr); DEBUG_BREAK(); }
+
 
 #else
 #define Assert(Expression)
+#define PrintAssert(...)
 #endif
+
 
 
 #define Kilobytes(Expression) ((Expression)*1024LL)
