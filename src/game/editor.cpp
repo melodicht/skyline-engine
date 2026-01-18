@@ -4,7 +4,7 @@
 #include <components.h>
 #include <game.h>
 #include <scene.h>
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <utils.h>
 #include <scene_view.h>
 #include <entity_view.h>
@@ -351,7 +351,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
         // NOTE(marvin): Save scene button
         if (ImGui::Button("Save Scene"))
         {
-            SaveCurrentScene(*scene);
+            SaveCurrentMap(*scene);
         }
 
         ImGui::End();

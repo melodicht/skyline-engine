@@ -9,7 +9,7 @@
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <system_registry.h>
 #include <components.h>
 #include <physics.h>
@@ -58,10 +58,10 @@ GAME_INITIALIZE(GameInitialize)
 
     CreateComponentPools(scene);
 
-    s32 rv = LoadScene(scene, mapName);
+    s32 rv = LoadMap(scene, mapName);
     if (rv != 0)
     {
-        std::cout << "Failed to load scene\n";
+        std::cout << "Failed to load map\n";
         exit(-1);
     }
 
