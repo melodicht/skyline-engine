@@ -76,16 +76,16 @@ GAME_INITIALIZE(GameInitialize)
         FlyingMovement* movement = scene.Assign<FlyingMovement>(gameState->currentCamera);
         scene.Assign<Transform3D>(gameState->currentCamera);
 
-        EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
+        EditorSystem *editorSystem = AddSystemToScene(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
         #else
         LOG_ERROR("Editor compatibility needs to be enabled on cmake before use");
         #endif
     }
     else
     {
-        RegisterSystem(&scene, SKLPhysicsSystem);
-        RegisterSystem(&scene, MovementSystem);
-        RegisterSystem(&scene, BuilderSystem, slowStep);
+        AddSystemToScene(&scene, SKLPhysicsSystem);
+        AddSystemToScene(&scene, MovementSystem);
+        AddSystemToScene(&scene, BuilderSystem, slowStep);
 
         FindCamera(*gameState);
     }
@@ -105,10 +105,6 @@ GAME_LOAD(GameLoad)
     renderer = memory.platformAPI.renderer;
 
     RegisterComponents(editor);
-    if(gameInitialized)
-    {
-        RegisterSystems();
-    }
 
     DebugUpdate(memory);
 }

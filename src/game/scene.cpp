@@ -1,5 +1,6 @@
 #include <meta_definitions.h>
 #include <scene.h>
+#include <system_registry.h>
 
 /*
  * ENTITY FUNCTIONALITY
@@ -70,12 +71,20 @@ void PushSystemsBuffer(SystemsBuffer *systemsBuffer, System *system)
     ++systemsBuffer->count;
 }
 
+inline SystemVTable* GetSystemVTable(System* system)
+{
+    std::type_index typeIndex = system->type;
+    SystemVTable* result = SystemTypeToVTable()[typeIndex];
+    return result;
+}
+
 void StartAllSystems(SystemsBuffer *systemsBuffer, Scene *scene)
 {
     for (u32 i = 0; i < systemsBuffer->count; ++i)
     {
         System *system = systemsBuffer->base[i];
-        system->vtable->onStart(system, scene);
+        SystemVTable* vtable = GetSystemVTable(system);
+        vtable->onStart(system, scene);
     }
 }
 
@@ -84,7 +93,8 @@ void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene *scene, GameInput *inp
     for (u32 i = 0; i < systemsBuffer->count; ++i)
     {
         System *system = systemsBuffer->base[i];
-        system->vtable->onUpdate(system, scene, input, deltaTime);
+        SystemVTable* vtable = GetSystemVTable(system);
+        vtable->onUpdate(system, scene, input, deltaTime);
     }
 }
 

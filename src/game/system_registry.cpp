@@ -1,22 +1,10 @@
 #include <meta_definitions.h>
 #include <system_registry.h>
 
-std::vector<SystemInfo> &SystemInfos()
+std::unordered_map<std::type_index, SystemVTable*>& SystemTypeToVTable()
 {
-    file_global std::vector<SystemInfo> systemInfos;
-    return systemInfos;
+    file_global std::unordered_map<std::type_index, SystemVTable*> systemTypeToVTable;
+    return systemTypeToVTable;
 }
 
-// What it means for a system to be registered is for its internal
-// vtable to correspond to the memory addresses of its functions in
-// the game module DLL.
-void RegisterSystems()
-{
-    std::vector<SystemInfo> &systemInfos = SystemInfos();
 
-    for (u32 index = 0; index < systemInfos.size(); ++index)
-    {
-        SystemInfo &systemInfo = systemInfos[index];
-        systemInfo.updateSystemVTableFunc();
-    }
-}

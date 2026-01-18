@@ -9,12 +9,9 @@ struct Transform3D;
 
 class MovementSystem : public System
 {
-private:
-    MovementSystem() {}
-
-    MAKE_SYSTEM_DECLARATIONS(MovementSystem);
-    
 public:
+    MovementSystem();
+
     SYSTEM_ON_UPDATE();
 
 

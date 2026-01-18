@@ -19,10 +19,8 @@ private:
 
     void BuildPart(Scene *scene, EntityID ent, Transform3D *t, MeshAsset *mesh, glm::vec3 scale);
 
+public:
     BuilderSystem(bool slowStep);
 
-    MAKE_SYSTEM_DECLARATIONS(BuilderSystem);
-    
-public:
     SYSTEM_ON_UPDATE();
 };

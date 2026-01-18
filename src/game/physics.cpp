@@ -185,7 +185,7 @@ void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsS
     pc->characterVirtual = characterVirtual;
 }
 
-SKLPhysicsSystem::SKLPhysicsSystem()
+SKLPhysicsSystem::SKLPhysicsSystem() : SYSTEM_SUPER(SKLPhysicsSystem)
 {
     JPH::RegisterDefaultAllocator();
     JPH::Factory::sInstance = new JPH::Factory();
