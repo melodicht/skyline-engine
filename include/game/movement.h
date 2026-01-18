@@ -23,4 +23,3 @@ private:
     void CapVerticalRotationForward(Transform3D *t);
 
 };
-SYSTEM(MovementSystem);

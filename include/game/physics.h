@@ -32,4 +32,3 @@ public:
 
     SYSTEM_ON_UPDATE();
 };
-SYSTEM(SKLPhysicsSystem);

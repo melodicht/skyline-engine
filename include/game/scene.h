@@ -187,6 +187,7 @@ public:
 };
 
 #define MAKE_SYSTEM_MANUAL_VTABLE(T)                        \
+    SYSTEM(T);                                              \
     SYSTEM_VTABLE_ON_START(NameConcat(T, _OnStart))         \
     {                                                       \
         T *sys = static_cast<T *>(self);                    \

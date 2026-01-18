@@ -26,4 +26,3 @@ private:
 public:
     SYSTEM_ON_UPDATE();
 };
-SYSTEM(BuilderSystem);
