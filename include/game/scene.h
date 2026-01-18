@@ -129,28 +129,28 @@ typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
 // features that allow the ECS code to interact with the manual
 // vtable, and for game load to update the manual
 // vtables. Unfortunately anything after this macaro is in the
-// "public:".
+// "public:". Instance is public so that it can be initialized... is
+// there another way?
 #define MAKE_SYSTEM_DECLARATIONS(T)                                     \
-    private:                                                            \
+    public:                                                             \
     static T* instance;                                                 \
-public:                                                                 \
- T(const T&) = delete;                                                  \
- T& operator=(const T&) = delete;                                       \
- T(T&&) = delete;                                                       \
- T& operator=(T&&) = delete;                                            \
- template<typename... Args>                                             \
- static T *Initialize(void* base, Args&&... args)                       \
- {                                                                      \
-     PrintAssert(instance == nullptr, #T " has already been initialized."); \
-     instance = new (base) T(std::forward<Args>(args) ...);             \
-     return instance;                                                   \
- }                                                                      \
- static T& Get()                                                        \
- {                                                                      \
-     PrintAssert(instance != nullptr, #T " hasn't been initialized.");  \
-     return *instance;                                                  \
- }                                                                      \
- SYSTEM_UPDATE_VTABLE();                                                \
+    T(const T&) = delete;                                               \
+    T& operator=(const T&) = delete;                                    \
+    T(T&&) = delete;                                                    \
+    T& operator=(T&&) = delete;                                         \
+    template<typename... Args>                                          \
+    static T *Initialize(void* base, Args&&... args)                    \
+    {                                                                   \
+        PrintAssert(instance == nullptr, #T " has already been initialized."); \
+        instance = new (base) T(std::forward<Args>(args) ...);          \
+        return instance;                                                \
+    }                                                                   \
+    static T& Get()                                                     \
+    {                                                                   \
+        PrintAssert(instance != nullptr, #T " hasn't been initialized."); \
+        return *instance;                                               \
+    }                                                                   \
+    SYSTEM_UPDATE_VTABLE();                                             \
  
 
 struct SystemVTable
@@ -187,7 +187,7 @@ public:
 };
 
 #define MAKE_SYSTEM_MANUAL_VTABLE(T)                        \
-    T::instance = nullptr;                                  \
+    T* T::instance = nullptr;                               \
     SYSTEM(T);                                              \
     SYSTEM_VTABLE_ON_START(NameConcat(T, _OnStart))         \
     {                                                       \
