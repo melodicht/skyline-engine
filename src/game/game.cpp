@@ -105,7 +105,10 @@ GAME_LOAD(GameLoad)
     renderer = memory.platformAPI.renderer;
 
     RegisterComponents(editor);
-    RegisterSystems();
+    if(gameInitialized)
+    {
+        RegisterSystems();
+    }
 
     DebugUpdate(memory);
 }

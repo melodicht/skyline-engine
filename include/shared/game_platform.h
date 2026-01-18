@@ -59,7 +59,7 @@ struct GameMemory
 // start ONCE. Thus, load happens before game initialize on game boot,
 // and also before game update and render on hot reload (obviously).
 
-#define GAME_LOAD(name) void name(GameMemory &memory, b32 editor)
+#define GAME_LOAD(name) void name(GameMemory &memory, b32 editor, b32 gameInitialized)
 typedef GAME_LOAD(game_load_t);
 
 #define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, b32 editor)

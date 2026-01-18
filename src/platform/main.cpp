@@ -207,7 +207,7 @@ void updateLoop(void* appInfo) {
         SDLUnloadGameCode(&gameCode);
         info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
         gameCode = info->gameCode;
-        gameCode.gameLoad(info->gameMemory, info->editor);
+        gameCode.gameLoad(info->gameMemory, info->editor, true);
     }
 
     while (SDL_PollEvent(&info->e))
@@ -348,7 +348,7 @@ int main(int argc, char** argv)
     gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
-    gameCode.gameLoad(gameMemory, editor);
+    gameCode.gameLoad(gameMemory, editor, false);
     gameCode.gameInitialize(gameMemory, mapName, editor);
 
     SDL_Event e;
