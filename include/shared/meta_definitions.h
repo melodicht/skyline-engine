@@ -79,6 +79,22 @@ typedef size_t   siz;
 #define Gigabytes(Expression) (Megabytes(Expression)*1024LL)
 #define Terabytes(Expression) (Gigabytes(Expression)*1024LL)
 
+// NOTE(marvin): The reason for two layers of macros is to allow the
+// macro arguments to expand before token pasting.
+#define NameConcat_(A, B) A##B
+#define NameConcat(A, B) NameConcat_(A, B)
+
+#define NameConcat3_(A, B, C) A##B##C
+#define NameConcat3(A, B, C) NameConcat3_(A, B, C)
+
+// Source - https://stackoverflow.com/a
+// Posted by Artyer, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-01-16, License - CC BY-SA 4.0
+#define VALUE_IFNOT_TEST(...) __VA_ARGS__
+#define VALUE_IFNOT_TEST0(...) __VA_ARGS__
+#define VALUE_IFNOT_TEST1(...)
+#define VALUE_IFNOT(COND, ...) VALUE_IFNOT_TEST ## COND ( __VA_ARGS__ )
+
 // Streamlines process of passing platform funcs to game module api.
 
 // Helper macros

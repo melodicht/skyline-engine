@@ -4,7 +4,7 @@
 #include <components.h>
 #include <game.h>
 #include <scene.h>
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <utils.h>
 #include <scene_view.h>
 #include <entity_view.h>
@@ -173,12 +173,20 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayStructDataEntry(std::s
     return result;
 }
 
-void EditorSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+EditorSystem::EditorSystem(EntityID editorCam, OverlayMode *overlayMode)
+{
+    this->editorCam = editorCam;
+    this->overlayMode = overlayMode;
+}
+
+MAKE_SYSTEM_MANUAL_VTABLE(EditorSystem);
+
+SYSTEM_ON_UPDATE(EditorSystem)
 {
     if (input->keysDown.contains("Mouse 3"))
     {
-        FlyingMovement *f = scene->Get<FlyingMovement>(editorCam);
-        Transform3D *t = scene->Get<Transform3D>(editorCam);
+        FlyingMovement *f = scene->Get<FlyingMovement>(this->editorCam);
+        Transform3D *t = scene->Get<Transform3D>(this->editorCam);
 
         t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
         t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
@@ -343,15 +351,10 @@ void EditorSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
         // NOTE(marvin): Save scene button
         if (ImGui::Button("Save Scene"))
         {
-            SaveCurrentScene(*scene);
+            SaveCurrentMap(*scene);
         }
 
         ImGui::End();
     }
 }
 
-EditorSystem::EditorSystem(EntityID editorCam, OverlayMode *overlayMode)
-{
-    this->editorCam = editorCam;
-    this->overlayMode = overlayMode;
-}

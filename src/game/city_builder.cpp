@@ -45,14 +45,14 @@ void BuilderSystem::Step(Scene *scene)
     {
         Transform3D *t = scene->Get<Transform3D>(ent);
         Spin *s = scene->Get<Spin>(ent);
-        t->AddLocalRotation({0, 0, s->speed * 0.25f});
+        t->AddLocalRotation({0, 0, s->speed * 1.25f});
     }
 
     // Plane Rules
-    for (EntityID ent: SceneView<Plane, Transform3D>(*scene))
+    for (EntityID ent: SceneView<BuilderPlane, Transform3D>(*scene))
     {
         Transform3D *t = scene->Get<Transform3D>(ent);
-        Plane *plane = scene->Get<Plane>(ent);
+        BuilderPlane *plane = scene->Get<BuilderPlane>(ent);
 
         if (plane->width <= 16.0f || plane->length <= 16.0f || (plane->width / plane->length) >= 128 || (plane->length / plane->width) >= 128)
         {
@@ -81,7 +81,7 @@ void BuilderSystem::Step(Scene *scene)
                 }
             }
 
-            scene->Remove<Plane>(ent);
+            scene->Remove<BuilderPlane>(ent);
             continue;
         }
 
@@ -123,13 +123,13 @@ void BuilderSystem::Step(Scene *scene)
 
                 EntityID newPlane = scene->NewEntity();
                 Transform3D *newT = scene->Assign<Transform3D>(newPlane);
-                Plane *p = scene->Assign<Plane>(newPlane);
+                BuilderPlane *p = scene->Assign<BuilderPlane>(newPlane);
                 *newT = *t;
                 newT->AddLocalPosition({0, 0, trapHeight / 2});
                 p->width = plane->width / 2;
                 p->length = plane->length / 2;
 
-                scene->Remove<Plane>(ent);
+                scene->Remove<BuilderPlane>(ent);
                 break;
             }
             case 2:
@@ -143,7 +143,7 @@ void BuilderSystem::Step(Scene *scene)
                 f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
                 BuildPart(scene, ent, t, assetUtils.LoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
 
-                scene->Remove<Plane>(ent);
+                scene->Remove<BuilderPlane>(ent);
                 break;
             }
             case 3:
@@ -157,7 +157,7 @@ void BuilderSystem::Step(Scene *scene)
                 f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
                 BuildPart(scene, ent, t, assetUtils.LoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
 
-                scene->Remove<Plane>(ent);
+                scene->Remove<BuilderPlane>(ent);
                 break;
             }
             case 4:
@@ -171,12 +171,12 @@ void BuilderSystem::Step(Scene *scene)
 
                 EntityID newPlane = scene->NewEntity();
                 Transform3D *newT = scene->Assign<Transform3D>(newPlane);
-                Plane *p = scene->Assign<Plane>(newPlane);
+                BuilderPlane *p = scene->Assign<BuilderPlane>(newPlane);
                 *newT = *t;
                 newT->AddLocalPosition({0, 0, cuboidHeight / 2});
                 *p = *plane;
 
-                scene->Remove<Plane>(ent);
+                scene->Remove<BuilderPlane>(ent);
                 break;
             }
             default:
@@ -184,7 +184,7 @@ void BuilderSystem::Step(Scene *scene)
                 // Subdivide
                 EntityID newPlane = scene->NewEntity();
                 Transform3D *newT = scene->Assign<Transform3D>(newPlane);
-                Plane *p = scene->Assign<Plane>(newPlane);
+                BuilderPlane *p = scene->Assign<BuilderPlane>(newPlane);
                 *newT = *t;
                 *p = *plane;
 
@@ -235,15 +235,17 @@ BuilderSystem::BuilderSystem(bool slowStep)
     this->slowStep = slowStep;
 }
 
-void BuilderSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+MAKE_SYSTEM_MANUAL_VTABLE(BuilderSystem);
+
+SYSTEM_ON_UPDATE(BuilderSystem)
 {
-    if (slowStep && timer > 0.0f)
+    if (this->slowStep && this->timer > 0.0f)
     {
-        timer -= deltaTime;
+        this->timer -= deltaTime;
     }
     else
     {
-        timer = 1.0f / rate;
+        this->timer = 1.0f / this->rate;
         Step(scene);
     }
 }

@@ -106,15 +106,107 @@ struct ComponentPool
 struct Scene;
 struct GameInput;
 
+#define SYSTEM_VTABLE_ON_START_PARAMS Scene *scene
+#define SYSTEM_VTABLE_ON_START_PASS scene
+#define SYSTEM_VTABLE_ON_START(name) void name(void *self, SYSTEM_VTABLE_ON_START_PARAMS)
+typedef SYSTEM_VTABLE_ON_START(system_vtable_on_start_t);
+#define SYSTEM_ON_START(...) void __VA_ARGS__ __VA_OPT__(::) OnStart(SYSTEM_VTABLE_ON_START_PARAMS)
+
+// NOTE(marvin): The SYSTEM_ON_X(...) family of macros should only
+// take in 0 or 1 argument, where the 1 argument is the name of the
+// derived System.
+
+#define SYSTEM_VTABLE_ON_UPDATE_PARAMS Scene *scene, GameInput *input, f32 deltaTime
+#define SYSTEM_VTABLE_ON_UPDATE_PASS scene, input, deltaTime
+#define SYSTEM_VTABLE_ON_UPDATE(name) void name(void *self, SYSTEM_VTABLE_ON_UPDATE_PARAMS)
+typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
+#define SYSTEM_ON_UPDATE(...) void __VA_ARGS__ __VA_OPT__(::) OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS)
+
+#define SYSTEM_UPDATE_VTABLE(...) VALUE_IFNOT(__VA_OPT__(1), static) void __VA_ARGS__ __VA_OPT__(::) UpdateVTable()
+
+
+// NOTE(marvin): Makes a derived system a singleton, with essential
+// features that allow the ECS code to interact with the manual
+// vtable, and for game load to update the manual
+// vtables. Unfortunately anything after this macaro is in the
+// "public:".
+#define MAKE_SYSTEM_DECLARATIONS(T)                                     \
+    private:                                                            \
+    inline static T* instance = nullptr;                                \
+public:                                                                 \
+ T(const T&) = delete;                                                  \
+ T& operator=(const T&) = delete;                                       \
+ T(T&&) = delete;                                                       \
+ T& operator=(T&&) = delete;                                            \
+ template<typename... Args>                                             \
+ static T *Initialize(void* base, Args&&... args)                       \
+ {                                                                      \
+     Assert(instance == nullptr && #T " has already been initialized."); \
+     instance = new (base) T(std::forward<Args>(args) ...);             \
+     return instance;                                                   \
+ }                                                                      \
+ static T& Get()                                                        \
+ {                                                                      \
+     Assert(instance != nullptr && #T " hasn't been initialized.");     \
+     return *instance;                                                  \
+ }                                                                      \
+ SYSTEM_UPDATE_VTABLE();                                                \
+ 
+
+struct SystemVTable
+{
+    system_vtable_on_start_t *onStart;
+    system_vtable_on_update_t *onUpdate;
+};
+
 // A system in our ECS, which defines operations on a subset of
 // entities, using scene view.
+
+// NOTE(marvin): Due to the manual vtable shenanigans, the methods
+// that correspond to entries in the manual vtable must be public so
+// that the manual vtable code can call into them.
+
 class System
 {
 public:
-    virtual void OnStart(Scene *scene) {};
-    virtual void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime) {};
+    SystemVTable *vtable;
+    
     virtual ~System() = default;
+
+    void OnStart(SYSTEM_VTABLE_ON_START_PARAMS)
+    {
+        
+    }
+    
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    {
+        
+    }
+
+    static void UpdateVTable();
 };
+
+#define MAKE_SYSTEM_MANUAL_VTABLE(T)                        \
+    SYSTEM_VTABLE_ON_START(NameConcat(T, _OnStart))         \
+    {                                                       \
+        T *sys = static_cast<T *>(self);                    \
+        sys->OnStart(SYSTEM_VTABLE_ON_START_PASS);          \
+    }                                                       \
+    SYSTEM_VTABLE_ON_UPDATE(NameConcat(T, _OnUpdate))       \
+    {                                                       \
+        T *sys = static_cast<T *>(self);                    \
+        sys->OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PASS);        \
+    }                                                       \
+    SystemVTable NameConcat3(global, T, VTable) =           \
+    {                                                       \
+        .onStart = NameConcat(T, _OnStart),                 \
+        .onUpdate = NameConcat(T, _OnUpdate),               \
+    };                                                      \
+    void T::UpdateVTable()                                  \
+    {                                                       \
+        T& instance = T::Get();                             \
+        instance.vtable = &NameConcat3(global, T, VTable);  \
+    }
 
 extern std::unordered_map<std::type_index, ComponentID> typeToId;
 
@@ -448,6 +540,7 @@ public:
 #define RegisterSystem(scene, T, ...) \
     ({ \
         Scene *_scene = (scene); \
-        T *_system = new(PushSystem(_scene, T)) T(__VA_ARGS__); \
+        T *_system = T::Initialize(PushSystem(_scene, T)__VA_OPT__(,) __VA_ARGS__); \
         _scene->AddSystem(_system); \
+        _system->UpdateVTable();     \
         _system; })

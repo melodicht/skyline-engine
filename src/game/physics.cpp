@@ -146,23 +146,22 @@ inline glm::vec3 JoltToOurCoordinateSystem(JPH::Vec3 joltVec3)
     return result;
 }
 
-void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
-                          JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime)
+void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual, JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime)
 {
-    JPH::Vec3 velocity = characterVirtual.GetLinearVelocity();
+    JPH::Vec3 velocity = characterVirtual->GetLinearVelocity();
     JPH::Vec3Arg gravity{0, -9.81f, 0};
     velocity += gravity * deltaTime;
     velocity.SetX(0.0f);
     velocity.SetZ(0.0f);
     velocity += movementDirection * moveSpeed;
-    characterVirtual.SetLinearVelocity(velocity);
+    characterVirtual->SetLinearVelocity(velocity);
 
     JPH::CharacterVirtual::ExtendedUpdateSettings settings;
-    characterVirtual.ExtendedUpdate(deltaTime,
+    characterVirtual->ExtendedUpdate(deltaTime,
                                     gravity,
                                     settings,
-                                    physicsSystem.GetDefaultBroadPhaseLayerFilter(Layer::MOVING),
-                                    physicsSystem.GetDefaultLayerFilter(Layer::MOVING),
+                                    this->physicsSystem->GetDefaultBroadPhaseLayerFilter(Layer::MOVING),
+                                    this->physicsSystem->GetDefaultLayerFilter(Layer::MOVING),
                                     {},
                                     {},
                                     *allocator);
@@ -227,12 +226,9 @@ SKLPhysicsSystem::~SKLPhysicsSystem()
     delete this->physicsSystem;
 }
 
-void SKLPhysicsSystem::OnStart(Scene *scene)
-{
+MAKE_SYSTEM_MANUAL_VTABLE(SKLPhysicsSystem);
 
-}
-
-void SKLPhysicsSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+SYSTEM_ON_UPDATE(SKLPhysicsSystem)
 {
     SceneView<PlayerCharacter, Transform3D> playerView = SceneView<PlayerCharacter, Transform3D>(*scene);
     if (playerView.begin() == playerView.end())
@@ -273,7 +269,7 @@ void SKLPhysicsSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
 
             JPH::Vec3 position = OurToJoltCoordinateSystem(t->position);
             JPH::BodyCreationSettings bodyCreationSettings{shape, position,
-                JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
+                                                           JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
             JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
             bodyInterface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
 
@@ -296,7 +292,7 @@ void SKLPhysicsSystem::OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
 
     glm::vec3 ourMovementDirection = GetMovementDirection(input, pt);
     JPH::Vec3 joltMovementDirection = OurToJoltCoordinateSystem(ourMovementDirection);
-    MoveCharacterVirtual(*cv, *physicsSystem, joltMovementDirection, moveSpeed, deltaTime);
+    MoveCharacterVirtual(cv, joltMovementDirection, moveSpeed, deltaTime);
 
     // Update player's transform from character virtual's position
     JPH::Vec3 joltPosition = cv->GetPosition();

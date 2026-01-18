@@ -36,8 +36,10 @@ private:
     // Only reads from the data.
     ComponentDataEntryActionOutcome ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent, b32 isComponent);
 
-public:
     EditorSystem(EntityID editorCam, OverlayMode *overlayMode);
 
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime);
+    MAKE_SYSTEM_DECLARATIONS(EditorSystem);
+
+public:
+    SYSTEM_ON_UPDATE();
 };
