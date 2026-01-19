@@ -9,7 +9,7 @@
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <system_registry.h>
 #include <components.h>
 #include <physics.h>
@@ -51,7 +51,6 @@ GAME_INITIALIZE(GameInitialize)
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
-    gameState->isEditor = editor;
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;
 
@@ -59,37 +58,37 @@ GAME_INITIALIZE(GameInitialize)
 
     CreateComponentPools(scene);
 
-    s32 rv = LoadScene(scene, mapName);
+    s32 rv = LoadMap(scene, mapName);
     if (rv != 0)
     {
-        std::cout << "Failed to load scene\n";
+        std::cout << "Failed to load map\n";
         exit(-1);
     }
 
     b32 slowStep = false;
-
+    #if SKL_ENABLED_EDITOR
+    gameState->isEditor = editor;
     if (editor)
     {
-        #if SKL_ENABLED_EDITOR
         gameState->overlayMode = overlayMode_ecsEditor;
         gameState->currentCamera = scene.NewEntity();
         CameraComponent* camera = scene.Assign<CameraComponent>(gameState->currentCamera);
         FlyingMovement* movement = scene.Assign<FlyingMovement>(gameState->currentCamera);
         scene.Assign<Transform3D>(gameState->currentCamera);
 
-        EditorSystem *editorSystem = RegisterSystem(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
-        #else
-        LOG_ERROR("Editor compatibility needs to be enabled on cmake before use");
-        #endif
+        EditorSystem *editorSystem = AddSystemToScene(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
     }
     else
     {
-        RegisterSystem(&scene, SKLPhysicsSystem, &remainingArena);
-        RegisterSystem(&scene, MovementSystem);
-        RegisterSystem(&scene, BuilderSystem, slowStep);
+    #endif
+        AddSystemToScene(&scene, SKLPhysicsSystem, &remainingArena);
+        AddSystemToScene(&scene, MovementSystem);
+        AddSystemToScene(&scene, BuilderSystem, slowStep);
 
         FindCamera(*gameState);
+    #if SKL_ENABLED_EDITOR
     }
+    #endif
 
     scene.InitSystems();
 }
@@ -107,7 +106,6 @@ GAME_LOAD(GameLoad)
     allocator = memory.platformAPI.allocator;
 
     RegisterComponents(editor);
-    RegisterSystems();
 
     DebugUpdate(memory);
 }

@@ -619,13 +619,13 @@ WGPUShaderModule loadShader(const WGPUDevice& device, std::string fileName, std:
 
 void WGPURenderBackend::InitPipelines()
 {
-  WGPUShaderModule shaderModule = loadShader(m_wgpuCore.m_device, "shaders/default_shader.wgsl", "Color Pass Shader");
+  WGPUShaderModule shaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/default_shader.wgsl", "Color Pass Shader");
 
-  WGPUShaderModule depthShaderModule = loadShader(m_wgpuCore.m_device, "shaders/depth_shader.wgsl", "Depth Pass Shader");
+  WGPUShaderModule depthShaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/depth_shader.wgsl", "Depth Pass Shader");
 
-  WGPUShaderModule pointDepthShaderModule = loadShader(m_wgpuCore.m_device, "shaders/point_depth_shader.wgsl", "Point Depth Pass Shader");
+  WGPUShaderModule pointDepthShaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/point_depth_shader.wgsl", "Point Depth Pass Shader");
 
-  WGPUShaderModule skyboxShaderModule = loadShader(m_wgpuCore.m_device, "shaders/skybox_shader.wgsl", "Skybox Pass Shader");
+  WGPUShaderModule skyboxShaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/skybox_shader.wgsl", "Skybox Pass Shader");
 
   // Configures z-buffer
   

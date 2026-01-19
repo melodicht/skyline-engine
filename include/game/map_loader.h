@@ -42,8 +42,8 @@ void RegisterComponents(bool editor);
 
 void CreateComponentPools(Scene& scene);
 
-s32 LoadScene(Scene& scene, std::string name);
+s32 LoadMap(Scene& scene, std::string name);
 
-void SaveScene(Scene& scene, std::string name);
+void SaveMap(Scene& scene, std::string name);
 
-void SaveCurrentScene(Scene& scene);
+void SaveCurrentMap(Scene& scene);

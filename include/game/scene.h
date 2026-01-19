@@ -125,36 +125,7 @@ typedef SYSTEM_VTABLE_ON_START(system_vtable_on_start_t);
 typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
 #define SYSTEM_ON_UPDATE(...) void __VA_ARGS__ __VA_OPT__(::) OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS)
 
-#define SYSTEM_UPDATE_VTABLE(...) VALUE_IFNOT(__VA_OPT__(1), static) void __VA_ARGS__ __VA_OPT__(::) UpdateVTable()
-
-
-// NOTE(marvin): Makes a derived system a singleton, with essential
-// features that allow the ECS code to interact with the manual
-// vtable, and for game load to update the manual
-// vtables. Unfortunately anything after this macaro is in the
-// "public:".
-#define MAKE_SYSTEM_DECLARATIONS(T)                                     \
-    private:                                                            \
-    inline static T* instance = nullptr;                                \
-public:                                                                 \
- T(const T&) = delete;                                                  \
- T& operator=(const T&) = delete;                                       \
- T(T&&) = delete;                                                       \
- T& operator=(T&&) = delete;                                            \
- template<typename... Args>                                             \
- static T *Initialize(void* base, Args&&... args)                       \
- {                                                                      \
-     Assert(instance == nullptr && #T " has already been initialized."); \
-     instance = new (base) T(std::forward<Args>(args) ...);             \
-     return instance;                                                   \
- }                                                                      \
- static T& Get()                                                        \
- {                                                                      \
-     Assert(instance != nullptr && #T " hasn't been initialized.");     \
-     return *instance;                                                  \
- }                                                                      \
- SYSTEM_UPDATE_VTABLE();                                                \
- 
+#define SYSTEM_SUPER(T) System(std::type_index(typeid(T)))
 
 struct SystemVTable
 {
@@ -165,15 +136,16 @@ struct SystemVTable
 // A system in our ECS, which defines operations on a subset of
 // entities, using scene view.
 
-// NOTE(marvin): Due to the manual vtable shenanigans, the methods
-// that correspond to entries in the manual vtable must be public so
-// that the manual vtable code can call into them.
-
 class System
 {
-public:
-    SystemVTable *vtable;
+protected:
+    System(std::type_index type_) : type(type_)
+    {
+    }
     
+public:
+    std::type_index type;
+
     virtual ~System() = default;
 
     void OnStart(SYSTEM_VTABLE_ON_START_PARAMS)
@@ -181,12 +153,10 @@ public:
         
     }
     
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS)
     {
         
     }
-
-    static void UpdateVTable();
 };
 
 #define MAKE_SYSTEM_MANUAL_VTABLE(T)                        \
@@ -205,11 +175,7 @@ public:
         .onStart = NameConcat(T, _OnStart),                 \
         .onUpdate = NameConcat(T, _OnUpdate),               \
     };                                                      \
-    void T::UpdateVTable()                                  \
-    {                                                       \
-        T& instance = T::Get();                             \
-        instance.vtable = &NameConcat3(global, T, VTable);  \
-    }
+    [[maybe_unused]] static int ignore_add##T = (RegisterSystem<T>(&NameConcat3(global, T, VTable)), 0);
 
 extern std::unordered_map<std::type_index, ComponentID> typeToId;
 
@@ -540,10 +506,9 @@ public:
 };
 
 #define PushSystem(scene, T) (PushStruct(&((scene)->systemsArena), T))
-#define RegisterSystem(scene, T, ...) \
-    ({ \
-        Scene *_scene = (scene); \
-        T *_system = T::Initialize(PushSystem(_scene, T), __VA_ARGS__); \
-        _scene->AddSystem(_system); \
-        _system->UpdateVTable();     \
+#define AddSystemToScene(scene, T, ...)                             \
+    ({                                                              \
+        Scene *_scene = (scene);                                    \
+        T *_system = new (PushSystem(_scene, T)) T(__VA_ARGS__);    \
+        _scene->AddSystem(_system);                                 \
         _system; })

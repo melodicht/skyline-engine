@@ -2,6 +2,7 @@
 
 #include <scene.h>
 #include <components.h>
+#include <system_registry.h>
 
 namespace JPH
 {
@@ -36,15 +37,9 @@ private:
     void MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual,
                               JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime);
 
-public:
     SKLPhysicsSystem(MemoryArena *remainingArena);
 
-    MAKE_SYSTEM_DECLARATIONS(SKLPhysicsSystem);
-    
-public:
     ~SKLPhysicsSystem();
 
     SYSTEM_ON_UPDATE();
 };
-
-

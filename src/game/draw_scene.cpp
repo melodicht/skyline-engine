@@ -5,7 +5,7 @@
 #include <game.h>
 #include <components.h>
 #include <scene.h>
-#include <scene_loader.h>
+#include <map_loader.h>
 #include <scene_view.h>
 
 void FindCamera(GameState &gameState)

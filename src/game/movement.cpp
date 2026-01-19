@@ -6,6 +6,8 @@
 
 MAKE_SYSTEM_MANUAL_VTABLE(MovementSystem);
 
+MovementSystem::MovementSystem() : SYSTEM_SUPER(MovementSystem) {}
+
 void MovementSystem::CapVerticalRotationForward(Transform3D *t)
 {
     t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});

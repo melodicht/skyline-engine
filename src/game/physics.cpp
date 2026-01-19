@@ -275,7 +275,7 @@ void *JoltReallocate(void *block, size_t oldSize, size_t newSize)
  * SYSTEM DEFINITION
  */
 
-SKLPhysicsSystem::SKLPhysicsSystem(MemoryArena *remainingArena)
+SKLPhysicsSystem::SKLPhysicsSystem(MemoryArena *remainingArena) : SYSTEM_SUPER(SKLPhysicsSystem)
 {
     JPH::AlignedAllocate = JoltAlignedAllocate;
     JPH::AlignedFree = JoltAlignedFree;

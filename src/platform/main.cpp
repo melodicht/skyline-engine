@@ -157,24 +157,7 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
 {
     if(gameCode->sharedObjectHandle)
     {
-        SDL_UnloadObject(gameCode->sharedObjectHandle);
-
-#ifdef PLATFORM_WINDOWS
-        // NOTE(marvin): Not sure if there is a better way to test
-        // whether a shared object handle is still loaded other than
-        // to check if we can load a function...
-        SDL_FunctionPointer functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
-
-        // TODO(marvin): Interestingly, on Windows, always need to unload some constnt number of times for the DLL to actually get unloaded. And Linux just tries to unload infinitely... WHY?!
-        while(functionPtr != NULL)
-        {
-            LOG_ERROR("Failed to unload game module DLL, trying again.");
-            SDL_Delay(100);
-            SDL_UnloadObject(gameCode->sharedObjectHandle);
-            functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
-        }
-#endif
-        
+        SDL_UnloadObject(gameCode->sharedObjectHandle);        
         gameCode->sharedObjectHandle = 0;
     }
     gameCode->gameInitialize = 0;
@@ -210,7 +193,7 @@ void updateLoop(void* appInfo) {
         SDLUnloadGameCode(&gameCode);
         info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
         gameCode = info->gameCode;
-        gameCode.gameLoad(info->gameMemory, info->editor);
+        gameCode.gameLoad(info->gameMemory, info->editor, true);
     }
 
     while (SDL_PollEvent(&info->e))
@@ -353,7 +336,7 @@ int main(int argc, char** argv)
     gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
-    gameCode.gameLoad(gameMemory, editor);
+    gameCode.gameLoad(gameMemory, editor, false);
     gameCode.gameInitialize(gameMemory, mapName, editor);
 
     SDL_Event e;

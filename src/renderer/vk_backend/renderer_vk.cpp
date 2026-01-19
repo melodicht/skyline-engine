@@ -848,20 +848,20 @@ void InitPipelines(RenderPipelineInitInfo& info)
     mainCamIndex = CreateCameraBuffer(1);
 
     // Create shader stages
-    VkShaderModule depthShader = CreateShaderModuleFromFile("../shaderbin/depth.vert.spv");
+    VkShaderModule depthShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/depth.vert.spv");
     
-    VkShaderModule shadowVertShader = CreateShaderModuleFromFile("../shaderbin/shadow.vert.spv");
-    VkShaderModule shadowFragShader = CreateShaderModuleFromFile("../shaderbin/shadow.frag.spv");
+    VkShaderModule shadowVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/shadow.vert.spv");
+    VkShaderModule shadowFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/shadow.frag.spv");
 
-    const char* colorFragPath = editor ? "../shaderbin/editor.frag.spv" : "../shaderbin/color.frag.spv";
+    const char* colorFragPath = editor ? SKL_BASE_PATH "/shaderbin/editor.frag.spv" : SKL_BASE_PATH "/shaderbin/color.frag.spv";
     
-    VkShaderModule colorVertShader = CreateShaderModuleFromFile("../shaderbin/color.vert.spv");
+    VkShaderModule colorVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/color.vert.spv");
     VkShaderModule colorFragShader = CreateShaderModuleFromFile(colorFragPath);
 
-    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile("../shaderbin/dirshadow.frag.spv");
+    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/dirshadow.frag.spv");
 
-    VkShaderModule iconVertShader = CreateShaderModuleFromFile("../shaderbin/icon.vert.spv");
-    VkShaderModule iconFragShader = CreateShaderModuleFromFile("../shaderbin/icon.frag.spv");
+    VkShaderModule iconVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/icon.vert.spv");
+    VkShaderModule iconFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/icon.frag.spv");
     
     VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader);
     VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader);
@@ -1402,6 +1402,19 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode,
 void BeginDepthPass(CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(depthImage.image,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT);
+
+    VkDependencyInfo depInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier
+    };
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 
     //set dynamic viewport and scissor
     VkViewport viewport

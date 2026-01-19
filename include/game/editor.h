@@ -2,6 +2,7 @@
 
 #include <scene.h>
 #include <overlay.h>
+#include <system_registry.h>
 
 struct DataEntry;
 
@@ -36,10 +37,8 @@ private:
     // Only reads from the data.
     ComponentDataEntryActionOutcome ImguiDisplayStructDataEntry(std::string name, std::vector<DataEntry*> dataEntries, Scene &scene, EntityID ent, b32 isComponent);
 
+public:
     EditorSystem(EntityID editorCam, OverlayMode *overlayMode);
 
-    MAKE_SYSTEM_DECLARATIONS(EditorSystem);
-
-public:
     SYSTEM_ON_UPDATE();
 };
