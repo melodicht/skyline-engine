@@ -75,14 +75,14 @@ GAME_INITIALIZE(GameInitialize)
         FlyingMovement* movement = scene.Assign<FlyingMovement>(gameState->currentCamera);
         scene.Assign<Transform3D>(gameState->currentCamera);
 
-        EditorSystem *editorSystem = AddSystemToScene(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
+        EditorSystem *editorSystem = scene.CreateSystem<EditorSystem>(gameState->currentCamera, &gameState->overlayMode);
     }
     else
     {
     #endif
-        AddSystemToScene(&scene, SKLPhysicsSystem);
-        AddSystemToScene(&scene, MovementSystem);
-        AddSystemToScene(&scene, BuilderSystem, slowStep);
+        scene.CreateSystem<SKLPhysicsSystem>();
+        scene.CreateSystem<MovementSystem>();
+        scene.CreateSystem<BuilderSystem>(slowStep);
 
         FindCamera(*gameState);
     #if SKL_ENABLED_EDITOR

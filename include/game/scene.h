@@ -500,12 +500,14 @@ public:
         EntityID id = componentPools[componentId]->getOwner((u8*)component);
         return id;
     }
-};
 
-#define PushSystem(scene, T) (PushStruct(&((scene)->systemsArena), T))
-#define AddSystemToScene(scene, T, ...)                             \
-    ({                                                              \
-        Scene *_scene = (scene);                                    \
-        T *_system = new (PushSystem(_scene, T)) T(__VA_ARGS__);    \
-        _scene->AddSystem(_system);                                 \
-        _system; })
+    #define PushSystem(scene, T) (PushStruct(&((scene)->systemsArena), T))
+
+    template <typename T, typename... Args>
+    T* CreateSystem(Args... args)
+    {
+        T* system = new (PushSystem(this, T)) T(args...);
+        this->AddSystem(system);
+        return system;
+    }
+};
