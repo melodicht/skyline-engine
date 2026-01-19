@@ -45,7 +45,7 @@ void BuilderSystem::Step(Scene *scene)
     {
         Transform3D *t = scene->Get<Transform3D>(ent);
         Spin *s = scene->Get<Spin>(ent);
-        t->AddLocalRotation({0, 0, s->speed * 1.25f});
+        t->AddLocalRotation({0, 0, s->speed * 0.25f});
     }
 
     // Plane Rules

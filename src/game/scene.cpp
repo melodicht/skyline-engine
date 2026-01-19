@@ -104,9 +104,9 @@ Scene::Scene(MemoryArena *remainingArena)
     this->entities = InitEntitiesPool(remainingArena);
     this->freeIndices = InitFreeIndicesStack(remainingArena, MAX_ENTITIES);
     this->systemsBuffer = InitSystemsBuffer(remainingArena);
-    this->systemsArena = SubArena(remainingArena, SYSTEMS_MEMORY);
+    this->systemsArena = SubArena(remainingArena, SYSTEMS_MEMORY, "Systems");
     this->componentPools = ComponentPoolsBuffer(remainingArena);
-    this->componentPoolsArena = SubArena(remainingArena, COMPONENT_POOLS_MEMORY);
+    this->componentPoolsArena = SubArena(remainingArena, COMPONENT_POOLS_MEMORY, "Component Pools");
 }
 
 Scene::~Scene()

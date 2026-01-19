@@ -33,7 +33,7 @@
 #include <scene_view.h>
 
 
-constexpr siz TEMPORARY_MEMORY_SIZE = Megabytes(32);
+constexpr siz TEMPORARY_MEMORY_SIZE = Kilobytes(100);
 
 /* From the Jolt 5.3.0 documentation:
   
@@ -134,13 +134,17 @@ class SklObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
 // aligned to what Jolt expects, and every size allocated to the arena
 // is a multiple of the alignment. Thus, the resulting addresses are
 // also aligned. After the sub arena is created, the memory arena WILL
-// NOT align memory anymore, as they should already be aligned!
-// This implementation closely mirrors TempAllocatorImpl. 
+// NOT align memory anymore, as they should already be aligned!  This
+// implementation closely mirrors TempAllocatorImpl. Thread safety is
+// not needed because "the order is guaranteed though job
+// dependencies."
+
+
 SklJoltAllocator::SklJoltAllocator(MemoryArena *remainingArena)
 {
     ArenaParams arenaParams = {};
     arenaParams.alignment = JPH_RVECTOR_ALIGNMENT;
-    this->arena = SubArena(remainingArena, TEMPORARY_MEMORY_SIZE);
+    this->arena = SubArena(remainingArena, TEMPORARY_MEMORY_SIZE, "Jolt Temp", arenaParams);
 }
 
 void *SklJoltAllocator::Allocate(u32 requestedSize)

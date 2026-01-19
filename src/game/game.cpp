@@ -77,6 +77,7 @@ GAME_INITIALIZE(GameInitialize)
         scene.Assign<Transform3D>(gameState->currentCamera);
 
         EditorSystem *editorSystem = AddSystemToScene(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
+        AddSystemToScene(&scene, SKLPhysicsSystem, &remainingArena);
     }
     else
     {

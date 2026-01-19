@@ -128,7 +128,10 @@ inline char *PushString_(INTERNAL_MEMORY_PARAM
     return result;
 }
 
-// Produces the address to what just got popped.
+// Produces the address to what just got popped. If a sub arena has
+// been allocated, followed by normal allocations, you could but
+// shouldn't pop into the sub arena.
+// TODO(marvin): Should the design of the memor data definitions prevent popping into child sub arena?
 // NOTE(marvin): Pop doesn't have to do anything about alignment, right...?
 inline void *PopSize_(MemoryArena *arena, siz size, ArenaParams params = DefaultArenaParams())
 {
@@ -175,7 +178,7 @@ inline MemoryArena SubArena_(INTERNAL_MEMORY_PARAM
 inline FreeIndicesStack InitFreeIndicesStack(MemoryArena *remainingArena, u32 count)
 {
     FreeIndicesStack result = {};
-    result.arena = SubArena(remainingArena, count * sizeof(u32));
+    result.arena = SubArena(remainingArena, count * sizeof(u32), "Free Indices Stack");
     return result;
 }
 
