@@ -26,11 +26,13 @@
 
 #include <meta_definitions.h>
 #include <skl_math_types.h>
+#include <game.h>
 #include <physics.h>
 #include <components.h>
 #include <utils.h>
 #include <scene_view.h>
 
+constexpr siz TEMPORARY_MEMORY_SIZE = Kilobytes(100);
 
 /* From the Jolt 5.3.0 documentation:
   
@@ -127,7 +129,6 @@ class SklObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
 };
 
 
-
 inline JPH::Vec3 OurToJoltCoordinateSystem(glm::vec3 ourVec3)
 {
     f32 rx = -ourVec3.y;
@@ -185,44 +186,59 @@ void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsS
     pc->characterVirtual = characterVirtual;
 }
 
+/**
+ * JOLT ALLOCATION FUNCTIONS
+ */
+
+// NOTE(marvin): Using size_t instead of our own because that's what
+// the Jolt signatures use.
+
+void *JoltAlignedAllocate(size_t size, size_t alignment)
+{
+    void *result = allocator.AlignedAllocate(size, alignment);
+    return result;
+}
+
+void JoltAlignedFree(void *block)
+{
+    allocator.AlignedFree(block);
+}
+
+void *JoltAllocate(size_t size)
+{
+    void *result = allocator.Allocate(size);
+    return result;
+}
+
+void JoltFree(void *block)
+{
+    allocator.Free(block);
+}
+
+void *JoltReallocate(void *block, size_t oldSize, size_t newSize)
+{
+    void *result = allocator.Realloc(block, oldSize, newSize);
+    return result;
+}
+
+
+
+/**
+ * SYSTEM DEFINITION
+ */
+
 SKLPhysicsSystem::SKLPhysicsSystem() : SYSTEM_SUPER(SKLPhysicsSystem)
 {
-    JPH::RegisterDefaultAllocator();
-    JPH::Factory::sInstance = new JPH::Factory();
-    JPH::RegisterTypes();
-
-    // NOTE(marvin): Pulled these numbers out of my ass.
-    const u32 maxPhysicsJobs = 2048;
-    const u32 maxPhysicsBarriers = 8;
-    const u32 maxBodies = 1024;
-    const u32 numBodyMutexes = 0;  // 0 means auto-detect.
-    const u32 maxBodyPairs = 1024;
-    const u32 maxContactConstraints = 1024;
-    const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
-
-    JPH::JobSystemThreadPool *jobSystem = new JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
-
-    // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well.
-    JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
-
-    JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
-    JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
-    JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
-
-    physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
-                        *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
-                        *sklObjectLayerPairFilter);
-
-    this->physicsSystem = physicsSystem;
-    this->jobSystem = jobSystem;
-    // TODO(marvin): Is it possible for Jolt's temp allocator to take from our memory arenas (after we have them)?
-    this->allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+    this->Initialize(true);
 }
 
 SKLPhysicsSystem::~SKLPhysicsSystem()
 {
     delete this->allocator;
     delete this->jobSystem;
+    delete this->objectLayerPairFilter;
+    delete this->objectVsBroadPhaseLayerFilter;
+    delete this->broadPhaseLayer;
     delete this->physicsSystem;
 }
 
@@ -298,4 +314,58 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
     JPH::Vec3 joltPosition = cv->GetPosition();
     glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
     pt->SetLocalPosition(position);
+}
+
+// NOTE(marvin): The destructors are virtual, so we lose access to
+// the destructors after a hot reload... Could try to deallocate
+// the memory by hand if we can figure out what Jolt destructors
+// are doing. Though that seems like a lot of work that's risky,
+// and this is just a internal development feature, so we let it
+// leak for now.
+void SKLPhysicsSystem::Initialize(b32 firstTime)
+{
+    JPH::AlignedAllocate = JoltAlignedAllocate;
+    JPH::AlignedFree = JoltAlignedFree;
+    JPH::Allocate = JoltAllocate;
+    JPH::Free = JoltFree;
+    JPH::Reallocate = JoltReallocate;
+
+    JPH::Factory::sInstance = new JPH::Factory();
+    JPH::RegisterTypes();
+
+    // NOTE(marvin): Pulled these numbers out of my ass.
+    const u32 maxPhysicsJobs = 2048;
+    const u32 maxPhysicsBarriers = 8;
+    const u32 maxBodies = 1024;
+    const u32 numBodyMutexes = 0;  // 0 means auto-detect.
+    const u32 maxBodyPairs = 1024;
+    const u32 maxContactConstraints = 1024;
+    const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
+
+    JPH::JobSystemThreadPool *jobSystem = new JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
+
+    // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well.
+    JPH::PhysicsSystem* physicsSystem = new JPH::PhysicsSystem();
+
+    JPH::BroadPhaseLayerInterface* sklBroadPhaseLayer = new SklBroadPhaseLayer();
+    JPH::ObjectVsBroadPhaseLayerFilter* sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
+    JPH::ObjectLayerPairFilter* sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
+
+    physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
+                        *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
+                        *sklObjectLayerPairFilter);
+
+    this->physicsSystem = physicsSystem;
+    this->broadPhaseLayer = sklBroadPhaseLayer;
+    this->objectVsBroadPhaseLayerFilter = sklObjectVsBroadPhaseLayerFilter;
+    this->objectLayerPairFilter = sklObjectLayerPairFilter;
+    this->jobSystem = jobSystem;
+
+#if SKL_SLOW
+    if (!firstTime)
+    {
+        Assert(this->allocator->GetUsage() == 0);
+    }
+#endif
+    this->allocator = new JPH::TempAllocatorImpl(TEMPORARY_MEMORY_SIZE);
 }

@@ -51,12 +51,11 @@ enum DebugGeneralAllocationType
 
 struct DebugGeneralAllocation;
 
-// NOTE(marvin): This is the sentinel for a linked list of
-// DebugGeneralAllocation, but the last's next is nullptr.
+// Essentially a deque, where the sentinel is a zeroed out general allocation.
 struct DebugAllocations
 {
-    DebugGeneralAllocation *first;
-    DebugGeneralAllocation *last;
+    // NOTE(marvin): Has to be a pointer due to circular dependency...
+    DebugGeneralAllocation *sentinel;
 };
 
 // NOTE(marvin): The base is used for finding the target associated
@@ -84,9 +83,11 @@ struct DebugRegularAllocation
 // Null-terminated.
 struct DebugGeneralAllocation
 {
+    u32 id;  // For indexing into the pool.
     const char *debugID;
     const char *name;
     DebugGeneralAllocationType type;
+    DebugGeneralAllocation *prev;
     DebugGeneralAllocation *next;
     union
     {
@@ -118,6 +119,9 @@ struct DebugAllocationsStore
     // needing to refer to the free indices.
     DebugAllocationsStorePool pool;
     FreeIndicesStack freeIndices;
+
+    // TODO(marvin): The debug free indices stack is pretty useless. Suppose an allocation is removed, thus its position is pushed to the free indices stack. The push is recorded, taking that free index. The free index ends up getting used by the debug process to talk about the free index, which is a waste. This either suggests that the free indices stack is too heavy, or that some parts of the debug memory should just not be recorded... For now, we surpress this case...
+    // TODO(marvin): The free indices stack never decreases in size. If an element is popped from the stack, that pop is recorded by the debug system, which requires an allocation object, thus taking that which was just popped. When there's frequent pushes and pops, then the free indices stack becomes a ticking time bomb. This is livable for now... but should re-consider the memory viewer's design...
 };
 
 // TODO(marvin): The XBuffer familiy could be abstracted maybe.
@@ -132,6 +136,8 @@ struct DebugState
     // NOTE(marvin): The non-store is the tree, the store is the memory arena holding the nodes of the tree.
     DebugAllocations targets;
 
+    // NOTE(marvin): Reason for this flag is due to the TODO in the DebugAllocationsStore...
+    b32 canUseFreeIndicesStack;
     DebugAllocationsStore targetsStore;
 
     // NOTE(marvin): Nothing gets freed in here! Will need to work out
@@ -165,12 +171,12 @@ void DebugUpdate_(GameMemory gameMemory);
 
 void DebugRecordInitMemoryArena_(const char *debugID, const char *name, MemoryArena source);
 
-void DebugRecordSubArena_(const char *debugID, const char *name, MemoryArena *sourceContainingArena, MemoryArena subArenaSource);
+void DebugRecordSubArena_(const char *debugID, const char *name, MemoryArena *sourceContainingrena, MemoryArena subArenaSource);
 
-void DebugRecordPushSize_(const char *debugID, MemoryArena *source, siz requestedSize, siz actualSize);
+void DebugRecordPushSize_(const char *debugID, MemoryArena *source, siz requestedSize, siz actalSize);
 
 void DebugRecordPopSize_(MemoryArena *source, siz size);
-    
+
 #else
 
 #define DebugInitialize(...)

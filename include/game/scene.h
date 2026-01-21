@@ -22,6 +22,9 @@ constexpr u32 MAX_SYSTEMS = 128;
 
 constexpr u32 SYSTEMS_MEMORY = Kilobytes(16);
 
+// NOTE(marvin): The heuristic is that a component will take 32 bytes on average. Admittedly not a great heuristic... 
+constexpr u32 COMPONENT_POOLS_MEMORY = MAX_COMPONENTS * MAX_ENTITIES * 32;
+
 /*
  * ID FUNCTIONALITY
  */

@@ -22,8 +22,20 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
+#define JOLT_LIB_SRC_FILE_NAME "Jolt"
+
+#include <debug.h>
 #include <game_platform.h>
 #include <render_backend.h>
+#include <main.h>
+
+SDLState globalSDLState = {};
+
+#if SKL_INTERNAL
+DebugState globalDebugState_;
+DebugState* globalDebugState = &globalDebugState_;
+#endif
+
 
 struct SDLGameCode
 {
@@ -72,13 +84,24 @@ file_global f32 mouseY = 0;
 
 file_global u32 reloadCount = 0;
 
-local const char *SDLGetGameCodeSrcFilePath()
+local const char* SDLGetGameCodeSrcFilePath()
 {
-    const char *result;
+    const char* result;
 #ifdef PLATFORM_WINDOWS
     result = GAME_CODE_SRC_FILE_NAME ".dll";
 #else
     result = "./lib" GAME_CODE_SRC_FILE_NAME ".so";
+#endif
+    return result;
+}
+
+local const char* SDLGetJoltLibSrcFilePath()
+{
+    const char* result;
+#ifdef PLATFORM_WINDOWS
+    result = JOLT_LIB_SRC_FILE_NAME ".dll";
+#else
+    result = "./lib" JOLT_LIB_SRC_FILE_NAME ".so";
 #endif
     return result;
 }
@@ -262,6 +285,8 @@ int main(int argc, char** argv)
     std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     srand(static_cast<unsigned>(time(0)));
 
+    InitSDLState(&globalSDLState);
+
     SDL_Window *window = NULL;
     SDL_Surface *screenSurface = NULL;
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
@@ -314,12 +339,22 @@ int main(int argc, char** argv)
     RenderPipelineInitInfo pipelinesInfo;
     InitPipelines(pipelinesInfo);
 
+    // NOTE(marvin): Platform to have a handle to Jolt to keep it alive as game gets hot reloaded.
+    // TODO(marvin): Platform doesn't need a handle to Jolt if on final release. Do we wrap this in SKL_INTERNAL?
+    const char* joltLibSrcFilePath = SDLGetJoltLibSrcFilePath();
+    SDL_SharedObject* joltSharedObjectHandle = SDL_LoadObject(joltLibSrcFilePath);
+    if (!joltSharedObjectHandle)
+    {
+        LOG_ERROR("Jolt loading failed.");
+        LOG_ERROR(SDL_GetError());
+    }
+
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
-    gameMemory.permanentStorageSize = Megabytes(512 + 128);
+    gameMemory.permanentStorageSize = Megabytes(512 + 256);
     gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
 #if SKL_INTERNAL
-    gameMemory.debugStorageSize = Megabytes(256 + 128);
+    gameMemory.debugStorageSize = Megabytes(256);
     gameMemory.debugStorage = SDL_malloc(static_cast<size_t>(gameMemory.debugStorageSize));
 
     if (!gameMemory.debugStorage)
@@ -327,10 +362,13 @@ int main(int argc, char** argv)
         printf("SDL_malloc failed! SDL_Error: %s\n", SDL_GetError());
         Assert(false);
     }
+
+    gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
+    gameMemory.platformAPI.allocator = constructPlatformAllocator();
     gameCode.gameLoad(gameMemory, editor, false);
     gameCode.gameInitialize(gameMemory, mapName, editor);
 

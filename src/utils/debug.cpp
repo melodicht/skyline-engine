@@ -3,9 +3,7 @@
 #include <debug.h>
 #include <memory.h>
 
-constexpr u32 MAX_GENERAL_ALLOCATIONS = 8192;
-
-DebugState *globalDebugState;
+constexpr u32 MAX_GENERAL_ALLOCATIONS = 1024 * 1024;
 
 // NOTE(marvin): We store all of our strings (name and debug ID) in
 // the miscArena. For name, we always create a fresh new
@@ -35,11 +33,58 @@ local void InitDebugAllocationsStoreInPlace(DebugAllocationsStore *store, Memory
     store->pool = InitDebugAllocationsStorePool(remainingArena);
     store->freeIndices = InitFreeIndicesStack(remainingArena, MAX_GENERAL_ALLOCATIONS);
 }
+
+
+local DebugGeneralAllocation *GetFromDebugGeneralAllocationPool(DebugAllocationsStorePool *pool, u32 index)
+{
+    Assert(index < MAX_GENERAL_ALLOCATIONS);
+    DebugGeneralAllocation *result = pool->arena + index;
+    return result;
+}
+
+local DebugGeneralAllocation *AddNewDebugGeneralAllocation(DebugAllocationsStorePool *pool)
+{
+    Assert(pool->count < MAX_GENERAL_ALLOCATIONS);
+    DebugGeneralAllocation *result = pool->arena + pool->count;
+    result->id = pool->count++;
+    return result;
+}
+
+local DebugGeneralAllocation *NewDebugGeneralAllocation(DebugAllocationsStore *store)
+{
+    DebugGeneralAllocation* result = 0;
+    FreeIndicesStack* freeIndices = &store->freeIndices;
+    DebugAllocationsStorePool* pool = &store->pool;
+    DebugState* debugState = GetGlobalDebugState();
+    
+    if (debugState->canUseFreeIndicesStack && !FreeIndicesStackIsEmpty(freeIndices))
+    {
+        u32 newIndex = PopFreeIndicesStack(freeIndices);
+        result = GetFromDebugGeneralAllocationPool(pool, newIndex);
+    }
+    else
+    {
+        result = AddNewDebugGeneralAllocation(pool);
+    }
+
+    result->type = allocationType_none;
+    return result;
+}
     
 local DebugAllocations EmptyDebugAllocations()
 {
+    DebugState* debugState = GetGlobalDebugState();
     DebugAllocations result = {};
-    result.first = 0;
+
+    DebugGeneralAllocation* sentinel = NewDebugGeneralAllocation(&debugState->targetsStore);
+    u32 sentinelId = sentinel->id;
+    *sentinel = {};
+    sentinel->id = sentinelId;
+    sentinel->next = sentinel;
+    sentinel->prev = sentinel;
+    sentinel->type = allocationType_none;
+    result.sentinel = sentinel;
+    
     return result;
 }
 
@@ -76,8 +121,8 @@ local void AddReferenceToDebugID(DebugIDsBuffer *debugIDsBuffer, char *ourDebugI
 local void InitGlobalDebugState(MemoryArena *remainingArena)
 {
     *globalDebugState = {};
-    globalDebugState->targets = EmptyDebugAllocations();
     InitDebugAllocationsStoreInPlace(&globalDebugState->targetsStore, remainingArena);
+    globalDebugState->targets = EmptyDebugAllocations();
     globalDebugState->debugIDsIndex = InitDebugIDsBuffer(remainingArena);
     globalDebugState->miscArena = SubArena(remainingArena, remainingArena->size - remainingArena->used);
     globalDebugState->readyToInitMemoryArena_ = true;
@@ -85,23 +130,84 @@ local void InitGlobalDebugState(MemoryArena *remainingArena)
 
 local void AddAllocation(DebugAllocations *allocations, DebugGeneralAllocation *toAdd)
 {
-    if (!allocations->first)
+    DebugGeneralAllocation *sentinel = allocations->sentinel;
+    DebugGeneralAllocation *last = sentinel->prev;
+
+    toAdd->next = sentinel;
+    toAdd->prev = last;
+    sentinel->prev = toAdd;
+    last->next = toAdd;
+}
+
+local void RemoveAllocation(DebugGeneralAllocation* toRemove)
+{
+    Assert(toRemove->prev && toRemove->next);
+    toRemove->prev->next = toRemove->next;
+    toRemove->next->prev = toRemove->prev;
+}
+
+// Produces the size could not be truncated.
+local siz TruncateDebugRegularAllocation(DebugRegularAllocation* allocation, siz remainingSize)
+{
+    if (remainingSize >= allocation->size)
     {
-        allocations->first = toAdd;
-        allocations->last = toAdd;
+        remainingSize -= allocation->size;
+        allocation->size = 0;
     }
     else
     {
-        DebugGeneralAllocation *secondLast = allocations->last;
-        allocations->last = toAdd;
-        secondLast->next = toAdd;
-        toAdd->next = 0;
+        allocation->size -= remainingSize;
+        remainingSize = 0;
+    }
+
+    return remainingSize;
+}
+
+local b32 DebugAllocationsEmpty(DebugAllocations* allocations)
+{
+    b32 result = (allocations->sentinel->next == allocations->sentinel);
+    return result;
+}
+
+local void DeleteDebugGeneralAllocation(DebugAllocationsStore* store, DebugGeneralAllocation* allocation)
+{
+    FreeIndicesStack *freeIndices = &store->freeIndices;
+    PushFreeIndicesStack(freeIndices, allocation->id);
+}
+
+
+local void TruncateAllocation(DebugAllocations* allocations, siz size)
+{
+    Assert(!DebugAllocationsEmpty(allocations) &&
+           "The assertion failure should happen in memory's PopSize first.");
+
+    siz remainingSize = size;
+    DebugGeneralAllocation* cursor = allocations->sentinel->prev;
+    while (remainingSize > 0)
+    {
+        // NOTE(marvin): In theory, the user could truncate into a
+        // child arena, but in practice, the user shouldn't.
+        Assert(cursor->type == allocationType_regular);
+        DebugRegularAllocation* allocation = &cursor->regular;
+        remainingSize = TruncateDebugRegularAllocation(allocation, remainingSize);
+        DebugGeneralAllocation* nextCursor = cursor->prev;
+        if (allocation->size == 0)
+        {
+            // TODO(marvin): Is there a way to encapsulate adding to/removing from the deque and also managing the memory in the store?
+            RemoveAllocation(cursor);
+            DebugState* debugState = GetGlobalDebugState();
+            debugState->canUseFreeIndicesStack = false;
+            DeleteDebugGeneralAllocation(&debugState->targetsStore, cursor);
+            debugState->canUseFreeIndicesStack = true;
+            
+        }
+        cursor = nextCursor;
     }
 }
 
 local DebugGeneralAllocation *GetLastAllocation(DebugAllocations *allocations)
 {
-    DebugGeneralAllocation *result = allocations->last;
+    DebugGeneralAllocation *result = allocations->sentinel->prev;
     return result;
 }
 
@@ -150,7 +256,13 @@ void DebugInitialize_(GameMemory gameMemory)
     const char *miscArenaDebugID = MAKE_DEBUG_ID;
     GetDebugIDFromOurArena(debugState, miscArenaDebugID);
     debugState->readyToRegularAllocate_ = true;
+
     
+    // NOTE(marvin): Have to manually push size prior to sub arena... encapsulte in procedure?
+    u32 debugFreeIndicesStackSize = MAX_GENERAL_ALLOCATIONS * sizeof(u32);
+    DebugRecordPushSize(miscArenaDebugID, &memoryArena, debugFreeIndicesStackSize, debugFreeIndicesStackSize);
+    DebugRecordSubArena(miscArenaDebugID, "DebugFreeIndicesStack", &memoryArena, debugState->targetsStore.freeIndices.arena);
+
     DebugRecordPushSize(miscArenaDebugID, &memoryArena, miscArenaSize, miscArenaSize);
     DebugRecordSubArena(miscArenaDebugID, "DebugMiscArena", &memoryArena, debugState->miscArena);
 }
@@ -159,21 +271,6 @@ void DebugUpdate_(GameMemory gameMemory)
 {
     Assert(sizeof(DebugState) <= gameMemory.debugStorageSize);
     globalDebugState = static_cast<DebugState *>(gameMemory.debugStorage);
-}
-
-local DebugGeneralAllocation *GetFromDebugGeneralAllocationPool(DebugAllocationsStorePool *pool, u32 index)
-{
-    Assert(index < MAX_GENERAL_ALLOCATIONS);
-    DebugGeneralAllocation *result = pool->arena + index;
-    return result;
-}
-
-local DebugGeneralAllocation *AddNewDebugGeneralAllocation(DebugAllocationsStorePool *pool)
-{
-    Assert(pool->count < MAX_GENERAL_ALLOCATIONS);
-    DebugGeneralAllocation *result = pool->arena + pool->count;
-    ++pool->count;
-    return result;
 }
 
 local DebugArena InitDebugArena(MemoryArena sourceArena)
@@ -194,26 +291,6 @@ local DebugRegularAllocation InitDebugRegularAllocation(u32 requestedSize, u32 a
     return result;
 }
 
-local DebugGeneralAllocation *NewDebugGeneralAllocation(DebugAllocationsStore *store)
-{
-    DebugGeneralAllocation *result = 0;
-    FreeIndicesStack *freeIndices = &store->freeIndices;
-    DebugAllocationsStorePool *pool = &store->pool;
-    
-    if (!FreeIndicesStackIsEmpty(freeIndices))
-    {
-        u32 newIndex = PopFreeIndicesStack(freeIndices);
-        result = GetFromDebugGeneralAllocationPool(pool, newIndex);
-    }
-    else
-    {
-        result = AddNewDebugGeneralAllocation(pool);
-    }
-
-    result->type = allocationType_none;
-    return result;
-}
-
 local void MapSourceArenaToTarget(DebugGeneralAllocation *target, MemoryArena source, MemoryArena *miscArena, const char *ourDebugID, const char *name)
 {
     // NOTE(marvin): These have to come before PushString below because
@@ -231,7 +308,6 @@ local void MapSourceAllocationToTarget(DebugGeneralAllocation *target, u32 reque
     target->debugID = ourDebugID;
     target->name = "";
     target->type = allocationType_regular;
-    target->next = 0;
     target->regular = InitDebugRegularAllocation(requestedSize, actualSize);
 }
 
@@ -265,7 +341,7 @@ local DebugArena *FindTargetOfSourceArena(DebugAllocationsStore *store, MemoryAr
 // Assumes that the last allocation is regular.
 local void ForceLastAllocationToArena(DebugAllocations *allocations, DebugAllocationsStore *targetStore, MemoryArena subArenaSource, MemoryArena *miscArena, const char *ourDebugID, const char *name)
 {
-    DebugGeneralAllocation *last = allocations->last;
+    DebugGeneralAllocation *last = GetLastAllocation(allocations);
     Assert(last->type == allocationType_regular);
 
     DebugRegularAllocation *regular = &last->regular;
@@ -343,8 +419,12 @@ void DebugRecordPushSize_(const char *debugID, MemoryArena *source, siz requeste
 
 void DebugRecordPopSize_(MemoryArena *source, siz size)
 {
-    // TODO(marvin): Implementation of DebugRecordPopSize_
-    // DebugState *debugState = GetGlobalDebugState();
+    DebugState *debugState = GetGlobalDebugState();
+    
+    DebugArena *targetArena = FindTargetOfSourceArena(&debugState->targetsStore, source);
+    targetArena->used -= size;
+
+    TruncateAllocation(&targetArena->allocations, size);
 }
 
 #endif
