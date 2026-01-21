@@ -129,7 +129,6 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
         imgui
         skl-utils
-        Jolt
         SKL_COMPILE_DEFINITIONS
 )
 
@@ -228,7 +227,8 @@ target_compile_definitions(game-module PRIVATE
         debugRecordArray=debugRecordsGame
         SKL_GAME_MODULE)
 target_link_libraries(game-module PRIVATE
-        SHARED_DEPENDENCIES)
+        SHARED_DEPENDENCIES
+        Jolt)
 target_include_directories(game-module PRIVATE
         ${CMAKE_SOURCE_DIR}/include/shared
         ${CMAKE_SOURCE_DIR}/include/game
@@ -264,8 +264,7 @@ set_target_properties(platform PROPERTIES
 )
 target_include_directories(platform PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include/shared
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/platform
-        ${JoltPhysics_SOURCE_DIR})
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/platform)
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
