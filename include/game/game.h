@@ -3,6 +3,7 @@
 #include <game_platform.h>
 #include <meta_definitions.h>
 #include <scene.h>
+#include <physics.h>
 
 enum OverlayMode
 {

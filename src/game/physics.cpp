@@ -32,7 +32,6 @@
 #include <utils.h>
 #include <scene_view.h>
 
-
 constexpr siz TEMPORARY_MEMORY_SIZE = Kilobytes(100);
 
 /* From the Jolt 5.3.0 documentation:
@@ -128,57 +127,6 @@ class SklObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
         }
     }
 };
-
-
-// NOTE(marvin): There is the invariant that the base of the arena is
-// aligned to what Jolt expects, and every size allocated to the arena
-// is a multiple of the alignment. Thus, the resulting addresses are
-// also aligned. After the sub arena is created, the memory arena WILL
-// NOT align memory anymore, as they should already be aligned!  This
-// implementation closely mirrors TempAllocatorImpl. Thread safety is
-// not needed because "the order is guaranteed though job
-// dependencies."
-
-
-SklJoltAllocator::SklJoltAllocator(MemoryArena *remainingArena)
-{
-    ArenaParams arenaParams = {};
-    arenaParams.alignment = JPH_RVECTOR_ALIGNMENT;
-    this->arena = SubArena(remainingArena, TEMPORARY_MEMORY_SIZE, "Jolt Temp", arenaParams);
-}
-
-void *SklJoltAllocator::Allocate(u32 requestedSize)
-{
-    void *result = {};
-        
-    if (requestedSize != 0)
-    {
-        u32 alignedRequestedSize = JPH::AlignUp(requestedSize, JPH_RVECTOR_ALIGNMENT);
-        ArenaParams arenaParams = {};
-        result = PushSize(&this->arena, alignedRequestedSize, arenaParams);
-    }
-
-    Assert(((uintptr_t)result % JPH_RVECTOR_ALIGNMENT) == 0);
-
-    return result;
-}
-
-void SklJoltAllocator::Free(void *address, u32 size)
-{
-    if (address == nullptr)
-    {
-        // TODO(marvin): Using JPH_ASSERT since that's what TempAllocatorImpl uses... should we just use our own?
-        JPH_ASSERT(size == 0);
-    }
-    else
-    {
-        u32 alignedSize = JPH::AlignUp(size, JPH_RVECTOR_ALIGNMENT);
-        PopSize(&this->arena, alignedSize);
-        Assert((this->arena.base + this->arena.used) == address &&
-               "Freeing in the wrong order or a bug in the SklJolt allocator.");
-    }
-}
-
 
 
 inline JPH::Vec3 OurToJoltCoordinateSystem(glm::vec3 ourVec3)
@@ -279,7 +227,7 @@ void *JoltReallocate(void *block, size_t oldSize, size_t newSize)
  * SYSTEM DEFINITION
  */
 
-SKLPhysicsSystem::SKLPhysicsSystem(MemoryArena *remainingArena) : SYSTEM_SUPER(SKLPhysicsSystem)
+SKLPhysicsSystem::SKLPhysicsSystem() : SYSTEM_SUPER(SKLPhysicsSystem)
 {
     JPH::AlignedAllocate = JoltAlignedAllocate;
     JPH::AlignedFree = JoltAlignedFree;
@@ -287,7 +235,6 @@ SKLPhysicsSystem::SKLPhysicsSystem(MemoryArena *remainingArena) : SYSTEM_SUPER(S
     JPH::Free = JoltFree;
     JPH::Reallocate = JoltReallocate;
     
-    JPH::RegisterDefaultAllocator();
     JPH::Factory::sInstance = new JPH::Factory();
     JPH::RegisterTypes();
 
@@ -315,7 +262,7 @@ SKLPhysicsSystem::SKLPhysicsSystem(MemoryArena *remainingArena) : SYSTEM_SUPER(S
 
     this->physicsSystem = physicsSystem;
     this->jobSystem = jobSystem;
-    this->allocator = new SklJoltAllocator(remainingArena);
+    this->allocator = new JPH::TempAllocatorImpl(TEMPORARY_MEMORY_SIZE);
 }
 
 SKLPhysicsSystem::~SKLPhysicsSystem()
@@ -397,4 +344,18 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
     JPH::Vec3 joltPosition = cv->GetPosition();
     glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
     pt->SetLocalPosition(position);
+}
+
+void SKLPhysicsSystem::RefreshTempAllocator()
+{
+    JPH::AlignedAllocate = JoltAlignedAllocate;
+    JPH::AlignedFree = JoltAlignedFree;
+    JPH::Allocate = JoltAllocate;
+    JPH::Free = JoltFree;
+    JPH::Reallocate = JoltReallocate;
+    
+    Assert(this->allocator->GetUsage() == 0);
+    // NOTE(marvin): The destructor is virtual, so we lose access to the destructor after a hot reload... maybe just let it leak? Lol.
+    // delete this->allocator;
+    this->allocator = new JPH::TempAllocatorImpl(TEMPORARY_MEMORY_SIZE);
 }

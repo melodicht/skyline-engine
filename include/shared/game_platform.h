@@ -25,6 +25,8 @@ struct GameInput
     method(s32,WriteDataAsset,(std::string name, DataEntry* data))
 DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
 
+// TODO(marvin): The creation of the SKL Jolt Allocator must happen on the platform side so that the virtual table can survive the hot reload. I don't see a better way than this...
+
 #define ALLOCATOR_FUNCS(method) \
     method(void *,AlignedAllocate,(siz size, siz alignment)) \
     method(void,AlignedFree,(void *block)) \
@@ -41,21 +43,26 @@ struct PlatformAPI
 };
 
 struct ImGuiContext;
+struct DebugState;
 
 struct GameMemory
 {
     u64 permanentStorageSize;  // In bytes
-    void *permanentStorage;
+    void* permanentStorage;
 
     // TODO(marvin): Does the imgui context really belong to game memory? Should it be part of the debug storage?
     ImGuiContext *imGuiContext;
 
 #if SKL_INTERNAL
     u64 debugStorageSize;  // In bytes
-    void *debugStorage;
+    void* debugStorage;
+    DebugState* debugState;
 #endif
 
     PlatformAPI platformAPI;
+
+    // NOTE(marvin): It is contained in the scene as well, but the SKL physics system's temp allocator need to be reset due to vtable x hot reload conflict. Putting it here for convenience.
+    void* sklPhysicsSystem;
 };
 
 

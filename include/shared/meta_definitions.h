@@ -111,6 +111,13 @@ inline void CPUPause() {
 #endif
 }
 
+// Source - https://stackoverflow.com/a
+// Posted by Christoph, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-01-20, License - CC BY-SA 2.5
+#define IsAligned(POINTER, BYTE_COUNT) \
+    (((uintptr_t)(const void *)(POINTER)) % (BYTE_COUNT) == 0)
+
+
 // NOTE(marvin): The reason for two layers of macros is to allow the
 // macro arguments to expand before token pasting.
 #define NameConcat_(A, B) A##B

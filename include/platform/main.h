@@ -4,9 +4,14 @@
 
 struct SDLMemoryBlock
 {
-    void *basePointer;
-    SDLMemoryBlock *prev;
-    SDLMemoryBlock *next;
+    // NOTE(marvin): requestedBase is the base of memory that the user
+    // has access to, the wholeBase is the base of the entire chunk of
+    // memory, including padding at front for alignment, this memory
+    // block and the user's requested memory.
+    void* requestedBase;
+    void* wholeBase;
+    SDLMemoryBlock* prev;
+    SDLMemoryBlock* next;
 };
 
 struct SDLState

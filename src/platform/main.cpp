@@ -22,11 +22,18 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
+#include <debug.h>
 #include <game_platform.h>
 #include <render_backend.h>
 #include <main.h>
 
 SDLState globalSDLState = {};
+
+#if SKL_INTERNAL
+DebugState globalDebugState_;
+DebugState* globalDebugState = &globalDebugState_;
+#endif
+
 
 struct SDLGameCode
 {
@@ -332,10 +339,13 @@ int main(int argc, char** argv)
         printf("SDL_malloc failed! SDL_Error: %s\n", SDL_GetError());
         Assert(false);
     }
+
+    gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
+    gameMemory.platformAPI.allocator = constructPlatformAllocator();
     gameCode.gameLoad(gameMemory, editor, false);
     gameCode.gameInitialize(gameMemory, mapName, editor);
 

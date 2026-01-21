@@ -6,6 +6,7 @@
 #include <editor.h>
 #endif
 
+#include <debug.h>
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
@@ -24,6 +25,10 @@ PlatformAssetUtils assetUtils;
 PlatformRenderer renderer;
 PlatformAllocator allocator;
 
+#if SKL_INTERNAL
+DebugState* globalDebugState;
+#endif
+
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
 __declspec(dllexport)
@@ -34,6 +39,8 @@ GAME_INITIALIZE(GameInitialize)
     
     Assert(sizeof(GameState) <= memory.permanentStorageSize);
     GameState *gameState = static_cast<GameState *>(memory.permanentStorage);
+
+    // TODO(marvin): We currently allocate WAY more memory than we actually use... got to revisit how much memory we actually need.
 
     // NOTE(marvin): The remaining arena here only exists for the
     // duration of game initialize. The scene has its own set of
@@ -65,6 +72,8 @@ GAME_INITIALIZE(GameInitialize)
         exit(-1);
     }
 
+    memory.sklPhysicsSystem = {};
+
     b32 slowStep = false;
     #if SKL_ENABLED_EDITOR
     gameState->isEditor = editor;
@@ -77,12 +86,12 @@ GAME_INITIALIZE(GameInitialize)
         scene.Assign<Transform3D>(gameState->currentCamera);
 
         EditorSystem *editorSystem = AddSystemToScene(&scene, EditorSystem, gameState->currentCamera, &gameState->overlayMode);
-        AddSystemToScene(&scene, SKLPhysicsSystem, &remainingArena);
+        memory.sklPhysicsSystem = static_cast<void*>(AddSystemToScene(&scene, SKLPhysicsSystem));
     }
     else
     {
     #endif
-        AddSystemToScene(&scene, SKLPhysicsSystem, &remainingArena);
+        memory.sklPhysicsSystem = static_cast<void*>(AddSystemToScene(&scene, SKLPhysicsSystem));
         AddSystemToScene(&scene, MovementSystem);
         AddSystemToScene(&scene, BuilderSystem, slowStep);
 
@@ -106,9 +115,19 @@ GAME_LOAD(GameLoad)
     renderer = memory.platformAPI.renderer;
     allocator = memory.platformAPI.allocator;
 
+    #if SKL_INTERNAL
+    globalDebugState = memory.debugState;
+    #endif
+
     RegisterComponents(editor);
 
     DebugUpdate(memory);
+
+    SKLPhysicsSystem* sklPhysicsSystem = static_cast<SKLPhysicsSystem*>(memory.sklPhysicsSystem);
+    if (sklPhysicsSystem)
+    {
+        sklPhysicsSystem->RefreshTempAllocator();
+    }
 }
 
 local void LogDebugRecords();

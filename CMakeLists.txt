@@ -109,7 +109,7 @@ CPMAddPackage(
         "ENABLE_ALL_WARNINGS OFF"
       )
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
 
 #==============================================================================
 # IMGUI
@@ -127,7 +127,8 @@ add_library(SHARED_DEPENDENCIES INTERFACE)
 target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
         imgui
-        skl-math
+        skl-utils
+        Jolt
         SKL_COMPILE_DEFINITIONS
 )
 
@@ -226,8 +227,7 @@ target_compile_definitions(game-module PRIVATE
         debugRecordArray=debugRecordsGame
         SKL_GAME_MODULE)
 target_link_libraries(game-module PRIVATE
-        SHARED_DEPENDENCIES
-        Jolt)
+        SHARED_DEPENDENCIES)
 target_include_directories(game-module PRIVATE
         ${CMAKE_SOURCE_DIR}/include/shared
         ${CMAKE_SOURCE_DIR}/include/game
@@ -263,7 +263,8 @@ set_target_properties(platform PROPERTIES
 )
 target_include_directories(platform PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include/shared
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/platform)
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/platform
+        ${JoltPhysics_SOURCE_DIR})
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
