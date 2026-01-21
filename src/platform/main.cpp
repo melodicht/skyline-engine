@@ -22,6 +22,8 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
+#define JOLT_LIB_SRC_FILE_NAME "Jolt"
+
 #include <debug.h>
 #include <game_platform.h>
 #include <render_backend.h>
@@ -82,13 +84,24 @@ file_global f32 mouseY = 0;
 
 file_global u32 reloadCount = 0;
 
-local const char *SDLGetGameCodeSrcFilePath()
+local const char* SDLGetGameCodeSrcFilePath()
 {
-    const char *result;
+    const char* result;
 #ifdef PLATFORM_WINDOWS
     result = GAME_CODE_SRC_FILE_NAME ".dll";
 #else
     result = "./lib" GAME_CODE_SRC_FILE_NAME ".so";
+#endif
+    return result;
+}
+
+local const char* SDLGetJoltLibSrcFilePath()
+{
+    const char* result;
+#ifdef PLATFORM_WINDOWS
+    result = JOLT_LIB_SRC_FILE_NAME ".dll";
+#else
+    result = "./lib" JOLT_LIB_SRC_FILE_NAME ".so";
 #endif
     return result;
 }
@@ -325,6 +338,16 @@ int main(int argc, char** argv)
 
     RenderPipelineInitInfo pipelinesInfo;
     InitPipelines(pipelinesInfo);
+
+    // NOTE(marvin): Platform to have a handle to Jolt to keep it alive as game gets hot reloaded.
+    // TODO(marvin): Platform doesn't need a handle to Jolt if on final release. Do we wrap this in SKL_INTERNAL?
+    const char* joltLibSrcFilePath = SDLGetJoltLibSrcFilePath();
+    SDL_SharedObject* joltSharedObjectHandle = SDL_LoadObject(joltLibSrcFilePath);
+    if (!joltSharedObjectHandle)
+    {
+        LOG_ERROR("Jolt loading failed.");
+        LOG_ERROR(SDL_GetError());
+    }
 
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};

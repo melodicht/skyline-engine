@@ -125,7 +125,7 @@ GAME_LOAD(GameLoad)
     SKLPhysicsSystem* sklPhysicsSystem = static_cast<SKLPhysicsSystem*>(memory.sklPhysicsSystem);
     if (sklPhysicsSystem)
     {
-        sklPhysicsSystem->RefreshTempAllocator();
+        sklPhysicsSystem->Initialize();
     }
 }
 

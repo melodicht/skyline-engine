@@ -107,6 +107,7 @@ CPMAddPackage(
         "TARGET_PERFORMANCE_TEST OFF"
         "TARGET_SAMPLES OFF"
         "ENABLE_ALL_WARNINGS OFF"
+        "BUILD_SHARED_LIBS ON"
       )
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)

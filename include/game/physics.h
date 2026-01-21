@@ -16,9 +16,12 @@ namespace JPH
 class SKLPhysicsSystem : public System
 {
 private:
-    JPH::PhysicsSystem *physicsSystem;
-    JPH::TempAllocatorImpl *allocator;
-    JPH::JobSystem *jobSystem;
+    JPH::PhysicsSystem* physicsSystem;
+    JPH::BroadPhaseLayerInterface* broadPhaseLayer;
+    JPH::ObjectVsBroadPhaseLayerFilter* objectVsBroadPhaseLayerFilter;
+    JPH::ObjectLayerPairFilter* objectLayerPairFilter;
+    JPH::JobSystem* jobSystem;
+    JPH::TempAllocatorImpl* allocator;
 
     void MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual,
                               JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime);
@@ -30,6 +33,6 @@ public:
 
     SYSTEM_ON_UPDATE();
 
-    void RefreshTempAllocator();
+    void Initialize(b32 firstTime = false);
 };
 
