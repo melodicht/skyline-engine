@@ -200,6 +200,155 @@ local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
     return result;
 }
 
+local const char* SDLGetInputFilePath()
+{
+    const char* result = "recorded_input.skli";
+    return result;
+}
+
+local void SDLBeginRecordingInput(SDLState* state)
+{
+    const char* inputFilePath = SDLGetInputFilePath();
+    state->recordingHandle = SDL_IOFromFile(inputFilePath, "w");
+    if (state->recordingHandle == NULL)
+    {
+        LOG_ERROR(SDL_GetError());
+        Assert(!"Failed to create recording handle for looped-live editing.");
+    }
+    else
+    {
+        state->loopedLiveEditingState = loopedLiveEditingState_recording;
+
+        // TODO(marvin): Take a picture of game memory and the dynamic arenas.
+    }
+    
+}
+
+local void SDLEndRecordingInput(SDLState* state)
+{
+    Assert(SDL_CloseIO(state->recordingHandle));
+    state->loopedLiveEditingState = loopedLiveEditingState_none;
+}
+
+local void SDLBeginInputPlayback(SDLState* state)
+{
+    const char* inputFilePath = SDLGetInputFilePath();
+    state->playbackHandle = SDL_IOFromFile(inputFilePath, "r");
+    if (state->playbackHandle == NULL)
+    {
+        LOG_ERROR(SDL_GetError());
+        Assert(!"Failed to read recorded input file for looped-live editing.");
+    }
+    else
+    {
+        state->loopedLiveEditingState = loopedLiveEditingState_playing;
+
+        // TODO(marvin): Restore the picture of game memory and the dynamic arenas.
+    }
+}
+
+local void SDLEndInputPlayback(SDLState* state)
+{
+    Assert(SDL_CloseIO(state->playbackHandle));
+    state->loopedLiveEditingState = loopedLiveEditingState_none;
+}
+
+local void ToggleLoopedLiveEditingState(SDLState* state)
+{
+    switch (state->loopedLiveEditingState)
+    {
+      case loopedLiveEditingState_none:
+      {
+          SDLBeginRecordingInput(state);
+      } break;
+      case loopedLiveEditingState_recording:
+      {
+          SDLEndRecordingInput(state);
+          SDLBeginInputPlayback(state);
+      } break;
+      case loopedLiveEditingState_playing:
+      {
+          SDLEndInputPlayback(state);
+      } break;
+    }
+}
+
+local void SDLRecordStdString(SDLState* state, const std::string* str)
+{
+    u32 length = static_cast<u32>(str->size());
+    Assert(SDL_WriteIO(state->recordingHandle, &length, sizeof(length)) == sizeof(length));
+    Assert(SDL_WriteIO(state->recordingHandle, str->data(), length) == length);
+}
+
+local void SDLRecordStdSetOfString(SDLState* state, std::set<std::string>* strings)
+{
+    u32 count = static_cast<u32>(strings->size());
+    Assert(SDL_WriteIO(state->recordingHandle, &count, sizeof(count)) == sizeof(count));
+
+    for (const std::string& str : *strings)
+    {
+        SDLRecordStdString(state, &str);
+    }
+}
+
+local void SDLRecordInput(SDLState* state, GameInput* gameInput)
+{
+    // NOTE(marvin): The keys down is not going to be used.
+    siz bytesWritten = SDL_WriteIO(state->recordingHandle, gameInput, sizeof(*gameInput));
+    Assert(bytesWritten == sizeof(*gameInput) && "Failed to properly write.");
+
+    // NOTE(marvin): Have to manually deserialize std set.
+    SDLRecordStdSetOfString(state, &gameInput->keysDown);
+}
+
+local void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
+{
+    u32 length;
+    Assert(SDL_ReadIO(state->playbackHandle, &length, sizeof(length)) == sizeof(length));
+
+    std::string str(length, '\0');
+    Assert(SDL_ReadIO(state->playbackHandle, str.data(), length) == length);
+    strings->insert(std::move(str));
+}
+
+local void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings)
+{
+    u32 count;
+    Assert(SDL_ReadIO(state->playbackHandle, &count, sizeof(count)) == sizeof(count));
+
+    for (u32 index = 0; index < count; ++index)
+    {
+        SDLPlaybackStdString(state, strings);
+    }
+}
+
+local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
+{
+    // NOTE(marvin): Would it be possible for there to be two notion
+    // of mouse? One used in the game, and one for interacting with
+    // the editor?
+
+    // NOTE(marvin): Need to destroy the std set prior to writing to
+    // it because the write will corrupt std set memory. Reconstruct it after.
+    gameInput->keysDown.~set();
+    siz bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
+
+    if (bytesRead == 0)
+    {
+        // NOTE(marvin): Could also rewind the stream, but going
+        // through end and start again is safer. Risk of infinite
+        // recursion if keeps failing, since this is an internal
+        // feature, just let it happen.
+        SDLEndInputPlayback(state);
+        SDLBeginInputPlayback(state);
+        bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
+    }
+    Assert(bytesRead == sizeof(*gameInput));
+    
+    new (&gameInput->keysDown) std::set<std::string>();
+    SDLPlaybackStdSetOfString(state, &gameInput->keysDown);
+}
+
 void updateLoop(void* appInfo) {
     AppInformation* info = (AppInformation* )appInfo;
     info->last = info->now;
@@ -231,6 +380,12 @@ void updateLoop(void* appInfo) {
                 {
                     info->playing = false;
                 }
+#if SKL_INTERNAL
+                else if (info->e.key.key == SDLK_L)
+                {
+                    ToggleLoopedLiveEditingState(&globalSDLState);
+                }
+#endif
                 keysDown.insert(SDL_GetKeyName(info->e.key.key));
                 break;
             case SDL_EVENT_KEY_UP:
@@ -268,6 +423,21 @@ void updateLoop(void* appInfo) {
     gameInput.mouseX = mouseX;
     gameInput.mouseY = mouseY;
     gameInput.keysDown = keysDown;
+
+    SDLState* state = &globalSDLState;
+    switch (state->loopedLiveEditingState)
+    {
+      case loopedLiveEditingState_none: {} break;
+      case loopedLiveEditingState_recording:
+      {
+          SDLRecordInput(state, &gameInput);
+      } break;
+      case loopedLiveEditingState_playing:
+      {
+          SDLPlaybackInput(state, &gameInput);
+      } break;
+    }
+    
     gameCode.gameUpdateAndRender(info->gameMemory, gameInput, deltaTime);
 
     mouseDeltaX = 0;

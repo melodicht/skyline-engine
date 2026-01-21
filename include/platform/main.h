@@ -14,6 +14,13 @@ struct SDLMemoryBlock
     SDLMemoryBlock* next;
 };
 
+enum LoopedLiveEditingState
+{
+    loopedLiveEditingState_none,
+    loopedLiveEditingState_recording,
+    loopedLiveEditingState_playing,
+};
+
 struct SDLState
 {
     // NOTE(marvin): Not keen on the platonic ideal of a deque with
@@ -23,6 +30,18 @@ struct SDLState
     // the end of the deque.
     SDLMemoryBlock memoryBlockSentinel;
     TicketMutex memoryMutex;
+
+    // NOTE(marvin): Could be in its own structure. 
+    LoopedLiveEditingState loopedLiveEditingState;
+    union
+    {
+        // NOTE(marvin): A flat sequence of [GameInput, u32 (for
+        // number of elements in keysDown set), a sequence of [u32
+        // (for number of elements in string), characters that make
+        // the string]]
+        SDL_IOStream* recordingHandle;
+        SDL_IOStream* playbackHandle;
+    };
 };
 
 
