@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstring>
+
 #include <memory_types.h>
 #include <debug.h>
 
