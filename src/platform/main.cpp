@@ -206,6 +206,38 @@ local const char* SDLGetInputFilePath()
     return result;
 }
 
+inline SDLSavedMemoryBlock InitSavedMemoryBlock(SDLMemoryBlock* source)
+{
+    SDLSavedMemoryBlock result = {};
+    result.requestedBase = source->requestedBase;
+    result.requestedSize = source->requestedSize;
+    return result;
+}
+
+local void WriteSavedMemoryBlockToFile(SDLSavedMemoryBlock* savedMemoryBlock, SDL_IOStream* fileHandle)
+{
+    Assert(SDL_WriteIO(fileHandle, savedMemoryBlock, sizeof(*savedMemoryBlock)) == sizeof(*savedMemoryBlock));
+    Assert(SDL_WriteIO(fileHandle, savedMemoryBlock->requestedBase, savedMemoryBlock->requestedSize) == savedMemoryBlock->requestedSize);
+}
+
+local void WriteMemoryBlocksToFile(SDLState* state, SDL_IOStream* fileHandle)
+{
+    SDLMemoryBlock* sentinel = &state->memoryBlockSentinel;
+    BeginTicketMutex(&state->memoryMutex);
+    for (SDLMemoryBlock* sourceBlock = sentinel->next;
+         sourceBlock != sentinel;
+         sourceBlock = sourceBlock->next)
+    {
+        SDLSavedMemoryBlock savedMemoryBlock = InitSavedMemoryBlock(sourceBlock);
+        WriteSavedMemoryBlockToFile(&savedMemoryBlock, fileHandle);
+    }
+    EndTicketMutex(&state->memoryMutex);
+
+    // NOTE(marvin): Ending with an empty saved block to mark the end.
+    SDLSavedMemoryBlock savedMemoryBlock = {};
+    WriteSavedMemoryBlockToFile(&savedMemoryBlock, fileHandle);
+}
+
 local void SDLBeginRecordingInput(SDLState* state)
 {
     const char* inputFilePath = SDLGetInputFilePath();
@@ -218,8 +250,7 @@ local void SDLBeginRecordingInput(SDLState* state)
     else
     {
         state->loopedLiveEditingState = loopedLiveEditingState_recording;
-
-        // TODO(marvin): Take a picture of game memory and the dynamic arenas.
+        WriteMemoryBlocksToFile(state, state->recordingHandle);
     }
     
 }
@@ -230,8 +261,59 @@ local void SDLEndRecordingInput(SDLState* state)
     state->loopedLiveEditingState = loopedLiveEditingState_none;
 }
 
+local void RestoreSavedMemoryBlock(SDLSavedMemoryBlock savedMemoryBlock, SDL_IOStream* fileHandle)
+{
+    void* requestedBase = savedMemoryBlock.requestedBase;
+    u64 requestedSize = savedMemoryBlock.requestedSize;
+    siz bytesRead = SDL_ReadIO(fileHandle, requestedBase, requestedSize);
+    Assert(bytesRead == requestedSize);
+}
+
+local void RestoreMemoryBlocksFromFile(SDL_IOStream* fileHandle)
+{
+    for (;;)
+    {
+        SDLSavedMemoryBlock savedMemoryBlock = {};
+        Assert(SDL_ReadIO(fileHandle, &savedMemoryBlock, sizeof(savedMemoryBlock)) == sizeof(savedMemoryBlock));
+        if (savedMemoryBlock.requestedBase != 0)
+        {
+            RestoreSavedMemoryBlock(savedMemoryBlock, fileHandle);
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
+void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block);
+
+local void SDLClearBlocksByMask(SDLState* state, SDLMemoryFlags mask)
+{
+    SDLMemoryBlock* sentinel = &state->memoryBlockSentinel;
+    // NOTE(marvin): Need to set the next prior to removing the block.
+    for (SDLMemoryBlock* cursor = sentinel->next;
+         cursor != sentinel;
+         )
+    {
+        SDLMemoryBlock* block = cursor;
+        cursor = cursor->next;
+        
+        if ((block->loopingFlags & mask) == mask)
+        {
+            RemoveMemoryBlock(state, block);
+        }
+        else
+        {
+            block->loopingFlags = sdlMem_none;
+        }
+    }
+}
+
 local void SDLBeginInputPlayback(SDLState* state)
 {
+    SDLClearBlocksByMask(state, sdlMem_allocatedDuringLoop);
+    
     const char* inputFilePath = SDLGetInputFilePath();
     state->playbackHandle = SDL_IOFromFile(inputFilePath, "r");
     if (state->playbackHandle == NULL)
@@ -242,13 +324,14 @@ local void SDLBeginInputPlayback(SDLState* state)
     else
     {
         state->loopedLiveEditingState = loopedLiveEditingState_playing;
-
-        // TODO(marvin): Restore the picture of game memory and the dynamic arenas.
+        RestoreMemoryBlocksFromFile(state->playbackHandle);
     }
 }
 
 local void SDLEndInputPlayback(SDLState* state)
 {
+    SDLClearBlocksByMask(state, sdlMem_freedDuringLoop);
+    
     Assert(SDL_CloseIO(state->playbackHandle));
     state->loopedLiveEditingState = loopedLiveEditingState_none;
 }

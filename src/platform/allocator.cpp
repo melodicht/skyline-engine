@@ -28,19 +28,28 @@ void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     last->next = block;
     sentinel->prev = block;
     EndTicketMutex(&state->memoryMutex);
+
+    last->loopingFlags = static_cast<SDLMemoryFlags>(SDLIsInLoop(state) ? sdlMem_allocatedDuringLoop : 0);
 }
 
 void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
 {
-    BeginTicketMutex(&state->memoryMutex);
-    SDLMemoryBlock *prev = block->prev;
-    SDLMemoryBlock *next = block->next;
-    prev->next = next;
-    next->prev = prev;
-    EndTicketMutex(&state->memoryMutex);
+    if (SDLIsInLoop(state))
+    {
+        block->loopingFlags = sdlMem_freedDuringLoop;
+    }
+    else
+    {
+        BeginTicketMutex(&state->memoryMutex);
+        SDLMemoryBlock *prev = block->prev;
+        SDLMemoryBlock *next = block->next;
+        prev->next = next;
+        next->prev = prev;
+        EndTicketMutex(&state->memoryMutex);
 
-    block->prev = {};
-    block->next = {};
+        block->prev = {};
+        block->next = {};
+    }
 }
 
 
@@ -71,6 +80,7 @@ void* AlignedAllocate(siz requestedSize, siz alignment)
     void *result = static_cast<void *>(requestedBase);
     memoryBlockBase->requestedBase = result;
     memoryBlockBase->wholeBase = base;
+    memoryBlockBase->requestedSize = requestedSize;
     AddMemoryBlock(&globalSDLState, memoryBlockBase);
 
     return result;
@@ -105,6 +115,7 @@ void* Allocate(siz requestedSize)
     void *result = static_cast<void *>(requestedBase);
     memoryBlockBase->requestedBase = result;
     memoryBlockBase->wholeBase = base;
+    memoryBlockBase->requestedSize = requestedSize;
     AddMemoryBlock(&globalSDLState, memoryBlockBase);
     return result;
 }
@@ -145,6 +156,8 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
     if (newMemoryBlockBase != oldMemoryBlockBase)
     {
         newMemoryBlockBase->requestedBase = result;
+        newMemoryBlockBase->wholeBase = newBase;
+        newMemoryBlockBase->requestedSize = newRequestedSize;
         RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
         AddMemoryBlock(&globalSDLState, newMemoryBlockBase);
     }
