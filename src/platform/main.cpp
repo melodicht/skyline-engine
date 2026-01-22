@@ -202,7 +202,7 @@ local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
 
 local const char* SDLGetInputFilePath()
 {
-    const char* result = "recorded_input.skli";
+    const char* result = "loop_start.skli";
     return result;
 }
 
