@@ -58,6 +58,8 @@ color = [0.8, 0.0, 0.0]
 rotation = [0.0, 30.0, 30.0]
 position = [2.5, 1.0, 0.0]
 [mainLight.PointLight]
+radius = 20.0
+falloff = 2.0
 [mainLight.MeshComponent]
 mesh = "cube"
 texture = "diamond_ore"

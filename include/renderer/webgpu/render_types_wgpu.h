@@ -99,15 +99,11 @@ struct WGPUBackendDynamicShadowedDirLightData {
 // Represents a single shadowed point light
 struct WGPUBackendDynamicShadowedPointLightData {
     glm::vec3 m_diffuse;
-    float m_constant;
+    float m_radius;
     glm::vec3 m_specular;
-    float m_linear;
+    float m_falloff;
     glm::vec3 m_position;
-    float m_quadratic;
-    float m_distanceCutoff;
-    float m_padding1;
-    float m_padding2;
-    float m_padding3;
+    float m_padding;
 };
 
 // Represents a single shadowed spot light
