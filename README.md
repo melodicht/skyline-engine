@@ -49,6 +49,24 @@ We have one translation unit per component. That is, one for the platform, and o
 
 When there are several translation units in a project, and some of them reference the same C++ file, what this means is the contents of the C++ file will get duplicared across the translation units. This is usually an acceptable cost. Though, when it's not (for other reasons that we won't go into here), it justifies a new translation unit for the shared piece of code. 
 
+# Folder Structure
+
+## src/platform
+Contains the source files for the platform executable
+## src/game
+Contains the source files for the game module dll
+## src/renderer/vk_backend, gl_backend, wgpu_backend
+Contains the source files for the various rendering backends
+## src/utils
+Contains the source file for the utils static library that contains functionality shared between the different modules, such as math and debug functionality.
+## include/platform
+Contains the header files used by the platform executable
+## include/game
+Contains the header files used by the game module dll
+## include/renderer/vulkan, gl, webgpu
+Contains the header files used by the various rendering backends
+## include/shared
+Contains the header files that are shared between multiple different modules
 
 # Components Overview
 
