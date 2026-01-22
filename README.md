@@ -24,7 +24,7 @@ Skyline Engine
 
 ## Build Folders
 - `build`: Artifacts of the build process. Delete the contents of this folder and add back in the `.gitkeep` in order to build from scratch.
-- `build-release`: Artifacts of the build process for the release build profile (for IDEs that have separate build and release profiles)
+- `build-release`: Artifacts of the build process for the release build profile (for IDEs that have separate debug and release profiles)
 - `bin`: Holds outputted binaries for the engine and libraries.
 - `shaderbin`: Holds shaders processed on compilation.
 - `build_external`: Holds the cached source code for 3rd party libraries
