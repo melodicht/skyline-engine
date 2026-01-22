@@ -39,15 +39,6 @@ Currently, we only have one implementation for the platform component, which use
 
 The greatest benefit of this architecture is that while the game is running, the game module can be replaced with a new game module, also known as hot reloading.
 
-# Single Translation Unit Build / Unity Build
-
-The way build the code is that we essentially concatenate all the C++ files into one giant C++ file and then compile that. Why do this? Because it's faster and simplifies the build process. The trade off is that we lose the ability to enforce encapsulation between C++ files. As in, nothing is stopping one file from reading values from another file.
-
-We call one concatentation of a set of C++ files into one giant C++ file that gets compiled a translation unit.
-
-We have one translation unit per component. That is, one for the platform, and one for the game. That is why the hot reloading works. We can compile the entire game module independently from the platform one.
-
-When there are several translation units in a project, and some of them reference the same C++ file, what this means is the contents of the C++ file will get duplicared across the translation units. This is usually an acceptable cost. Though, when it's not (for other reasons that we won't go into here), it justifies a new translation unit for the shared piece of code. 
 
 # Folder Structure
 
