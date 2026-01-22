@@ -63,13 +63,6 @@ struct PointLightRenderInfo {
     f32 falloff;
 
     bool needsUpdate;
-
-    //WGPU Specific
-    f32 constant;
-    f32 linear;
-    f32 quadratic;
-
-    f32 maxRange;
 };
 
 // Represents the information needed to render a single frame on any renderer

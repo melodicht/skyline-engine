@@ -70,9 +70,7 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
 
         pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                  l->radius, l->falloff, true,
-                                  // Temporary for webgpu
-                                  1, 0.0005, 0.00005, 1000});
+                                  l->radius, l->falloff, true});
     }
 
     std::vector<IconRenderInfo> icons;
