@@ -50,7 +50,7 @@ VkDevice device;
 VkQueue graphicsQueue;
 u32 graphicsQueueFamily;
 
-VmaAllocator allocator;
+VmaAllocator deviceAllocator;
 
 VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
 AllocatedImage depthImage;
@@ -125,21 +125,21 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
     size_t indexSize = sizeof(u32) * indexCount;
     size_t vertSize = sizeof(Vertex) * vertCount;
 
-    mesh.indexBuffer = CreateBuffer(device, allocator, indexSize,
+    mesh.indexBuffer = CreateBuffer(device, deviceAllocator, indexSize,
                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
                                      | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                      0,
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    mesh.vertBuffer = CreateBuffer(device, allocator, vertSize,
+    mesh.vertBuffer = CreateBuffer(device, deviceAllocator, vertSize,
                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT
                                     | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                     0,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
-    StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, mesh.indexBuffer, indices, indexSize);
-    StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, mesh.vertBuffer, vertices, vertSize);
+    StagedCopyToBuffer(device, deviceAllocator, mainCommandPool, graphicsQueue, mesh.indexBuffer, indices, indexSize);
+    StagedCopyToBuffer(device, deviceAllocator, mainCommandPool, graphicsQueue, mesh.vertBuffer, vertices, vertSize);
 
     mesh.indexCount = indexCount;
 
@@ -154,8 +154,8 @@ MeshID UploadMesh(RenderUploadMeshInfo& info)
 void DestroyMesh(RenderDestroyMeshInfo& info)
 {
     Mesh& mesh = meshes[info.meshID];
-    DestroyBuffer(allocator, mesh.indexBuffer);
-    DestroyBuffer(allocator, mesh.vertBuffer);
+    DestroyBuffer(deviceAllocator, mesh.indexBuffer);
+    DestroyBuffer(deviceAllocator, mesh.vertBuffer);
     meshes.erase(info.meshID);
 }
 
@@ -163,7 +163,7 @@ u32 CreateCameraBuffer(u32 viewCount)
 {
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        frames[i].cameraBuffers.push_back(CreateShaderBuffer(device, allocator, sizeof(CameraData) * viewCount));
+        frames[i].cameraBuffers.push_back(CreateShaderBuffer(device, deviceAllocator, sizeof(CameraData) * viewCount));
     }
 
     return frames[0].cameraBuffers.size() - 1;
@@ -171,7 +171,7 @@ u32 CreateCameraBuffer(u32 viewCount)
 
 Texture CreateDepthTexture(u32 width, u32 height)
 {
-    AllocatedImage depthTexture = CreateImage(allocator,
+    AllocatedImage depthTexture = CreateImage(deviceAllocator,
                              shadowFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                              VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -229,7 +229,7 @@ Texture CreateDepthTexture(u32 width, u32 height)
 
 Texture CreateDepthArray(u32 width, u32 height, u32 layers)
 {
-    AllocatedImage depthTexture = CreateImage(allocator,
+    AllocatedImage depthTexture = CreateImage(deviceAllocator,
                                               shadowFormat, 0,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                               VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -287,7 +287,7 @@ Texture CreateDepthArray(u32 width, u32 height, u32 layers)
 
 Texture CreateDepthCubemap(u32 width, u32 height)
 {
-    AllocatedImage depthTexture = CreateImage(allocator,
+    AllocatedImage depthTexture = CreateImage(deviceAllocator,
                                               shadowFormat,
                                               VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
@@ -346,7 +346,7 @@ Texture CreateDepthCubemap(u32 width, u32 height)
 
 TextureID UploadTexture(RenderUploadTextureInfo& info)
 {
-    AllocatedImage texImage = CreateImage(allocator,
+    AllocatedImage texImage = CreateImage(deviceAllocator,
                                           VK_FORMAT_R8G8B8A8_SRGB, 0,
                                           VK_IMAGE_USAGE_TRANSFER_DST_BIT
                                           | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -390,13 +390,13 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
     vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
 
     size_t dataSize = info.width * info.height * 4;
-    AllocatedBuffer uploadBuffer = CreateBuffer(device, allocator, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    AllocatedBuffer uploadBuffer = CreateBuffer(device, deviceAllocator, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
     void* uploadData;
-    vmaMapMemory(allocator, uploadBuffer.allocation, &uploadData);
+    vmaMapMemory(deviceAllocator, uploadBuffer.allocation, &uploadData);
     memcpy(uploadData, info.pixelData, dataSize);
-    vmaUnmapMemory(allocator, uploadBuffer.allocation);
+    vmaUnmapMemory(deviceAllocator, uploadBuffer.allocation);
 
     VkCommandBuffer commandBuffer = BeginImmediateCommands(device, mainCommandPool);
 
@@ -435,7 +435,7 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
     vkCmdPipelineBarrier2(commandBuffer, &depInfo);
     EndImmediateCommands(device, graphicsQueue, mainCommandPool, commandBuffer);
 
-    DestroyBuffer(allocator, uploadBuffer);
+    DestroyBuffer(deviceAllocator, uploadBuffer);
     auto iter = textures.emplace(currentTexID, Texture());
     Texture& texture = iter.first->second;
 
@@ -454,7 +454,7 @@ void DestroyTexture(TextureID texID)
 {
     Texture& texture = textures[texID];
     vkDestroyImageView(device, texture.imageView, nullptr);
-    DestroyImage(allocator, texture.texture);
+    DestroyImage(deviceAllocator, texture.texture);
     textures.erase(texID);
 }
 
@@ -542,7 +542,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
         1
     };
 
-    depthImage = CreateImage(allocator,
+    depthImage = CreateImage(deviceAllocator,
                              depthFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                              imageExtent, 1,
@@ -569,7 +569,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 
     if (editor)
     {
-        idImage = CreateImage(allocator,
+        idImage = CreateImage(deviceAllocator,
                               VK_FORMAT_R32_UINT, 0,
                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                               imageExtent, 1,
@@ -601,11 +601,11 @@ void DestroySwapResources()
     if (editor)
     {
         vkDestroyImageView(device, idImageView, nullptr);
-        DestroyImage(allocator, idImage);
+        DestroyImage(deviceAllocator, idImage);
     }
 
     vkDestroyImageView(device, depthImageView, nullptr);
-    DestroyImage(allocator, depthImage);
+    DestroyImage(deviceAllocator, depthImage);
 
     for (VkImageView imageView : swapImageViews)
     {
@@ -710,7 +710,7 @@ void InitRenderer(RenderInitInfo& info)
     volkLoadDevice(device);
 
 
-    // Create the VMA allocator
+    // Create the VMA deviceAllocator
     VmaVulkanFunctions vmaFuncs
     {
         .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
@@ -726,7 +726,7 @@ void InitRenderer(RenderInitInfo& info)
         .instance = instance
     };
 
-    VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
+    VK_CHECK(vmaCreateAllocator(&allocInfo, &deviceAllocator));
 
     // Create the swapchain and associated resources at the default dimensions
     CreateSwapchain(info.startWidth, info.startHeight, VK_NULL_HANDLE);
@@ -785,13 +785,13 @@ void InitRenderer(RenderInitInfo& info)
 
     if (editor)
     {
-        iconIndexBuffer = CreateBuffer(device, allocator, 6 * sizeof(u16),
+        iconIndexBuffer = CreateBuffer(device, deviceAllocator, 6 * sizeof(u16),
                                        VK_BUFFER_USAGE_INDEX_BUFFER_BIT
                                        | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                        0,
                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         u16 indices[6] = {0, 2, 1, 1, 2, 3};
-        StagedCopyToBuffer(device, allocator, mainCommandPool, graphicsQueue, iconIndexBuffer, indices, 6 * sizeof(u16));
+        StagedCopyToBuffer(device, deviceAllocator, mainCommandPool, graphicsQueue, iconIndexBuffer, indices, 6 * sizeof(u16));
     }
 }
 
@@ -828,20 +828,20 @@ void InitPipelines(RenderPipelineInitInfo& info)
     // Create object and light buffers
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        frames[i].objectBuffer = CreateShaderBuffer(device, allocator, sizeof(ObjectData) * 4096);
-        frames[i].dirLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkDirLightData) * 4);
-        frames[i].dirCascadeBuffer = CreateShaderBuffer(device, allocator, sizeof(LightCascade) * NUM_CASCADES * 4);
-        frames[i].spotLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkSpotLightData) * 256);
-        frames[i].pointLightBuffer = CreateShaderBuffer(device, allocator, sizeof(VkPointLightData) * 256);
+        frames[i].objectBuffer = CreateShaderBuffer(device, deviceAllocator, sizeof(ObjectData) * 4096);
+        frames[i].dirLightBuffer = CreateShaderBuffer(device, deviceAllocator, sizeof(VkDirLightData) * 4);
+        frames[i].dirCascadeBuffer = CreateShaderBuffer(device, deviceAllocator, sizeof(LightCascade) * NUM_CASCADES * 4);
+        frames[i].spotLightBuffer = CreateShaderBuffer(device, deviceAllocator, sizeof(VkSpotLightData) * 256);
+        frames[i].pointLightBuffer = CreateShaderBuffer(device, deviceAllocator, sizeof(VkPointLightData) * 256);
         if (editor)
         {
-            frames[i].idBuffer = CreateShaderBuffer(device, allocator, sizeof(u32) * 4096);
-            frames[i].idTransferBuffer = CreateBuffer(device, allocator,
+            frames[i].idBuffer = CreateShaderBuffer(device, deviceAllocator, sizeof(u32) * 4096);
+            frames[i].idTransferBuffer = CreateBuffer(device, deviceAllocator,
                                                       32, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                       | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-            frames[i].iconBuffer = CreateShaderBuffer(device, allocator, sizeof(IconData) * 1024);
+            frames[i].iconBuffer = CreateShaderBuffer(device, deviceAllocator, sizeof(IconData) * 1024);
         }
     }
 

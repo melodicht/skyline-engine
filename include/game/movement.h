@@ -1,6 +1,7 @@
 #pragma once
 
 #include <scene.h>
+#include <system_registry.h>
 
 struct Transform3D;
 
@@ -8,12 +9,9 @@ struct Transform3D;
 
 class MovementSystem : public System
 {
-private:
-    MovementSystem() {}
-
-    MAKE_SYSTEM_DECLARATIONS(MovementSystem);
-    
 public:
+    MovementSystem();
+
     SYSTEM_ON_UPDATE();
 
 

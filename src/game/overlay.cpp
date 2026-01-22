@@ -58,8 +58,8 @@ local void RenderSizesViewerRowAllocation(DebugGeneralAllocation *allocation)
 
 local void RenderSizesViewerAllocations(DebugAllocations *allocations)
 {
-    for (DebugGeneralAllocation *allocation = allocations->first;
-         allocation;
+    for (DebugGeneralAllocation *allocation = allocations->sentinel->next;
+         allocation != allocations->sentinel;
          allocation = allocation->next)
     {
         ImGui::TableNextRow();

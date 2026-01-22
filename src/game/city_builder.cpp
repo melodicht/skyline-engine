@@ -230,7 +230,7 @@ void BuilderSystem::BuildPart(Scene *scene, EntityID ent, Transform3D *t, MeshAs
     m->color = {shade, shade, shade};
 }
 
-BuilderSystem::BuilderSystem(bool slowStep)
+BuilderSystem::BuilderSystem(bool slowStep) : SYSTEM_SUPER(BuilderSystem)
 {
     this->slowStep = slowStep;
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstring>
+
 #include <memory_types.h>
 #include <debug.h>
 
@@ -72,18 +74,21 @@ inline siz GetAlignmentOffset(MemoryArena *arena, siz alignment)
 {
     siz result = 0;
 
-    u32 alignmentMask = alignment - 1;
-
-    Assert(((alignment & alignmentMask) == 0) &&
-           "Alignment must be a power of 2 due to C++ specifications.");
-
-    siz targetAddress = (siz)arena->base + arena->used;
-    siz masked = targetAddress & alignmentMask;
-    if (masked != 0)
+    if (alignment > 0)
     {
-        result = alignment - masked;
-    }
+        u32 alignmentMask = alignment - 1;
 
+        Assert(((alignment & alignmentMask) == 0) &&
+               "Alignment must be a power of 2 due to C++ specifications.");
+
+        siz targetAddress = (siz)arena->base + arena->used;
+        siz masked = targetAddress & alignmentMask;
+        if (masked != 0)
+        {
+            result = alignment - masked;
+        }
+    }
+    
     return result;
 }
 
@@ -125,7 +130,10 @@ inline char *PushString_(INTERNAL_MEMORY_PARAM
     return result;
 }
 
-// Produces the address to what just got popped.
+// Produces the address to what just got popped. If a sub arena has
+// been allocated, followed by normal allocations, you could but
+// shouldn't pop into the sub arena.
+// TODO(marvin): Should the design of the memor data definitions prevent popping into child sub arena?
 // NOTE(marvin): Pop doesn't have to do anything about alignment, right...?
 inline void *PopSize_(MemoryArena *arena, siz size, ArenaParams params = DefaultArenaParams())
 {
@@ -172,7 +180,7 @@ inline MemoryArena SubArena_(INTERNAL_MEMORY_PARAM
 inline FreeIndicesStack InitFreeIndicesStack(MemoryArena *remainingArena, u32 count)
 {
     FreeIndicesStack result = {};
-    result.arena = SubArena(remainingArena, count * sizeof(u32));
+    result.arena = SubArena(remainingArena, count * sizeof(u32), "Free Indices Stack");
     return result;
 }
 

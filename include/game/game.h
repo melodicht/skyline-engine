@@ -3,6 +3,7 @@
 #include <game_platform.h>
 #include <meta_definitions.h>
 #include <scene.h>
+#include <physics.h>
 
 enum OverlayMode
 {
@@ -25,3 +26,4 @@ struct GameState
 
 extern PlatformAssetUtils assetUtils;
 extern PlatformRenderer renderer;
+extern PlatformAllocator allocator;

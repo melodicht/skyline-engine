@@ -98,4 +98,4 @@ target_precompile_headers(wgpu-backend PRIVATE ${SKL_WGPU_PCH_HEADERS})
 
 target_link_libraries(wgpu-backend PRIVATE SKL_COMPILE_DEFINITIONS)
 
-target_link_libraries(wgpu-backend PRIVATE glm::glm sdl3webgpu imgui skl-math)
+target_link_libraries(wgpu-backend PRIVATE glm::glm sdl3webgpu imgui skl-utils)

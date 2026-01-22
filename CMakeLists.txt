@@ -107,9 +107,10 @@ CPMAddPackage(
         "TARGET_PERFORMANCE_TEST OFF"
         "TARGET_SAMPLES OFF"
         "ENABLE_ALL_WARNINGS OFF"
+        "BUILD_SHARED_LIBS ON"
       )
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
 
 #==============================================================================
 # IMGUI
@@ -127,7 +128,7 @@ add_library(SHARED_DEPENDENCIES INTERFACE)
 target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
         imgui
-        skl-math
+        skl-utils
         SKL_COMPILE_DEFINITIONS
 )
 

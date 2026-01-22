@@ -173,7 +173,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayStructDataEntry(std::s
     return result;
 }
 
-EditorSystem::EditorSystem(EntityID editorCam, OverlayMode *overlayMode)
+EditorSystem::EditorSystem(EntityID editorCam, OverlayMode *overlayMode) : SYSTEM_SUPER(EditorSystem)
 {
     this->editorCam = editorCam;
     this->overlayMode = overlayMode;

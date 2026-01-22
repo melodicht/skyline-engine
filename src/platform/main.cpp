@@ -22,8 +22,20 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
+#define JOLT_LIB_SRC_FILE_NAME "Jolt"
+
+#include <debug.h>
 #include <game_platform.h>
 #include <render_backend.h>
+#include <main.h>
+
+SDLState globalSDLState = {};
+
+#if SKL_INTERNAL
+DebugState globalDebugState_;
+DebugState* globalDebugState = &globalDebugState_;
+#endif
+
 
 struct SDLGameCode
 {
@@ -72,13 +84,24 @@ file_global f32 mouseY = 0;
 
 file_global u32 reloadCount = 0;
 
-local const char *SDLGetGameCodeSrcFilePath()
+local const char* SDLGetGameCodeSrcFilePath()
 {
-    const char *result;
+    const char* result;
 #ifdef PLATFORM_WINDOWS
     result = GAME_CODE_SRC_FILE_NAME ".dll";
 #else
     result = "./lib" GAME_CODE_SRC_FILE_NAME ".so";
+#endif
+    return result;
+}
+
+local const char* SDLGetJoltLibSrcFilePath()
+{
+    const char* result;
+#ifdef PLATFORM_WINDOWS
+    result = JOLT_LIB_SRC_FILE_NAME ".dll";
+#else
+    result = "./lib" JOLT_LIB_SRC_FILE_NAME ".so";
 #endif
     return result;
 }
@@ -154,24 +177,7 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
 {
     if(gameCode->sharedObjectHandle)
     {
-        SDL_UnloadObject(gameCode->sharedObjectHandle);
-
-#ifdef PLATFORM_WINDOWS
-        // NOTE(marvin): Not sure if there is a better way to test
-        // whether a shared object handle is still loaded other than
-        // to check if we can load a function...
-        SDL_FunctionPointer functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
-
-        // TODO(marvin): Interestingly, on Windows, always need to unload some constnt number of times for the DLL to actually get unloaded. And Linux just tries to unload infinitely... WHY?!
-        while(functionPtr != NULL)
-        {
-            LOG_ERROR("Failed to unload game module DLL, trying again.");
-            SDL_Delay(100);
-            SDL_UnloadObject(gameCode->sharedObjectHandle);
-            functionPtr = SDL_LoadFunction(gameCode->sharedObjectHandle, "GameInitialize");
-        }
-#endif
-        
+        SDL_UnloadObject(gameCode->sharedObjectHandle);        
         gameCode->sharedObjectHandle = 0;
     }
     gameCode->gameInitialize = 0;
@@ -194,6 +200,155 @@ local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
     return result;
 }
 
+local const char* SDLGetInputFilePath()
+{
+    const char* result = "recorded_input.skli";
+    return result;
+}
+
+local void SDLBeginRecordingInput(SDLState* state)
+{
+    const char* inputFilePath = SDLGetInputFilePath();
+    state->recordingHandle = SDL_IOFromFile(inputFilePath, "w");
+    if (state->recordingHandle == NULL)
+    {
+        LOG_ERROR(SDL_GetError());
+        Assert(!"Failed to create recording handle for looped-live editing.");
+    }
+    else
+    {
+        state->loopedLiveEditingState = loopedLiveEditingState_recording;
+
+        // TODO(marvin): Take a picture of game memory and the dynamic arenas.
+    }
+    
+}
+
+local void SDLEndRecordingInput(SDLState* state)
+{
+    Assert(SDL_CloseIO(state->recordingHandle));
+    state->loopedLiveEditingState = loopedLiveEditingState_none;
+}
+
+local void SDLBeginInputPlayback(SDLState* state)
+{
+    const char* inputFilePath = SDLGetInputFilePath();
+    state->playbackHandle = SDL_IOFromFile(inputFilePath, "r");
+    if (state->playbackHandle == NULL)
+    {
+        LOG_ERROR(SDL_GetError());
+        Assert(!"Failed to read recorded input file for looped-live editing.");
+    }
+    else
+    {
+        state->loopedLiveEditingState = loopedLiveEditingState_playing;
+
+        // TODO(marvin): Restore the picture of game memory and the dynamic arenas.
+    }
+}
+
+local void SDLEndInputPlayback(SDLState* state)
+{
+    Assert(SDL_CloseIO(state->playbackHandle));
+    state->loopedLiveEditingState = loopedLiveEditingState_none;
+}
+
+local void ToggleLoopedLiveEditingState(SDLState* state)
+{
+    switch (state->loopedLiveEditingState)
+    {
+      case loopedLiveEditingState_none:
+      {
+          SDLBeginRecordingInput(state);
+      } break;
+      case loopedLiveEditingState_recording:
+      {
+          SDLEndRecordingInput(state);
+          SDLBeginInputPlayback(state);
+      } break;
+      case loopedLiveEditingState_playing:
+      {
+          SDLEndInputPlayback(state);
+      } break;
+    }
+}
+
+local void SDLRecordStdString(SDLState* state, const std::string* str)
+{
+    u32 length = static_cast<u32>(str->size());
+    Assert(SDL_WriteIO(state->recordingHandle, &length, sizeof(length)) == sizeof(length));
+    Assert(SDL_WriteIO(state->recordingHandle, str->data(), length) == length);
+}
+
+local void SDLRecordStdSetOfString(SDLState* state, std::set<std::string>* strings)
+{
+    u32 count = static_cast<u32>(strings->size());
+    Assert(SDL_WriteIO(state->recordingHandle, &count, sizeof(count)) == sizeof(count));
+
+    for (const std::string& str : *strings)
+    {
+        SDLRecordStdString(state, &str);
+    }
+}
+
+local void SDLRecordInput(SDLState* state, GameInput* gameInput)
+{
+    // NOTE(marvin): The keys down is not going to be used.
+    siz bytesWritten = SDL_WriteIO(state->recordingHandle, gameInput, sizeof(*gameInput));
+    Assert(bytesWritten == sizeof(*gameInput) && "Failed to properly write.");
+
+    // NOTE(marvin): Have to manually deserialize std set.
+    SDLRecordStdSetOfString(state, &gameInput->keysDown);
+}
+
+local void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
+{
+    u32 length;
+    Assert(SDL_ReadIO(state->playbackHandle, &length, sizeof(length)) == sizeof(length));
+
+    std::string str(length, '\0');
+    Assert(SDL_ReadIO(state->playbackHandle, str.data(), length) == length);
+    strings->insert(std::move(str));
+}
+
+local void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings)
+{
+    u32 count;
+    Assert(SDL_ReadIO(state->playbackHandle, &count, sizeof(count)) == sizeof(count));
+
+    for (u32 index = 0; index < count; ++index)
+    {
+        SDLPlaybackStdString(state, strings);
+    }
+}
+
+local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
+{
+    // NOTE(marvin): Would it be possible for there to be two notion
+    // of mouse? One used in the game, and one for interacting with
+    // the editor?
+
+    // NOTE(marvin): Need to destroy the std set prior to writing to
+    // it because the write will corrupt std set memory. Reconstruct it after.
+    gameInput->keysDown.~set();
+    siz bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
+
+    if (bytesRead == 0)
+    {
+        // NOTE(marvin): Could also rewind the stream, but going
+        // through end and start again is safer. Risk of infinite
+        // recursion if keeps failing, since this is an internal
+        // feature, just let it happen.
+        SDLEndInputPlayback(state);
+        SDLBeginInputPlayback(state);
+        bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
+    }
+    Assert(bytesRead == sizeof(*gameInput));
+    
+    new (&gameInput->keysDown) std::set<std::string>();
+    SDLPlaybackStdSetOfString(state, &gameInput->keysDown);
+}
+
 void updateLoop(void* appInfo) {
     AppInformation* info = (AppInformation* )appInfo;
     info->last = info->now;
@@ -207,7 +362,7 @@ void updateLoop(void* appInfo) {
         SDLUnloadGameCode(&gameCode);
         info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
         gameCode = info->gameCode;
-        gameCode.gameLoad(info->gameMemory, info->editor);
+        gameCode.gameLoad(info->gameMemory, info->editor, true);
     }
 
     while (SDL_PollEvent(&info->e))
@@ -225,6 +380,12 @@ void updateLoop(void* appInfo) {
                 {
                     info->playing = false;
                 }
+#if SKL_INTERNAL
+                else if (info->e.key.key == SDLK_L)
+                {
+                    ToggleLoopedLiveEditingState(&globalSDLState);
+                }
+#endif
                 keysDown.insert(SDL_GetKeyName(info->e.key.key));
                 break;
             case SDL_EVENT_KEY_UP:
@@ -262,6 +423,21 @@ void updateLoop(void* appInfo) {
     gameInput.mouseX = mouseX;
     gameInput.mouseY = mouseY;
     gameInput.keysDown = keysDown;
+
+    SDLState* state = &globalSDLState;
+    switch (state->loopedLiveEditingState)
+    {
+      case loopedLiveEditingState_none: {} break;
+      case loopedLiveEditingState_recording:
+      {
+          SDLRecordInput(state, &gameInput);
+      } break;
+      case loopedLiveEditingState_playing:
+      {
+          SDLPlaybackInput(state, &gameInput);
+      } break;
+    }
+    
     gameCode.gameUpdateAndRender(info->gameMemory, gameInput, deltaTime);
 
     mouseDeltaX = 0;
@@ -278,6 +454,8 @@ int main(int argc, char** argv)
 {
     std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     srand(static_cast<unsigned>(time(0)));
+
+    InitSDLState(&globalSDLState);
 
     SDL_Window *window = NULL;
     SDL_Surface *screenSurface = NULL;
@@ -331,12 +509,22 @@ int main(int argc, char** argv)
     RenderPipelineInitInfo pipelinesInfo;
     InitPipelines(pipelinesInfo);
 
+    // NOTE(marvin): Platform to have a handle to Jolt to keep it alive as game gets hot reloaded.
+    // TODO(marvin): Platform doesn't need a handle to Jolt if on final release. Do we wrap this in SKL_INTERNAL?
+    const char* joltLibSrcFilePath = SDLGetJoltLibSrcFilePath();
+    SDL_SharedObject* joltSharedObjectHandle = SDL_LoadObject(joltLibSrcFilePath);
+    if (!joltSharedObjectHandle)
+    {
+        LOG_ERROR("Jolt loading failed.");
+        LOG_ERROR(SDL_GetError());
+    }
+
     SDLGameCode gameCode = SDLLoadGameCode();
     GameMemory gameMemory = {};
-    gameMemory.permanentStorageSize = Megabytes(512 + 128);
+    gameMemory.permanentStorageSize = Megabytes(512 + 256);
     gameMemory.permanentStorage = SDL_malloc(static_cast<size_t>(gameMemory.permanentStorageSize));
 #if SKL_INTERNAL
-    gameMemory.debugStorageSize = Megabytes(256 + 128);
+    gameMemory.debugStorageSize = Megabytes(256);
     gameMemory.debugStorage = SDL_malloc(static_cast<size_t>(gameMemory.debugStorageSize));
 
     if (!gameMemory.debugStorage)
@@ -344,11 +532,14 @@ int main(int argc, char** argv)
         printf("SDL_malloc failed! SDL_Error: %s\n", SDL_GetError());
         Assert(false);
     }
+
+    gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
-    gameCode.gameLoad(gameMemory, editor);
+    gameMemory.platformAPI.allocator = constructPlatformAllocator();
+    gameCode.gameLoad(gameMemory, editor, false);
     gameCode.gameInitialize(gameMemory, mapName, editor);
 
     SDL_Event e;
