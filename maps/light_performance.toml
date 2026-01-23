@@ -1,0 +1,107 @@
+[camera.Transform3D]
+position = [-1.0, 0.0, 0.0]
+[camera.CameraComponent]
+farPlane = 100.0
+[camera.FlyingMovement]
+
+[posXCube.Transform3D]
+position = [10.0, 0.0, 0.0]
+[posXCube.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+
+[negXCube.Transform3D]
+position = [-10.0, 0.0, 0.0]
+rotation = [0.0, 30.0, 30.0]
+[negXCube.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+
+[posYPrism.Transform3D]
+position = [0.0, 10.0, 0.0]
+scale = [2.0, 2.0, 2.0]
+[posYPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+
+[negYPrism.Transform3D]
+position = [0.0, -10.0, 0.0]
+scale = [0.5, 3.0, 1.0]
+[negYPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+scale = [2.0, 2.0, 2.0]
+
+[posZPrism.Transform3D]
+position = [0.0, 0.0, 10.0]
+scale = [2.0, 2.0, 2.0]
+[posZPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+
+[negZrism.Transform3D]
+position = [0.0, 0.0, -10.0]
+scale = [0.5, 3.0, 1.0]
+[negZPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+scale = [2.0, 2.0, 2.0]
+
+[prism.Transform3D]
+position = [2.5, 1.0, 0.0]
+parent = "camera"
+[prism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+
+[mainLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+position = [2.5, 1.0, 0.0]
+[mainLight.PointLight]
+radius = 20.0
+falloff = 2.0
+[mainLight.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+color = [1.0, 1.0, 1.0]
+
+[secondLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+position = [3.5, 5.0, 2.0]
+[secondLight.PointLight]
+radius = 20.0
+falloff = 2.0
+[secondLight.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+color = [1.0, 1.0, 1.0]
+
+[thirdLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+position = [2.5, -3.0, 6.0]
+[thirdLight.PointLight]
+radius = 20.0
+falloff = 2.0
+[thirdLight.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+color = [1.0, 1.0, 1.0]
+
+[fourthLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+position = [5.5, 3.0, 2.0]
+[fourthLight.PointLight]
+radius = 20.0
+falloff = 2.0
+[fourthLight.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+color = [1.0, 1.0, 1.0]
+
+
+[bottom.Transform3D]
+position = [10.0, 0.0, -15.0]
+scale = [50.0, 50.0, 2.0]
+[bottom.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"

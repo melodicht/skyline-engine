@@ -138,10 +138,10 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
         // Checks if location has been covered by light
         var lightSpaceIdx : u32 = dirIter + cascadeCheck * fixedData.dirLightAmount;
-        var lightSpacePosition : vec4<f32> = dynamicLightsSpacesStore[lightSpaceIdx] * (in.worldPos + vec4<f32>(in.normal*0.1,0)); 
+        var lightSpacePosition : vec4<f32> = dynamicLightsSpacesStore[lightSpaceIdx] * (in.worldPos + vec4<f32>(in.normal*0.1,0)); // Adds bias through vec4<f32>(in.normal*0.1,0)
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
         var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
-        var lightsUncovered : f32  = textureSampleCompare(dynamicShadowedDirLightMap, shadowMapSampler, texturePosition.xy, cascadeCheck, texturePosition.z - 0.0025);
+        var lightsUncovered : f32  = textureSampleCompare(dynamicShadowedDirLightMap, shadowMapSampler, texturePosition.xy, cascadeCheck, texturePosition.z - 0.0025); // Adds bias through 0.0025
 
         // Handles Phong lighting
         var singleLight : vec3<f32> = vec3<f32>(0, 0, 0);
@@ -168,7 +168,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         var lightToFragDistance : f32 = length(lightToFragDir);
 
         // Checks for shadowing
-        var pointLightUncovered : f32 = textureSampleCompare(dynamicShadowedPointLightMap, shadowMapSampler, normalize(lightToFragDir), pointIter, (lightToFragDistance/pointLight.radius) - 0.0025);
+        var pointLightUncovered : f32 = textureSampleCompare(dynamicShadowedPointLightMap, shadowMapSampler, normalize(lightToFragDir), pointIter, lightToFragDistance/pointLight.radius);
 
         // TODO: Create a softer way to enforce cutoff
         if (lightToFragDistance < pointLight.radius) {
