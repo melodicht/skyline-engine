@@ -22,6 +22,8 @@
 
 constexpr u32 FIXED_SIZE_STORAGE_SIZE = Megabytes(512 + 256);
 
+constexpr f32 FIXED_TIMESTEP_DELTA_TIME = 1.0f / 60.0f;
+
 PlatformAssetUtils assetUtils;
 PlatformRenderer renderer;
 PlatformAllocator allocator;
@@ -61,9 +63,6 @@ GAME_INITIALIZE(GameInitialize)
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
-    assetUtils = memory.platformAPI.assetUtils;
-    renderer = memory.platformAPI.renderer;
-
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 
     CreateComponentPools(scene);
@@ -88,14 +87,14 @@ GAME_INITIALIZE(GameInitialize)
         FlyingMovement* movement = scene.Assign<FlyingMovement>(gameState->currentCamera);
         scene.Assign<Transform3D>(gameState->currentCamera);
 
-        EditorSystem *editorSystem = scene.CreateSystem<EditorSystem>(gameState->currentCamera, &gameState->overlayMode);
+        EditorSystem *editorSystem = scene.CreateVariableTimestepSystem<EditorSystem>(gameState->currentCamera, &gameState->overlayMode);
     }
     else
     {
     #endif
-        memory.sklPhysicsSystem = static_cast<void*>(scene.CreateSystem<SKLPhysicsSystem>());
-        scene.CreateSystem<MovementSystem>();
-        scene.CreateSystem<BuilderSystem>(slowStep);
+        memory.sklPhysicsSystem = static_cast<void*>(scene.CreateSemifixedTimestepSystem<SKLPhysicsSystem>());
+        scene.CreateSemifixedTimestepSystem<MovementSystem>();
+        scene.CreateSemifixedTimestepSystem<BuilderSystem>(slowStep);
 
         FindCamera(*gameState);
     #if SKL_ENABLED_EDITOR
@@ -146,12 +145,23 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
     Scene &scene = gameState->scene;
 
-    // NOTE(marvin): Putting RenderOverlay above UpdateSystems so that EditorSystem's
-    // GUI overlay will go below the tabs.
-    RenderOverlay(*gameState);
-    scene.UpdateSystems(&input, deltaTime);
+    // TODO(marvin): Use the interpolation technique.
 
-    DrawScene(*gameState, input, deltaTime);
+    // NOTE(marvin): Putting RenderOverlay above the above systems so
+    // that EditorSystem's GUI overlay will go below the tabs.
+    RenderOverlay(*gameState);
+
+    f32 remainingFrameTime = frameTime;
+    while (remainingFrameTime > 0.0f)
+    {
+        f32 deltaTime = Minimum(remainingFrameTime, FIXED_TIMESTEP_DELTA_TIME);
+        scene.UpdateSemifixedTimestepSystems(&input, deltaTime);
+        remainingFrameTime -= deltaTime;
+    }
+
+    scene.UpdateVariableTimestepSystems(&input, frameTime);
+    
+    DrawScene(*gameState, input, frameTime);
 
     LogDebugRecords();
 }

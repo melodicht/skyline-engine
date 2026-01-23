@@ -437,7 +437,7 @@ void updateLoop(void* appInfo) {
     info->last = info->now;
     info->now = SDL_GetPerformanceCounter();
 
-    f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
+    f32 frameTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
     SDLGameCode &gameCode = info->gameCode;
     if (SDLGameCodeChanged(&gameCode))
@@ -521,13 +521,13 @@ void updateLoop(void* appInfo) {
       } break;
     }
     
-    gameCode.gameUpdateAndRender(info->gameMemory, gameInput, deltaTime);
+    gameCode.gameUpdateAndRender(info->gameMemory, gameInput, frameTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
 
-    f32 msPerFrame =  1000.0f * deltaTime;
-    f32 fps = 1 / deltaTime;
+    f32 msPerFrame =  1000.0f * frameTime;
+    f32 fps = 1 / frameTime;
     //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     return;
 }

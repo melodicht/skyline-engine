@@ -103,7 +103,8 @@ Scene::Scene(MemoryArena *remainingArena)
 {
     this->entities = InitEntitiesPool(remainingArena);
     this->freeIndices = InitFreeIndicesStack(remainingArena, MAX_ENTITIES);
-    this->systemsBuffer = InitSystemsBuffer(remainingArena);
+    this->variableTimestepSystemsBuffer = InitSystemsBuffer(remainingArena);
+    this->semifixedTimestepSystemsBuffer = InitSystemsBuffer(remainingArena);
     this->systemsArena = SubArena(remainingArena, SYSTEMS_MEMORY, "Systems");
     this->componentPools = ComponentPoolsBuffer(remainingArena);
     this->componentPoolsArena = SubArena(remainingArena, COMPONENT_POOLS_MEMORY, "Component Pools");
@@ -114,19 +115,30 @@ Scene::~Scene()
     // TODO(marvin): The scene deconstructor doesn't free the memory arenas because the scene is presumed to exist for the entire lifetime of the program. But when we do have multiple scenes and can switch between them while the game is running, we could just zero out the entire permanent storage... no need for an explicit free. We'll see.
 }
 
-void Scene::AddSystem(System *system)
+void Scene::AddVariableTimestepSystem(System *system)
 {
-    PushSystemsBuffer(&systemsBuffer, system);
+    PushSystemsBuffer(&variableTimestepSystemsBuffer, system);
+}
+
+void Scene::AddSemifixedTimestepSystem(System *system)
+{
+    PushSystemsBuffer(&semifixedTimestepSystemsBuffer, system);
 }
 
 void Scene::InitSystems()
 {
-    StartAllSystems(&systemsBuffer, this);
+    StartAllSystems(&variableTimestepSystemsBuffer, this);
+    StartAllSystems(&semifixedTimestepSystemsBuffer, this);
 }
 
-void Scene::UpdateSystems(GameInput *input, f32 deltaTime)
+void Scene::UpdateVariableTimestepSystems(GameInput *input, f32 deltaTime)
 {
-    UpdateAllSystems(&systemsBuffer, this, input, deltaTime);
+    UpdateAllSystems(&variableTimestepSystemsBuffer, this, input, deltaTime);
+}
+
+void Scene::UpdateSemifixedTimestepSystems(GameInput *input, f32 deltaTime)
+{
+    UpdateAllSystems(&semifixedTimestepSystemsBuffer, this, input, deltaTime);
 }
 
 void Scene::AddComponentPool(size_t componentSize)
