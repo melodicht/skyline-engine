@@ -34,7 +34,7 @@ void WebGPUBackendCubemapTextureBuffer::Init(
     u32 texturesHeight, 
     std::string&& label,
     std::string&& viewLabel){
-    assert(!m_inited);
+    ASSERT(!m_inited);
     m_inited = true;
     m_width = texturesWidth;
     m_height = texturesHeight;
@@ -111,7 +111,7 @@ void WebGPUBackendCubemapTextureBuffer::Insert(
     u32 texturesWidth, 
     u32 texturesHeight, 
     std::array<u32*,6> faceData) {
-    assert(m_inited);
+    ASSERT(m_inited);
 
     // Recreates texture at different size
     if (texturesWidth != m_width && texturesHeight != m_height) {

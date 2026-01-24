@@ -419,8 +419,8 @@ build-release/*
 !build-release/.gitkeep
 
 
-/build_external
-/SkylineEngine_XCode
+/build-external
+/xcodebuild
 /test
 /subprojects
 /webbuild
