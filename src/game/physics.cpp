@@ -283,7 +283,7 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
             JPH::ShapeSettings::ShapeResult shapeResult = staticBodySettings.Create();
             JPH::ShapeRefC shape = shapeResult.Get();
 
-            JPH::Vec3 position = OurToJoltCoordinateSystem(t->position);
+            JPH::Vec3 position = OurToJoltCoordinateSystem(t->GetWorldPosition());
             JPH::BodyCreationSettings bodyCreationSettings{shape, position,
                                                            JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
             JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
