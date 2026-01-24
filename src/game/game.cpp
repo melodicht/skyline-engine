@@ -42,7 +42,7 @@ GAME_INITIALIZE(GameInitialize)
 
     DebugInitialize(memory);
     
-    Assert(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
+    ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
     GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
 
     // TODO(marvin): We currently allocate WAY more memory than we actually use... got to revisit how much memory we actually need.
@@ -141,7 +141,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     DebugUpdate(memory);
     
-    Assert(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
+    ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
     GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
     Scene &scene = gameState->scene;
 

@@ -115,8 +115,8 @@ struct PointLight
     glm::vec3 specular = glm::vec3{1};
     LightID lightID = -1;
 
-    f32 radius;
-    f32 falloff;
+    f32 radius{ 0 };
+    f32 falloff{ 0 };
 };
 SERIALIZE(PointLight, diffuse, specular, radius, falloff)
 COMPONENT(PointLight, "gizmos/point_light")

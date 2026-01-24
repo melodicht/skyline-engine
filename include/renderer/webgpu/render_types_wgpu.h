@@ -70,7 +70,13 @@ struct WGPUBackendColorPassFixedData
     u32 m_pointLightCount;
     u32 m_spotLightCount;
     u32 m_dirLightCascadeCount;
+
+    // Represents PCS information
+    u32 m_dirLightMapPixelDimension;
+    u32 m_pointLightMapPixelDimension;
+    u32 m_padding1;
     u32 m_padding2;
+    u32 m_pcsRange;
 };
 
 struct WGPUBackendPointDepthPassFixedData
@@ -99,15 +105,11 @@ struct WGPUBackendDynamicShadowedDirLightData {
 // Represents a single shadowed point light
 struct WGPUBackendDynamicShadowedPointLightData {
     glm::vec3 m_diffuse;
-    float m_constant;
+    float m_radius;
     glm::vec3 m_specular;
-    float m_linear;
+    float m_falloff;
     glm::vec3 m_position;
-    float m_quadratic;
-    float m_distanceCutoff;
-    float m_padding1;
-    float m_padding2;
-    float m_padding3;
+    float m_padding;
 };
 
 // Represents a single shadowed spot light

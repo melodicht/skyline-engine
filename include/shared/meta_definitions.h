@@ -81,13 +81,13 @@ typedef size_t   siz;
 #define DEBUG_BREAK() (*(volatile int*)0 = 0)
 #endif
 
-#define Assert(Expression) if(!(Expression)) { DEBUG_BREAK(); }
-#define PrintAssert(Expression, Message) if(!(Expression)) { fputs(Message, stderr); DEBUG_BREAK(); }
+#define ASSERT(Expression) if(!(Expression)) { DEBUG_BREAK(); }
+#define ASSERT_PRINT(Expression, Message) if(!(Expression)) { fputs(Message, stderr); DEBUG_BREAK(); }
 
 
 #else
-#define Assert(Expression)
-#define PrintAssert(...)
+#define ASSERT(Expression)
+#define ASSERT_PRINT(...)
 #endif
 
 

@@ -5,6 +5,8 @@ struct ObjData {
     color : vec4<f32>
 }
 
+override manualClamping: bool = false;
+
 @binding(0) @group(0) var<uniform> cameraSpace : mat4x4<f32>;
 
 @binding(1) @group(0) var<storage> objStore : array<ObjData>; 
@@ -19,6 +21,9 @@ struct VertexIn {
 // Depth pass pipeline
 @vertex
 fn vtxMain(in : VertexIn) -> @builtin(position) vec4<f32> {
-  var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
-  return cameraSpace * worldPos;
+  var cameraPos = cameraSpace * (objStore[in.instance].transform * vec4<f32>(in.position,1));
+  if (manualClamping) {
+    cameraPos.z = max(cameraPos.z, 0.0);
+  }
+  return cameraPos;
 }

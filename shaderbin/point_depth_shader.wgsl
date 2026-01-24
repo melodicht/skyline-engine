@@ -47,7 +47,8 @@ struct FragOut {
 fn fsMain(in : PointDepthPassVertexOut) -> FragOut {
     var out : FragOut;
     var relativeLightToFrag : vec3<f32> = (in.worldPos.xyz/in.worldPos.w) - fixedPointData.lightPos;
-    out.depth = length(relativeLightToFrag) / fixedPointData.farPlane;
+    var pixDepth : f32 = length(relativeLightToFrag) / fixedPointData.farPlane;
+    out.depth = pixDepth + fwidth(pixDepth) * 3.0; // For now multiplying slope by 3 is standard across lights, TODO: make less arbitrary
     return out;
 }
 

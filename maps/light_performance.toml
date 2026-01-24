@@ -64,3 +64,44 @@ falloff = 2.0
 mesh = "cube"
 texture = "diamond_ore"
 color = [1.0, 1.0, 1.0]
+
+[secondLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+position = [3.5, 5.0, 2.0]
+[secondLight.PointLight]
+radius = 20.0
+falloff = 2.0
+[secondLight.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+color = [1.0, 1.0, 1.0]
+
+[thirdLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+position = [2.5, -3.0, 6.0]
+[thirdLight.PointLight]
+radius = 20.0
+falloff = 2.0
+[thirdLight.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+color = [1.0, 1.0, 1.0]
+
+[fourthLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+position = [5.5, 3.0, 2.0]
+[fourthLight.PointLight]
+radius = 20.0
+falloff = 2.0
+[fourthLight.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+color = [1.0, 1.0, 1.0]
+
+
+[bottom.Transform3D]
+position = [10.0, 0.0, -15.0]
+scale = [50.0, 50.0, 2.0]
+[bottom.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"

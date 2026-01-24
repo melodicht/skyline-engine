@@ -21,6 +21,10 @@
 
 // TODO: Make such constants more configurable
 constexpr u32 DefaultCascadeCount = 4;
+constexpr u32 DefaultDirLightDim = 2048;
+constexpr u32 DefaultPointLightDim = 512;
+constexpr u32 DefaultSkyboxDim = 2048;
+
 
 #pragma region Helper Functions
 void WGPURenderBackend::printDeviceSpecs() {
@@ -120,7 +124,7 @@ WGPUAdapter WGPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdap
   }
   #endif
 
-  assert(requestEnded);
+  ASSERT(requestEnded);
 
   return set;
 }
@@ -154,7 +158,7 @@ WGPUDevice WGPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescripto
   }
 #endif // __EMSCRIPTEN__
 
-  assert(requestEnded);
+  ASSERT(requestEnded);
 
   return set;
 }
@@ -307,6 +311,26 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
   SetupVandIBO();
 }
 
+void WGPURenderBackend::BeginDirectionalDepthPass(WGPUTextureView depthTexture) {
+  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+    .nextInChain = nullptr,
+    .view = depthTexture,
+    .depthLoadOp = WGPULoadOp_Clear,
+    .depthStoreOp = WGPUStoreOp_Store,
+    .depthClearValue = 1.0f,
+    .depthReadOnly = false,
+    .stencilReadOnly = true,
+  };
+  BeginPass(
+    nullptr,
+    &depthStencilAttachment,
+    "Directional Depth Command Encoder",
+    "Directional Depth Pass",
+    m_depthBindGroup, // Intentionally same as depth bind group
+    m_directionDepthPipeline);
+  SetupVandIBO();
+}
+
 void WGPURenderBackend::BeginPointDepthPass(WGPUTextureView depthTexture) {
   WGPURenderPassDepthStencilAttachment depthStencilAttachment {
     .nextInChain = nullptr,
@@ -336,7 +360,7 @@ void WGPURenderBackend::BeginPass(
   const WGPUBackendBindGroup& bindGroup,
   const WGPURenderPipeline& pipeline) {
   // Ensures that no two passes should be active at the same time 
-  assert(!m_renderPassActive);
+  ASSERT(!m_renderPassActive);
 
   m_renderPassActive = true;
 
@@ -478,16 +502,24 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
 
   LOG("Got adapter: " << adapter);
 
+  LOG("Extracting capabilities...");
+
+  m_hardwareDepthClampingSupported = wgpuAdapterHasFeature(adapter, WGPUFeatureName_DepthClipControl);
+  LOG("DEPTH CLAMPING SUPPORTED: " << m_hardwareDepthClampingSupported);
+
   LOG("Requesting device...");
 
   // General device description
   WGPULimits deviceRequirements = WGPU_LIMITS_INIT;
   deviceRequirements.maxTextureArrayLayers = 2048;
 
+  WGPUFeatureName depthClamping = WGPUFeatureName_DepthClipControl;
+
   WGPUDeviceDescriptor deviceDesc = {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("My Device"),
-    .requiredFeatureCount = 0,
+    .requiredFeatureCount = 1,
+    .requiredFeatures = &depthClamping,
     .requiredLimits = &deviceRequirements,
     .defaultQueue {
       .nextInChain = nullptr,
@@ -594,7 +626,7 @@ WGPUShaderModule loadShader(const WGPUDevice& device, std::string fileName, std:
   auto loadedDat = SDL_LoadFile(fileName.data(), &loadedDatSize);
 
   // Makes sure data actually gets loaded in
-  assert(loadedDat);
+  ASSERT(loadedDat);
 
   WGPUShaderModuleWGSLDescriptor wgslShaderDesc {
     .chain {
@@ -619,7 +651,7 @@ WGPUShaderModule loadShader(const WGPUDevice& device, std::string fileName, std:
 
 void WGPURenderBackend::InitPipelines()
 {
-  WGPUShaderModule shaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/default_shader.wgsl", "Color Pass Shader");
+  WGPUShaderModule shaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/color_shader.wgsl", "Color Pass Shader");
 
   WGPUShaderModule depthShaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/depth_shader.wgsl", "Depth Pass Shader");
 
@@ -653,8 +685,13 @@ void WGPURenderBackend::InitPipelines()
     .depthBiasClamp = 0,
   };
   
+  WGPUDepthStencilState depthStencilSetSlopeBiased = depthStencilState;
+  depthStencilSetSlopeBiased.depthBias = 0.000015;
+  depthStencilSetSlopeBiased.depthBiasSlopeScale = 4.5f; // TODO: Make less arbitrary allow to pass in
+
   WGPUDepthStencilState depthStencilReadOnlyState = depthStencilState;
   depthStencilReadOnlyState.depthWriteEnabled = WGPUOptionalBool_False;
+  
   
   WGPUBlendState blendState {
     .color {
@@ -988,33 +1025,6 @@ void WGPURenderBackend::InitPipelines()
     .fragment = &skyboxFragState,
   };
 
-  WGPURenderPipelineDescriptor pointDepthPipelineDesc {
-    .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Point Depth Pipeline "),
-    .layout = pointDepthPipelineLayout,
-    .vertex {
-      .module = pointDepthShaderModule,
-      .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
-      .constantCount = 0,
-      .constants = nullptr,
-      .bufferCount = 1,
-      .buffers = &pointDepthBufferLayout
-    },
-    .primitive {
-      .topology = WGPUPrimitiveTopology_TriangleList,
-      .stripIndexFormat = WGPUIndexFormat_Undefined,
-      .frontFace = WGPUFrontFace_CCW,
-      .cullMode = WGPUCullMode_Back
-    },
-    .depthStencil = &depthStencilState,
-    .multisample {
-      .count = 1,
-      .mask = ~0u,
-      .alphaToCoverageEnabled = false,
-    },
-    .fragment = &pointDepthDummyFragState,
-  };
-
   WGPURenderPipelineDescriptor depthPipelineDesc {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("Depth Pipeline"),
@@ -1040,6 +1050,68 @@ void WGPURenderBackend::InitPipelines()
       .alphaToCoverageEnabled = false,
     },
     .fragment = nullptr,
+  };
+
+  // Ideally ensures that depth clamping logic still goes through
+  // even when not supported by hardware
+  WGPUConstantEntry enableManualClampingEntry {
+    .key = WGPUBackendUtils::wgpuStr("manualClamping"),
+    .value = static_cast<double>(!m_hardwareDepthClampingSupported)
+  };
+
+  WGPURenderPipelineDescriptor directionalDepthPipelineDesc {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr("Directional Depth Pipeline"),
+    .layout = depthPipelineLayout,
+    .vertex {
+      .module = depthShaderModule,
+      .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
+      .constantCount = 1,
+      .constants = &enableManualClampingEntry,
+      .bufferCount = 1,
+      .buffers = &depthBufferLayout
+    },
+    .primitive {
+      .topology = WGPUPrimitiveTopology_TriangleList,
+      .stripIndexFormat = WGPUIndexFormat_Undefined,
+      .frontFace = WGPUFrontFace_CCW,
+      .cullMode = WGPUCullMode_Back,
+      .unclippedDepth = m_hardwareDepthClampingSupported
+    },
+    .depthStencil = &depthStencilSetSlopeBiased,
+    .multisample {
+      .count = 1,
+      .mask = ~0u,
+      .alphaToCoverageEnabled = false,
+    },
+    .fragment = nullptr,
+  };
+
+  WGPURenderPipelineDescriptor pointDepthPipelineDesc {
+    .nextInChain = nullptr,
+    .label = WGPUBackendUtils::wgpuStr("Point Depth Pipeline "),
+    .layout = pointDepthPipelineLayout,
+    .vertex {
+      .module = pointDepthShaderModule,
+      .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
+      .constantCount = 0,
+      .constants = nullptr,
+      .bufferCount = 1,
+      .buffers = &pointDepthBufferLayout
+    },
+    .primitive {
+      .topology = WGPUPrimitiveTopology_TriangleList,
+      .stripIndexFormat = WGPUIndexFormat_Undefined,
+      .frontFace = WGPUFrontFace_CCW,
+      .cullMode = WGPUCullMode_Back
+    },
+    .depthStencil = &depthStencilState,
+    .multisample {
+      .count = 1,
+      .mask = ~0u,
+      .alphaToCoverageEnabled = false,
+    },
+    .fragment = &pointDepthDummyFragState,
   };
 
   WGPURenderPipelineDescriptor pipelineDesc {
@@ -1071,6 +1143,7 @@ void WGPURenderBackend::InitPipelines()
 
   m_defaultPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &pipelineDesc);
   m_depthPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &depthPipelineDesc);
+  m_directionDepthPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &directionalDepthPipelineDesc);
   m_pointDepthPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &pointDepthPipelineDesc);
   m_skyboxPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &skyboxPipelineDesc); 
 
@@ -1084,11 +1157,10 @@ void WGPURenderBackend::InitPipelines()
   m_dynamicShadowLightSpaces.Init(m_wgpuCore.m_device, "Dynamic Shadow Light Spaces", m_maxDynamicShadowLightSpaces);
   m_dynamicShadowedDirLightCascadeRatiosBuffer.Init(m_wgpuCore.m_device, "Shadowed Dynamic Directional Light Cascade Ratios", DefaultCascadeCount);
   
-  // TODO: Replace placeholder 1000 x 1000 dimensions and limit
   m_dynamicDirLightShadowMapTexture.Init(
     m_wgpuCore.m_device, 
-    1000, 
-    1000, 
+    DefaultDirLightDim, 
+    DefaultDirLightDim, 
     32, 
     DefaultCascadeCount, 
     "Dynamic Direction Light Shadow Maps", 
@@ -1097,8 +1169,8 @@ void WGPURenderBackend::InitPipelines()
     false);
   m_dynamicPointLightShadowMapTexture.Init(
     m_wgpuCore.m_device, 
-    1000, 
-    1000, 
+    DefaultPointLightDim, 
+    DefaultPointLightDim, 
     2048, 
     6,
     "Dynamic Point Light Shadow Maps", 
@@ -1109,8 +1181,8 @@ void WGPURenderBackend::InitPipelines()
     m_wgpuCore.m_device, 
     m_wgpuQueue, 
     WGPUAddressMode_ClampToEdge, 
-    WGPUFilterMode_Nearest, 
-    WGPUFilterMode_Nearest, 
+    WGPUFilterMode_Linear, 
+    WGPUFilterMode_Linear, 
     WGPUMipmapFilterMode_Nearest, 
     0.0, 
     0.0, 
@@ -1119,8 +1191,8 @@ void WGPURenderBackend::InitPipelines()
     "Shadow Map Sampler");
   m_skyboxTexture.Init(
     m_wgpuCore.m_device,
-    1000,
-    1000,
+    DefaultSkyboxDim,
+    DefaultSkyboxDim,
     "Skybox Texture",
     "Skybox Texture Cubemap View"
   );
@@ -1270,7 +1342,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   // TODO: Make cascade ratios more adjustable
   std::vector<float> cascadeRatios = {0.25, 0.50, 0.75, 1.00};
   const std::vector<WGPUBackendDynamicShadowedDirLightData> shadowedDirLightData = ConvertDirLights(state.dirLights, dirLightSpaces, 4, camSpace, cascadeRatios, 0.05, state.cameraFar);
-  const std::vector<WGPUBackendDynamicShadowedPointLightData> shadowedPointLightData = ConvertPointLights(state.pointLights, pointLightSpaces, 1000, 1000);
+  const std::vector<WGPUBackendDynamicShadowedPointLightData> shadowedPointLightData = ConvertPointLights(state.pointLights, pointLightSpaces, DefaultPointLightDim, DefaultPointLightDim);
   const std::vector<WGPUBackendDynamicShadowedSpotLightData> shadowedSpotLightData = ConvertSpotLights(state.spotLights);
   // >>> Actually begins sending off information to be rendered <<<
 
@@ -1281,7 +1353,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   for (u8 cascadeIter = 0 ; cascadeIter < DefaultCascadeCount ; cascadeIter++) {
     for (u32 dirShadowIdx = 0 ; dirShadowIdx < shadowedDirLightData.size() ; dirShadowIdx++) {
       m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, dirLightSpaces[dirShadowIdx + cascadeIter * shadowedDirLightData.size()]);
-      BeginDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * DefaultCascadeCount + cascadeIter));
+      BeginDirectionalDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * DefaultCascadeCount + cascadeIter));
       DrawObjects(meshCounts);
       EndPass();
     }
@@ -1289,7 +1361,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
 
   for (u32 pointLightIdx = 0 ; pointLightIdx < shadowedPointLightData.size() ; pointLightIdx++) {
     const WGPUBackendDynamicShadowedPointLightData& pointLight = shadowedPointLightData[pointLightIdx];
-    m_fixedPointDepthPassDatBuffer.WriteBuffer(m_wgpuQueue, {pointLight.m_position, pointLight.m_distanceCutoff});
+    m_fixedPointDepthPassDatBuffer.WriteBuffer(m_wgpuQueue, {pointLight.m_position, pointLight.m_radius});
     for (u32 pointShadowIdx = pointLightIdx * 6 ; pointShadowIdx < (pointLightIdx + 1) * 6 ; pointShadowIdx++) {
       m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, pointLightSpaces[pointShadowIdx]);
       BeginPointDepthPass(m_dynamicPointLightShadowMapTexture.GetView(pointShadowIdx));
@@ -1323,7 +1395,10 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     .m_dirLightCount = (u32)shadowedDirLightData.size(),
     .m_pointLightCount = (u32)shadowedPointLightData.size(),
     .m_spotLightCount = (u32)shadowedSpotLightData.size(),
-    .m_dirLightCascadeCount = DefaultCascadeCount
+    .m_dirLightCascadeCount = DefaultCascadeCount,
+    .m_dirLightMapPixelDimension = DefaultDirLightDim,
+    .m_pointLightMapPixelDimension = DefaultPointLightDim,
+    .m_pcsRange = 2
   };
   m_fixedColorPassDatBuffer.WriteBuffer(m_wgpuQueue, colorPassState);
 

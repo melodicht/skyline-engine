@@ -75,7 +75,7 @@ void* AlignedAllocate(siz requestedSize, siz alignment)
 #endif
 
     u8 *requestedBase = static_cast<u8 *>(base) + sizeForMemoryBlock;
-    Assert(IsAligned(requestedBase, alignment));
+    ASSERT(IsAligned(requestedBase, alignment));
     SDLMemoryBlock *memoryBlockBase = reinterpret_cast<SDLMemoryBlock *>(requestedBase - sizeof(SDLMemoryBlock));
     void *result = static_cast<void *>(requestedBase);
     memoryBlockBase->requestedBase = result;
@@ -133,7 +133,7 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
 {
     if (block == nullptr)
     {
-        Assert(oldRequestedSize == 0);
+        ASSERT(oldRequestedSize == 0);
         return Allocate(newRequestedSize);
     }
     

@@ -51,7 +51,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     }
 
     // The cascade inserted should contain the same amount of ratios as the amount of cascades
-    assert(cascadeRatios.size() == lightSpacesCascadeCount);
+    ASSERT(cascadeRatios.size() == lightSpacesCascadeCount);
 
     for (s32 cascadeIterator = 0; cascadeIterator < lightSpacesCascadeCount; cascadeIterator++)
     {
@@ -101,8 +101,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
                 minZ = std::min(minZ, trf.z);
             }
 
-            // TODO: Find more specific method for determining distance from frustum (MinZ)
-            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ - camFar, maxZ);  
+            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);  
             
             // Inserts dir light into gpu vector   
             lightSpacesOutput.push_back(dirProj * lightViews[cpuIter]);
@@ -128,13 +127,13 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
         glm::vec3 lightPos = cpuDat.transform->position;
 
         // Calculates cube map 
-        glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (float)shadowWidth/(float)shadowHeight, 0.1f, cpuDat.maxRange);
+        glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (float)shadowWidth/(float)shadowHeight, 0.1f, cpuDat.radius);
         // X faces
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0, 1, 0}));
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, {-1, 0, 0}, { 0, 1, 0}));
         // Y faces
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 1, 0}, { 0, 0, 1}));
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0,-1, 0}, { 0, 0,-1}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 1, 0}, { 0, 0,-1}));
+        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0,-1, 0}, { 0, 0, 1}));
         // Z faces
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0, 1}, { 0, 1, 0}));
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0,-1}, { 0, 1, 0}));
@@ -142,12 +141,10 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
         WGPUBackendDynamicShadowedPointLightData gpuDat{ };
 
         gpuDat.m_diffuse = cpuDat.diffuse;
-        gpuDat.m_constant = cpuDat.constant; 
         gpuDat.m_specular = cpuDat.specular;
-        gpuDat.m_linear = cpuDat.linear;
         gpuDat.m_position = lightPos;
-        gpuDat.m_quadratic = cpuDat.quadratic;
-        gpuDat.m_distanceCutoff = cpuDat.maxRange;
+        gpuDat.m_falloff = cpuDat.falloff;
+        gpuDat.m_radius = cpuDat.radius;
 
         ret.push_back(gpuDat);
     }

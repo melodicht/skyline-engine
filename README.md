@@ -27,7 +27,7 @@ Skyline Engine
 - `build-release`: Artifacts of the build process for the release build profile (for IDEs that have separate debug and release profiles)
 - `bin`: Holds outputted binaries for the engine and libraries.
 - `shaderbin`: Holds shaders processed on compilation.
-- `build_external`: Holds the cached source code for 3rd party libraries
+- `build-external`: Holds the cached source code for 3rd party libraries
 
 # Game-as-a-service Architecture
 
