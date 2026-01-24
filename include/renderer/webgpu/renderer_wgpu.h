@@ -33,7 +33,7 @@ private:
     WGPUTextureFormat m_wgpuTextureFormat{ };
     WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth32Float };
 
-    // Represents limits of gpu storage
+    // Represents limits of gpu
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill the following with number informed by limits
     u32 m_maxLightSpaces{ 4096 };
     u32 m_maxDynamicShadowedDirLights{ 4096 };
@@ -42,7 +42,7 @@ private:
     u32 m_maxDynamicShadowLightSpaces{ 4096 };
     u32 m_maxMeshVertSize{ 4096 };
     u32 m_maxMeshIndexSize{ 4096 };
-
+    bool m_hardwareDepthClampingSupported = false;
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUSurfaceTexture m_surfaceTexture{ };
@@ -61,6 +61,8 @@ private:
     // Defines depth pipeline
     WGPURenderPipeline m_depthPipeline{ };
     WGPUBackendBindGroup m_depthBindGroup{ };
+    // Defines dir light depth pipeline (Derived from same shader as depth pipeline)
+    WGPURenderPipeline m_directionDepthPipeline{ };
 
     // Defines point depth pipeline
     WGPURenderPipeline m_pointDepthPipeline{ };
@@ -133,8 +135,11 @@ private:
     // Begins the skybox pass that renders background of visuals
     void BeginSkyboxPass();
 
-    // Populates depth buffer from view of camera buffer
+    // Populates depth texture from view of camera buffer
     void BeginDepthPass(WGPUTextureView depthTexture);
+
+    // Populates depth texture from view of orthogonal camera buffer with added biases for dir light
+    void BeginDirectionalDepthPass(WGPUTextureView depthTexture);
 
     // Populates depth buffer from the view of camera buffer
     void BeginPointDepthPass(WGPUTextureView depthTexture);
