@@ -70,7 +70,7 @@ void* AlignedAllocate(siz requestedSize, siz alignment)
     if(base == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        Assert(false && "Failed to aligned allocate.");
+        ASSERT(false && "Failed to aligned allocate.");
     }
 #endif
 
@@ -106,7 +106,7 @@ void* Allocate(siz requestedSize)
     if(base == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        Assert(false && "Failed to allocate.");
+        ASSERT(false && "Failed to allocate.");
     }
 #endif
 

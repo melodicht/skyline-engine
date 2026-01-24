@@ -216,8 +216,8 @@ inline SDLSavedMemoryBlock InitSavedMemoryBlock(SDLMemoryBlock* source)
 
 local void WriteSavedMemoryBlockToFile(SDLSavedMemoryBlock* savedMemoryBlock, SDL_IOStream* fileHandle)
 {
-    Assert(SDL_WriteIO(fileHandle, savedMemoryBlock, sizeof(*savedMemoryBlock)) == sizeof(*savedMemoryBlock));
-    Assert(SDL_WriteIO(fileHandle, savedMemoryBlock->requestedBase, savedMemoryBlock->requestedSize) == savedMemoryBlock->requestedSize);
+    ASSERT(SDL_WriteIO(fileHandle, savedMemoryBlock, sizeof(*savedMemoryBlock)) == sizeof(*savedMemoryBlock));
+    ASSERT(SDL_WriteIO(fileHandle, savedMemoryBlock->requestedBase, savedMemoryBlock->requestedSize) == savedMemoryBlock->requestedSize);
 }
 
 local void WriteMemoryBlocksToFile(SDLState* state, SDL_IOStream* fileHandle)
@@ -266,7 +266,7 @@ local void RestoreSavedMemoryBlock(SDLSavedMemoryBlock savedMemoryBlock, SDL_IOS
     void* requestedBase = savedMemoryBlock.requestedBase;
     u64 requestedSize = savedMemoryBlock.requestedSize;
     siz bytesRead = SDL_ReadIO(fileHandle, requestedBase, requestedSize);
-    Assert(bytesRead == requestedSize);
+    ASSERT(bytesRead == requestedSize);
 }
 
 local void RestoreMemoryBlocksFromFile(SDL_IOStream* fileHandle)
@@ -274,7 +274,7 @@ local void RestoreMemoryBlocksFromFile(SDL_IOStream* fileHandle)
     for (;;)
     {
         SDLSavedMemoryBlock savedMemoryBlock = {};
-        Assert(SDL_ReadIO(fileHandle, &savedMemoryBlock, sizeof(savedMemoryBlock)) == sizeof(savedMemoryBlock));
+        ASSERT(SDL_ReadIO(fileHandle, &savedMemoryBlock, sizeof(savedMemoryBlock)) == sizeof(savedMemoryBlock));
         if (savedMemoryBlock.requestedBase != 0)
         {
             RestoreSavedMemoryBlock(savedMemoryBlock, fileHandle);
@@ -332,7 +332,7 @@ local void SDLEndInputPlayback(SDLState* state)
 {
     SDLClearBlocksByMask(state, sdlMem_freedDuringLoop);
     
-    Assert(SDL_CloseIO(state->playbackHandle));
+    ASSERT(SDL_CloseIO(state->playbackHandle));
     state->loopedLiveEditingState = loopedLiveEditingState_none;
 }
 
