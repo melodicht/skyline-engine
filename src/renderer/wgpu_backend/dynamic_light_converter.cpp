@@ -101,8 +101,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
                 minZ = std::min(minZ, trf.z);
             }
 
-            // TODO: Find more specific method for determining distance from frustum (MinZ)
-            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ - camFar, maxZ);  
+            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);  
             
             // Inserts dir light into gpu vector   
             lightSpacesOutput.push_back(dirProj * lightViews[cpuIter]);

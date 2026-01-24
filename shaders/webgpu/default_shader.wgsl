@@ -1,5 +1,32 @@
 // TODO: Better explore alternatives in alignment, maybe we could merge in different variables to reduce waste due to alignment
 
+// Math functionality
+struct orthonormalBasis {
+    up: vec3<f32>,
+    left: vec3<f32>
+}
+
+// Uses normal vector and find two arbitrary normal vectors perpidicular to eachother and the base normal
+// Taken from https://graphics.pixar.com/library/OrthonormalB/paper.pdf
+fn getOrthonormalBasis(normalForward: vec3<f32>) -> orthonormalBasis {
+    var sign: f32 = select(-1.0, 1.0, normalForward.z >= 0);
+    var temp1: f32 = -1.0 / (sign + normalForward.z);
+    var temp2: f32 = normalForward.x * normalForward.y * temp1;
+    
+    var output: orthonormalBasis;
+    output.up = vec3<f32>(
+        1.0 + sign * normalForward.x * normalForward.x * temp1, 
+        sign * temp2, 
+        -sign * normalForward.x);
+    output.left = vec3<f32>(
+        temp2, 
+        sign + normalForward.y * normalForward.y * temp1, 
+        -normalForward.y);
+    return output;
+}
+
+
+
 // Represents fixed length color pass data
 struct ColorPassFixedData {
     // Camera Data
@@ -12,7 +39,12 @@ struct ColorPassFixedData {
     pointLightAmount: u32,
     spotLightAmount: u32,
     dirLightCascadeCount: u32,
-    padding2: u32
+    // Pass Data
+    dirLightMapDimension: u32,
+    pointLightMapDimension: u32,
+    padding1: u32,
+    padding2: u32,
+    pcsRange: u32
 }
 
 // Represents the data that differentiates each instance of the same mesh
@@ -113,6 +145,30 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
   return out;
 }
 
+fn pcsCompare(
+    texture: texture_depth_2d_array, 
+    sampler: sampler_comparison, 
+    texturePos : vec2<f32>, 
+    index: u32, 
+    depth: f32, 
+    pcsRange : u32,
+    mapDimension: u32) -> f32 {
+    // Sets up sample location
+    var unit: f32 = 1.0/f32(mapDimension);
+    var trueRangeHalf: f32 = unit * (f32(pcsRange - 1) /2.0);
+    var base: vec2<f32> = texturePos - vec2<f32>(trueRangeHalf,trueRangeHalf);
+
+    // Finds PCS percentage
+    var sum: f32 = 0;
+    for (var xIter : u32 = 0 ; xIter < pcsRange ; xIter++) {
+        for (var yIter : u32 = 0 ; yIter < pcsRange ; yIter++) {
+            var newPos: vec2<f32> = base + vec2<f32>(f32(xIter)*unit, f32(yIter)*unit);
+            sum += textureSampleCompare(texture, sampler, newPos, index, depth);
+        }
+    }
+    return sum/f32(pcsRange*pcsRange);
+}
+
 // TODO: Implement blinn-phong instead of just phong
 @fragment
 fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
@@ -138,10 +194,17 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
         // Checks if location has been covered by light
         var lightSpaceIdx : u32 = dirIter + cascadeCheck * fixedData.dirLightAmount;
-        var lightSpacePosition : vec4<f32> = dynamicLightsSpacesStore[lightSpaceIdx] * (in.worldPos + vec4<f32>(in.normal*0.1,0)); 
+        var lightSpacePosition : vec4<f32> = dynamicLightsSpacesStore[lightSpaceIdx] * (in.worldPos);
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
         var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
-        var lightsUncovered : f32  = textureSampleCompare(dynamicShadowedDirLightMap, shadowMapSampler, texturePosition.xy, cascadeCheck, texturePosition.z - 0.0025);
+        var lightsUncovered : f32  = pcsCompare(
+            dynamicShadowedDirLightMap, 
+            shadowMapSampler, 
+            texturePosition.xy, 
+            cascadeCheck, 
+            texturePosition.z,
+            fixedData.pcsRange,
+            fixedData.dirLightMapDimension);
 
         // Handles Phong lighting
         var singleLight : vec3<f32> = vec3<f32>(0, 0, 0);
@@ -164,11 +227,35 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         let pointLight = dynamicShadowedPointLightStore[pointIter];
 
         // Handles Phong Lighting
-        var lightToFragDir : vec3<f32> = (in.worldPos/in.worldPos.w).xyz - pointLight.position;
+        var lightToFragDir: vec3<f32> = (in.worldPos/in.worldPos.w).xyz - pointLight.position;
         var lightToFragDistance : f32 = length(lightToFragDir);
 
-        // Checks for shadowing
-        var pointLightUncovered : f32 = textureSampleCompare(dynamicShadowedPointLightMap, shadowMapSampler, normalize(lightToFragDir), pointIter, (lightToFragDistance/pointLight.radius) - 0.0025);
+        // Checks for shadowing along approximate 3x3 pixel range 
+
+        // Sets up pcs sampling information
+        // Creates grid at the end of normalized light dir to sample off of
+        var normalizedLightDir: vec3<f32> = normalize(lightToFragDir);
+        var basis: orthonormalBasis = getOrthonormalBasis(normalizedLightDir);
+        var unitLength: f32 = (1.0/f32(fixedData.pointLightMapDimension));
+        basis.up *= unitLength;
+        basis.left *= unitLength;
+        var baseDir: vec3<f32> = normalizedLightDir - (basis.up + basis.left) * f32(fixedData.pcsRange - 1)/2.0;
+        var normalizedLightToFragDistance: f32 = lightToFragDistance/pointLight.radius;
+
+        // Actually samples pcs 
+        var pointLightUncovered: f32 = 0;
+        for (var xIter : u32 = 0 ; xIter < fixedData.pcsRange ; xIter++) {
+            for (var yIter : u32 = 0 ; yIter < fixedData.pcsRange ; yIter++) {
+                var newPos: vec3<f32> = baseDir + basis.up * f32(yIter) + basis.left * f32(xIter);
+                pointLightUncovered += textureSampleCompare(
+                    dynamicShadowedPointLightMap, 
+                    shadowMapSampler, 
+                    newPos, 
+                    pointIter, 
+                    normalizedLightToFragDistance);
+            }
+        }
+        pointLightUncovered /= f32(fixedData.pcsRange * fixedData.pcsRange);
 
         // TODO: Create a softer way to enforce cutoff
         if (lightToFragDistance < pointLight.radius) {

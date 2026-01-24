@@ -70,7 +70,13 @@ struct WGPUBackendColorPassFixedData
     u32 m_pointLightCount;
     u32 m_spotLightCount;
     u32 m_dirLightCascadeCount;
+
+    // Represents PCS information
+    u32 m_dirLightMapPixelDimension;
+    u32 m_pointLightMapPixelDimension;
+    u32 m_padding1;
     u32 m_padding2;
+    u32 m_pcsRange;
 };
 
 struct WGPUBackendPointDepthPassFixedData

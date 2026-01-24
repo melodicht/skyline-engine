@@ -24,5 +24,5 @@ fn vtxMain(@builtin(vertex_index) vert_index: u32) -> VertexOut {
 @fragment
 fn fsMain(in : VertexOut) -> @location(0) vec4<f32> {
     let worldPos = cameraSpaceInverse * in.clipPos;
-    return textureSample(skyboxTexture, skyboxSampler, normalize(worldPos.xzy / worldPos.w) * vec3<f32>(1, 1, -1));
+    return textureSample(skyboxTexture, skyboxSampler, (worldPos.xzy / worldPos.w) * vec3<f32>(1, 1, -1));
 }
