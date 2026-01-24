@@ -28,5 +28,10 @@ glm::vec3 GetMovementDirection(GameInput *input, Transform3D *t)
         result -= t->GetRightVector();
     }
 
+    if (glm::length(result) > 0)
+    {
+        result = glm::normalize(result);
+    }
+
     return result;
 }
