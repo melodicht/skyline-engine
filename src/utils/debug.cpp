@@ -3,6 +3,7 @@
 #include <debug.h>
 #include <memory.h>
 
+constexpr u32 DEBUG_STORAGE_SIZE = Megabytes(256);
 constexpr u32 MAX_GENERAL_ALLOCATIONS = 1024 * 1024;
 
 // NOTE(marvin): We store all of our strings (name and debug ID) in
@@ -233,14 +234,13 @@ char *GetDebugIDFromOurArena(DebugState *debugState, const char *debugID)
 
 void DebugInitialize_(GameMemory gameMemory)
 {
-    Assert(sizeof(DebugState) <= gameMemory.debugStorageSize);
-    DebugState *debugState = static_cast<DebugState *>(gameMemory.debugStorage);
-    globalDebugState = debugState;
+    globalDebugState = gameMemory.debugState;
+    DebugState* debugState = globalDebugState;
     debugState->readyToInitMemoryArena_ = false;
     debugState->readyToRegularAllocate_ = false;
-    
-    u8 *pastDebugStateAddress = static_cast<u8 *>(gameMemory.debugStorage) + sizeof(DebugState);
-    MemoryArena memoryArena = InitMemoryArena(pastDebugStateAddress, gameMemory.debugStorageSize - sizeof(DebugState));
+
+    gameMemory.debugStorage = gameMemory.platformAPI.allocator.AlignedAllocate(DEBUG_STORAGE_SIZE, 8);
+    MemoryArena memoryArena = InitMemoryArena(gameMemory.debugStorage, DEBUG_STORAGE_SIZE);
     InitGlobalDebugState(&memoryArena);
 
     // NOTE(marvin): We do 0 debug records until the debug state is completely initialized.
@@ -269,8 +269,7 @@ void DebugInitialize_(GameMemory gameMemory)
 
 void DebugUpdate_(GameMemory gameMemory)
 {
-    Assert(sizeof(DebugState) <= gameMemory.debugStorageSize);
-    globalDebugState = static_cast<DebugState *>(gameMemory.debugStorage);
+    globalDebugState = gameMemory.debugState;
 }
 
 local DebugArena InitDebugArena(MemoryArena sourceArena)

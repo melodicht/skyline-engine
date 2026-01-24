@@ -20,6 +20,7 @@
 #include <movement.h>
 #include <draw_scene.h>
 
+constexpr u32 FIXED_SIZE_STORAGE_SIZE = Megabytes(512 + 256);
 
 PlatformAssetUtils assetUtils;
 PlatformRenderer renderer;
@@ -35,10 +36,12 @@ __declspec(dllexport)
 #endif
 GAME_INITIALIZE(GameInitialize)
 {
+    memory.fixedSizeStorage = allocator.AlignedAllocate(FIXED_SIZE_STORAGE_SIZE, 8);
+
     DebugInitialize(memory);
     
-    Assert(sizeof(GameState) <= memory.permanentStorageSize);
-    GameState *gameState = static_cast<GameState *>(memory.permanentStorage);
+    Assert(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
+    GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
 
     // TODO(marvin): We currently allocate WAY more memory than we actually use... got to revisit how much memory we actually need.
 
@@ -51,8 +54,8 @@ GAME_INITIALIZE(GameInitialize)
     // some book-keeping information about how that memory storage is
     // used. The book-keeping of remaining arena here is for the sole
     // purpose of starting up the scene's own memory arenas.
-    u8 *pastGameStateAddress = static_cast<u8 *>(memory.permanentStorage) + sizeof(GameState);
-    MemoryArena remainingArena = InitMemoryArena(pastGameStateAddress, memory.permanentStorageSize - sizeof(GameState), "GameArena");
+    u8 *pastGameStateAddress = static_cast<u8 *>(memory.fixedSizeStorage) + sizeof(GameState);
+    MemoryArena remainingArena = InitMemoryArena(pastGameStateAddress, FIXED_SIZE_STORAGE_SIZE - sizeof(GameState), "GameArena");
 
     gameState->overlayMode = overlayMode_none;
     gameState->scene = Scene(&remainingArena);
@@ -137,8 +140,10 @@ __declspec(dllexport)
 #endif
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
-    Assert(sizeof(GameState) <= memory.permanentStorageSize);
-    GameState *gameState = static_cast<GameState *>(memory.permanentStorage);
+    DebugUpdate(memory);
+    
+    Assert(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
+    GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
     Scene &scene = gameState->scene;
 
     // NOTE(marvin): Putting RenderOverlay above UpdateSystems so that EditorSystem's

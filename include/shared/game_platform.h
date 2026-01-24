@@ -47,14 +47,12 @@ struct DebugState;
 
 struct GameMemory
 {
-    u64 permanentStorageSize;  // In bytes
-    void* permanentStorage;
+    void* fixedSizeStorage;
 
     // TODO(marvin): Does the imgui context really belong to game memory? Should it be part of the debug storage?
     ImGuiContext *imGuiContext;
 
 #if SKL_INTERNAL
-    u64 debugStorageSize;  // In bytes
     void* debugStorage;
     DebugState* debugState;
 #endif

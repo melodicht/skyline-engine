@@ -6,28 +6,28 @@ Skyline Engine
 ## Development Folders
 - `cmake`: For CMake add-ons and scripts, used by our build process.
 - `data`: The assets for our game, containing models and fonts.
-- `include`: Contains headers of src files and external libraries.
+- `include`: Contains headers files for the engine and libraries. See the code directory structure below for more details.
 - `shaders`: Contains shader code.
-  - The root holds `slang` shaders.
+  - `vulkan`: Contains Vulkan GLSL shaders.
   - `webgpu`: Contains WebGPU shaders.
-- `src`: Contains the source code for the game engine. See the components overview below for more details.
+- `src`: Contains the source code for the game engine. See the code directory structure below for more details.
 - `.gitignore`: Files we do not want in our Git repository.
 - `CMakeLists.txt`: The configuration file for CMake, the development tool we rely on for building the game engine.
 - `README.md`: Provides informative and instructional content related to the game engine.
 - `notes.txt`: Notes taken from code walks.
 
 ## Asset Folders
-- `scenes`: Contains specific scene toml layouts.
+- `maps`: Contains game maps stored in the toml format.
 - `fonts`: Contains text fonts in ttf folder.
 - `textures`: Contains textures.
 - `models`: Contains gltf models.
 
 ## Build Folders
 - `build`: Artifacts of the build process. Delete the contents of this folder and add back in the `.gitkeep` in order to build from scratch.
-- `bin`: Holds binaries of dynamic libraries.
+- `build-release`: Artifacts of the build process for the release build profile (for IDEs that have separate debug and release profiles)
+- `bin`: Holds outputted binaries for the engine and libraries.
 - `shaderbin`: Holds shaders processed on compilation.
-- `build_external`: Holds build artifacts from external libraries.
-- `build-release`: ???? <IDK what that does someone else please specify> ????
+- `build_external`: Holds the cached source code for 3rd party libraries
 
 # Game-as-a-service Architecture
 
@@ -39,16 +39,25 @@ Currently, we only have one implementation for the platform component, which use
 
 The greatest benefit of this architecture is that while the game is running, the game module can be replaced with a new game module, also known as hot reloading.
 
-# Single Translation Unit Build / Unity Build
 
-The way build the code is that we essentially concatenate all the C++ files into one giant C++ file and then compile that. Why do this? Because it's faster and simplifies the build process. The trade off is that we lose the ability to enforce encapsulation between C++ files. As in, nothing is stopping one file from reading values from another file.
+# Code Directory Structure
 
-We call one concatentation of a set of C++ files into one giant C++ file that gets compiled a translation unit.
-
-We have one translation unit per component. That is, one for the platform, and one for the game. That is why the hot reloading works. We can compile the entire game module independently from the platform one.
-
-When there are several translation units in a project, and some of them reference the same C++ file, what this means is the contents of the C++ file will get duplicared across the translation units. This is usually an acceptable cost. Though, when it's not (for other reasons that we won't go into here), it justifies a new translation unit for the shared piece of code. 
-
+## src/platform
+Contains the source files for the platform executable
+## src/game
+Contains the source files for the game module dll
+## src/renderer/vk_backend, gl_backend, wgpu_backend
+Contains the source files for the various rendering backends
+## src/utils
+Contains the source file for the utils static library that contains functionality shared between the different modules, such as math and debug functionality.
+## include/platform
+Contains the header files used by the platform executable
+## include/game
+Contains the header files used by the game module dll
+## include/renderer/vulkan, gl, webgpu
+Contains the header files used by the various rendering backends
+## include/shared
+Contains the header files that are shared between multiple different modules
 
 # Components Overview
 
