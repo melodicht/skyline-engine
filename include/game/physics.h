@@ -23,8 +23,13 @@ private:
     JPH::JobSystem* jobSystem;
     JPH::TempAllocatorImpl* allocator;
 
+    // NOTE(marvin): Defined by the character having enough velocity
+    // to reach to minimum jump height.
+    b32 isJumping;
+
     void MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual,
-                              JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime);
+                              JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld,
+                              f32 deltaTime);
 
 public:
     SKLPhysicsSystem();
