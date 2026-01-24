@@ -23,7 +23,7 @@ struct VertexIn {
 fn vtxMain(in : VertexIn) -> @builtin(position) vec4<f32> {
   var cameraPos = cameraSpace * (objStore[in.instance].transform * vec4<f32>(in.position,1));
   if (manualClamping) {
-    cameraPos.z =  clamp(cameraPos.z, 0.0, cameraPos.w);
+    cameraPos.z = max(cameraPos.z, 0.0);
   }
   return cameraPos;
 }

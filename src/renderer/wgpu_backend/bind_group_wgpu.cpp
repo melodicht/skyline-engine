@@ -41,8 +41,7 @@ void WGPUBackendBindGroup::UpdateBindGroup(const WGPUDevice& device) {
 
 void WGPUBackendBindGroup::BindToRenderPass(WGPURenderPassEncoder& renderPass) const {
     if(!m_inited) {
-        // TODO: Make sure assert is only hit in debug
-        assert(true);
+        ASSERT(true);
         return;
     }
 

@@ -89,7 +89,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
 # PACKAGE MANAGER
 #==============================================================================
 
-set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/build_external")
+set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/build-external")
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")

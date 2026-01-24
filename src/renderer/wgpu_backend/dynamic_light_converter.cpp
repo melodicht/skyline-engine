@@ -51,7 +51,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
     }
 
     // The cascade inserted should contain the same amount of ratios as the amount of cascades
-    assert(cascadeRatios.size() == lightSpacesCascadeCount);
+    ASSERT(cascadeRatios.size() == lightSpacesCascadeCount);
 
     for (s32 cascadeIterator = 0; cascadeIterator < lightSpacesCascadeCount; cascadeIterator++)
     {

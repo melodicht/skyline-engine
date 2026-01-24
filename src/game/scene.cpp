@@ -46,14 +46,14 @@ ComponentPoolsBuffer::ComponentPoolsBuffer(MemoryArena *remainingArena)
 
 ComponentPool *ComponentPoolsBuffer::operator[](u32 index)
 {
-    Assert(index < count);
+    ASSERT(index < count);
     ComponentPool *result = base + index;
     return result;
 }
 
 void ComponentPoolsBuffer::Push(ComponentPool componentPool)
 {
-    Assert(count < MAX_COMPONENTS);
+    ASSERT(count < MAX_COMPONENTS);
     ComponentPool *address = base + count;
     *address = componentPool;
     ++count;
@@ -65,7 +65,7 @@ void ComponentPoolsBuffer::Push(ComponentPool componentPool)
 
 void PushSystemsBuffer(SystemsBuffer *systemsBuffer, System *system)
 {
-    Assert(systemsBuffer->count < MAX_SYSTEMS);
+    ASSERT(systemsBuffer->count < MAX_SYSTEMS);
     System **systemAddress = systemsBuffer->base + systemsBuffer->count;
     *systemAddress = system;
     ++systemsBuffer->count;

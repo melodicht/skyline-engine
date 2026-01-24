@@ -35,7 +35,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayDataEntry(DataEntry *d
     {
         case INT_ENTRY:
         {
-            Assert(!isComponent);
+            ASSERT(!isComponent);
             const char *fieldName = dataEntry->name.c_str();
             ImGui::Columns(2, nullptr, false);
             ImGui::SetColumnWidth(0, 150);
@@ -52,7 +52,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayDataEntry(DataEntry *d
         }
         case FLOAT_ENTRY:
         {
-            Assert(!isComponent);
+            ASSERT(!isComponent);
             const char *fieldName = dataEntry->name.c_str();
             ImGui::Columns(2, nullptr, false);
             ImGui::SetColumnWidth(0, 150);
@@ -69,7 +69,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayDataEntry(DataEntry *d
         }
         case BOOL_ENTRY:
         {
-            Assert(!isComponent);
+            ASSERT(!isComponent);
             const char *fieldName = dataEntry->name.c_str();
             ImGui::Columns(2, nullptr, false);
             ImGui::SetColumnWidth(0, 150);
@@ -86,7 +86,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayDataEntry(DataEntry *d
         }
         case VEC_ENTRY:
         {
-            Assert(!isComponent);
+            ASSERT(!isComponent);
             const char *fieldName = dataEntry->name.c_str();
             ImGui::Columns(2, nullptr, false);
             ImGui::SetColumnWidth(0, 150);
@@ -107,7 +107,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayDataEntry(DataEntry *d
         }
         case STR_ENTRY:
         {
-            Assert(!isComponent);
+            ASSERT(!isComponent);
             const char *fieldName = dataEntry->name.c_str();
             ImGui::Columns(2, nullptr, false);
             ImGui::SetColumnWidth(0, 150);

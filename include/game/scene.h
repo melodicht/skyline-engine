@@ -189,7 +189,7 @@ ComponentID GetComponentId()
         return count;
     }
 
-    Assert(false && "Invalid component ID");
+    ASSERT(false && "Invalid component ID");
     exit(1);
 }
 
@@ -237,7 +237,7 @@ inline b32 EntityEntryInvalid(EntityEntry *entityEntry)
 // The entity entry should be marked as invalid.
 inline void ValidateEntityEntryWithIndex(EntityEntry *entityEntry, u32 index)
 {
-    Assert(EntityEntryInvalid(entityEntry) &&
+    ASSERT(EntityEntryInvalid(entityEntry) &&
            "A free entity entry should be marked as an invalid entity.");
 
     u32 entityVersion = GetEntityVersion(entityEntry->id);
@@ -275,7 +275,7 @@ inline EntitiesPool InitEntitiesPool(MemoryArena *remainingArena)
 
 inline EntityEntry *GetFromEntitiesPool(EntitiesPool *pool, u32 index)
 {
-    Assert(index < MAX_ENTITIES);
+    ASSERT(index < MAX_ENTITIES);
     EntityEntry *result = pool->entries + index;
     return result;
 }
@@ -289,7 +289,7 @@ inline EntityEntry *GetFromEntitiesPoolWithEntityID(EntitiesPool *pool, EntityID
 
 inline EntityEntry *AddNewEntityEntry(EntitiesPool *pool)
 {
-    Assert(pool->count < MAX_ENTITIES);
+    ASSERT(pool->count < MAX_ENTITIES);
     EntityEntry *nextEntityEntry = pool->entries + pool->count;
     *nextEntityEntry = InitEntityEntryWithIndex(pool->count);
     ++pool->count;
@@ -306,7 +306,7 @@ inline u32 GetEntitiesPoolSize(EntitiesPool *pool)
 inline void DestroyEntityEntryInEntitiesPool(EntitiesPool *entities, u32 index, EntityID id)
 {
     EntityEntry *entityEntry = GetFromEntitiesPool(entities, index);
-    Assert((GetEntityIndex(id) == index) &&
+    ASSERT((GetEntityIndex(id) == index) &&
            (entityEntry->id == id) &&
            (GetEntityIndex(entityEntry->id) == index));
 

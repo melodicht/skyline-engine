@@ -9,7 +9,7 @@ void WGPUBackendBaseDynamicShadowMapArray::UpdateAttachedBindGroups(const WGPUDe
 }
 
 u16 WGPUBackendBaseDynamicShadowMapArray::GenerateNewAllocatedSize (u16 newArraySize) {
-    assert(newArraySize <= m_arrayMaxAllocatedSize);
+    ASSERT(newArraySize <= m_arrayMaxAllocatedSize);
 
     return newArraySize;
 }
@@ -131,8 +131,9 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     std::string wholeViewLabel,
     std::string layerViewLabel, 
     bool cubeMapView) {
-    // TODO: Prevent this from running in final build
-    assert( !m_inited );
+
+    ASSERT( !m_inited );
+    
     m_label = label;
     m_wholeViewLabel = wholeViewLabel;
     m_layerViewLabel= layerViewLabel;

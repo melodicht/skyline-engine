@@ -213,7 +213,7 @@ local void SDLBeginRecordingInput(SDLState* state)
     if (state->recordingHandle == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        Assert(!"Failed to create recording handle for looped-live editing.");
+        ASSERT(!"Failed to create recording handle for looped-live editing.");
     }
     else
     {
@@ -226,7 +226,7 @@ local void SDLBeginRecordingInput(SDLState* state)
 
 local void SDLEndRecordingInput(SDLState* state)
 {
-    Assert(SDL_CloseIO(state->recordingHandle));
+    ASSERT(SDL_CloseIO(state->recordingHandle));
     state->loopedLiveEditingState = loopedLiveEditingState_none;
 }
 
@@ -237,7 +237,7 @@ local void SDLBeginInputPlayback(SDLState* state)
     if (state->playbackHandle == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        Assert(!"Failed to read recorded input file for looped-live editing.");
+        ASSERT(!"Failed to read recorded input file for looped-live editing.");
     }
     else
     {
@@ -249,7 +249,7 @@ local void SDLBeginInputPlayback(SDLState* state)
 
 local void SDLEndInputPlayback(SDLState* state)
 {
-    Assert(SDL_CloseIO(state->playbackHandle));
+    ASSERT(SDL_CloseIO(state->playbackHandle));
     state->loopedLiveEditingState = loopedLiveEditingState_none;
 }
 
@@ -276,14 +276,14 @@ local void ToggleLoopedLiveEditingState(SDLState* state)
 local void SDLRecordStdString(SDLState* state, const std::string* str)
 {
     u32 length = static_cast<u32>(str->size());
-    Assert(SDL_WriteIO(state->recordingHandle, &length, sizeof(length)) == sizeof(length));
-    Assert(SDL_WriteIO(state->recordingHandle, str->data(), length) == length);
+    ASSERT(SDL_WriteIO(state->recordingHandle, &length, sizeof(length)) == sizeof(length));
+    ASSERT(SDL_WriteIO(state->recordingHandle, str->data(), length) == length);
 }
 
 local void SDLRecordStdSetOfString(SDLState* state, std::set<std::string>* strings)
 {
     u32 count = static_cast<u32>(strings->size());
-    Assert(SDL_WriteIO(state->recordingHandle, &count, sizeof(count)) == sizeof(count));
+    ASSERT(SDL_WriteIO(state->recordingHandle, &count, sizeof(count)) == sizeof(count));
 
     for (const std::string& str : *strings)
     {
@@ -295,7 +295,7 @@ local void SDLRecordInput(SDLState* state, GameInput* gameInput)
 {
     // NOTE(marvin): The keys down is not going to be used.
     siz bytesWritten = SDL_WriteIO(state->recordingHandle, gameInput, sizeof(*gameInput));
-    Assert(bytesWritten == sizeof(*gameInput) && "Failed to properly write.");
+    ASSERT(bytesWritten == sizeof(*gameInput) && "Failed to properly write.");
 
     // NOTE(marvin): Have to manually deserialize std set.
     SDLRecordStdSetOfString(state, &gameInput->keysDown);
@@ -304,17 +304,17 @@ local void SDLRecordInput(SDLState* state, GameInput* gameInput)
 local void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
 {
     u32 length;
-    Assert(SDL_ReadIO(state->playbackHandle, &length, sizeof(length)) == sizeof(length));
+    ASSERT(SDL_ReadIO(state->playbackHandle, &length, sizeof(length)) == sizeof(length));
 
     std::string str(length, '\0');
-    Assert(SDL_ReadIO(state->playbackHandle, str.data(), length) == length);
+    ASSERT(SDL_ReadIO(state->playbackHandle, str.data(), length) == length);
     strings->insert(std::move(str));
 }
 
 local void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings)
 {
     u32 count;
-    Assert(SDL_ReadIO(state->playbackHandle, &count, sizeof(count)) == sizeof(count));
+    ASSERT(SDL_ReadIO(state->playbackHandle, &count, sizeof(count)) == sizeof(count));
 
     for (u32 index = 0; index < count; ++index)
     {
@@ -343,7 +343,7 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
         SDLBeginInputPlayback(state);
         bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
     }
-    Assert(bytesRead == sizeof(*gameInput));
+    ASSERT(bytesRead == sizeof(*gameInput));
     
     new (&gameInput->keysDown) std::set<std::string>();
     SDLPlaybackStdSetOfString(state, &gameInput->keysDown);

@@ -420,7 +420,8 @@ build-release/*
 
 
 /build_external
-/SkylineEngine_XCode
+/build-external
+/xcodebuild
 /test
 /subprojects
 /webbuild
