@@ -145,7 +145,7 @@ public:
     // Removes a range from the vertex (not byte size index but rather struct vector idx)
     void EraseRange(WGPUDevice& device, WGPUQueue& queue, u32 beginIdx, u32 count) {
         // Ensures that range is valid
-        assert(m_currentBufferSize >= count);
+        ASSERT(m_currentBufferSize >= count);
         WGPUCommandEncoderDescriptor eraseCommandDesc {
             .nextInChain = nullptr,
             .label = WGPUBackendUtils::wgpuStr("Buffer erase range command")
@@ -187,8 +187,7 @@ public:
             while (newBufferSize < datLength + m_currentBufferSize) {
                 newBufferSize *= 2;
                 if(newBufferSize > m_bufferLimit) {
-                    // TODO: Make sure this only happens in debug mode/non game mode
-                    assert(datLength + m_currentBufferSize < m_bufferLimit);
+                    ASSERT(datLength + m_currentBufferSize < m_bufferLimit);
                     newBufferSize = m_bufferLimit;
                     break;
                 }
@@ -221,8 +220,7 @@ public:
             while (newBufferSize < datLength) {
                 newBufferSize *= 2;
                 if(newBufferSize > m_bufferLimit) {
-                    // TODO: Make sure this only happens in debug mode/non game mode
-                    assert(datLength < m_bufferLimit);
+                    ASSERT(datLength < m_bufferLimit);
                     newBufferSize = m_bufferLimit;
                     break;
                 }

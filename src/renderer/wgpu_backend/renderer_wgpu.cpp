@@ -124,7 +124,7 @@ WGPUAdapter WGPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdap
   }
   #endif
 
-  assert(requestEnded);
+  ASSERT(requestEnded);
 
   return set;
 }
@@ -158,7 +158,7 @@ WGPUDevice WGPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescripto
   }
 #endif // __EMSCRIPTEN__
 
-  assert(requestEnded);
+  ASSERT(requestEnded);
 
   return set;
 }
@@ -360,7 +360,7 @@ void WGPURenderBackend::BeginPass(
   const WGPUBackendBindGroup& bindGroup,
   const WGPURenderPipeline& pipeline) {
   // Ensures that no two passes should be active at the same time 
-  assert(!m_renderPassActive);
+  ASSERT(!m_renderPassActive);
 
   m_renderPassActive = true;
 
@@ -626,7 +626,7 @@ WGPUShaderModule loadShader(const WGPUDevice& device, std::string fileName, std:
   auto loadedDat = SDL_LoadFile(fileName.data(), &loadedDatSize);
 
   // Makes sure data actually gets loaded in
-  assert(loadedDat);
+  ASSERT(loadedDat);
 
   WGPUShaderModuleWGSLDescriptor wgslShaderDesc {
     .chain {
@@ -651,7 +651,7 @@ WGPUShaderModule loadShader(const WGPUDevice& device, std::string fileName, std:
 
 void WGPURenderBackend::InitPipelines()
 {
-  WGPUShaderModule shaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/default_shader.wgsl", "Color Pass Shader");
+  WGPUShaderModule shaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/color_shader.wgsl", "Color Pass Shader");
 
   WGPUShaderModule depthShaderModule = loadShader(m_wgpuCore.m_device, SKL_BASE_PATH "/shaderbin/depth_shader.wgsl", "Depth Pass Shader");
 

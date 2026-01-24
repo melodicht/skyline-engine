@@ -78,7 +78,7 @@ inline siz GetAlignmentOffset(MemoryArena *arena, siz alignment)
     {
         u32 alignmentMask = alignment - 1;
 
-        Assert(((alignment & alignmentMask) == 0) &&
+        ASSERT(((alignment & alignmentMask) == 0) &&
                "Alignment must be a power of 2 due to C++ specifications.");
 
         siz targetAddress = (siz)arena->base + arena->used;
@@ -98,9 +98,9 @@ inline void *PushSize_(INTERNAL_MEMORY_PARAM
     siz alignmentOffset = GetAlignmentOffset(arena, params.alignment);
     void *result = arena->base + arena->used + alignmentOffset;
     siz effectiveSize = requestedSize + alignmentOffset;
-    Assert(effectiveSize >= requestedSize);
+    ASSERT(effectiveSize >= requestedSize);
     arena->used += effectiveSize;
-    Assert(arena->used <= arena->size)
+    ASSERT(arena->used <= arena->size);
 
     if (params.flags & clear_to_zero)
     {
@@ -138,7 +138,7 @@ inline char *PushString_(INTERNAL_MEMORY_PARAM
 inline void *PopSize_(MemoryArena *arena, siz size, ArenaParams params = DefaultArenaParams())
 {
     arena->used -= size;
-    Assert(arena->used >= 0);
+    ASSERT(arena->used >= 0);
 
     void *result = arena->base + arena->used;
     DebugRecordPopSize(arena, size);
