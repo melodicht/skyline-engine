@@ -34,22 +34,15 @@ void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
 
 void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
 {
-    if (SDLIsInLoop(state))
-    {
-        block->loopingFlags = sdlMem_freedDuringLoop;
-    }
-    else
-    {
-        BeginTicketMutex(&state->memoryMutex);
-        SDLMemoryBlock *prev = block->prev;
-        SDLMemoryBlock *next = block->next;
-        prev->next = next;
-        next->prev = prev;
-        EndTicketMutex(&state->memoryMutex);
+    BeginTicketMutex(&state->memoryMutex);
+    SDLMemoryBlock *prev = block->prev;
+    SDLMemoryBlock *next = block->next;
+    prev->next = next;
+    next->prev = prev;
+    EndTicketMutex(&state->memoryMutex);
 
-        block->prev = {};
-        block->next = {};
-    }
+    block->prev = {};
+    block->next = {};
 }
 
 
@@ -90,8 +83,15 @@ void AlignedFree(void* block)
 {
     SDLMemoryBlock *memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
-    RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
-    SDL_aligned_free(toFree);
+    if (SDLIsInLoop(&globalSDLState))
+    {
+        memoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+    }
+    else
+    {
+        RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
+        SDL_aligned_free(toFree);
+    }
 }
 
 // TODO(marvin): The non-aligned de/allocation procedures look very similar to their aligned counterparts. Main difference is round up to multiple and figuring out where memory block base is. Is it worth abstracting? 
@@ -125,8 +125,15 @@ void Free(void* block)
     // TODO(marvin): Very similar to AlignedFree, except SDL_free instead of SDL_aligned_free.... Is it worth abstracting?
     SDLMemoryBlock* memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
-    RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
-    SDL_free(toFree);
+    if (SDLIsInLoop(&globalSDLState))
+    {
+        memoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+    }
+    else
+    {
+        RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
+        SDL_free(toFree);
+    }
 }
 
 void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
@@ -158,7 +165,15 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
         newMemoryBlockBase->requestedBase = result;
         newMemoryBlockBase->wholeBase = newBase;
         newMemoryBlockBase->requestedSize = newRequestedSize;
-        RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
+
+        if (SDLIsInLoop(&globalSDLState))
+        {
+            oldMemoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+        }
+        else
+        {
+            RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
+        }
         AddMemoryBlock(&globalSDLState, newMemoryBlockBase);
     }
 

@@ -12,6 +12,7 @@
 
 #include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/Factory.h>
+#include <Jolt/Core/Memory.h>
 #include <Jolt/Core/Reference.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
@@ -200,7 +201,7 @@ void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirt
     JPH::Vec3 currentGroundedVelocity = currentVelocity;
     currentGroundedVelocity.SetY(0.0f);
 
-    f32 sharpness = 15.0f;
+    f32 sharpness = 20.0f;
     f32 myMoveSpeed = 7.5f;
 
     JPH::Vec3 targetGroundedVelocity = movementDirection * myMoveSpeed;
@@ -396,6 +397,35 @@ void SKLPhysicsSystem::Initialize(b32 firstTime)
     const u32 maxBodyPairs = 1024;
     const u32 maxContactConstraints = 1024;
     const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
+
+#if 0
+    if (!firstTime)
+    {
+        // NOTE(marvin): This isn't necessary, could just let it leak
+        // since this is a development feature. Did this cause I
+        // thought it had to do with a bug but it didn't. Can't delete
+        // because the destructor is virtual, which is lost after a
+        // hot reload. We take advantage of the fact that from the
+        // Jolt source code, we can see that the new/delete simply
+        // forwards the pointer as-is to the allocation functions.
+#if defined(JPH_COMPILER_MINGW) && JPH_CPU_ARCH_BITS == 32
+        JPH::AlignedFree(this->physicsSystem);
+        JPH::AlignedFree(this->broadPhaseLayer);
+        JPH::AlignedFree(this->objectVsBoradPhaseLayerFilter);
+        JPH::AlignedFree(this->objectLayerPairFilter);
+        JPH::AlignedFree(this->jobSystem);
+        JPH::AlignedFree(this->allocator);
+#else
+        JPH::Free(this->physicsSystem);
+        JPH::Free(this->broadPhaseLayer);
+        JPH::Free(this->objectVsBroadPhaseLayerFilter);
+        JPH::Free(this->objectLayerPairFilter);
+        JPH::Free(this->jobSystem);
+        JPH::Free(this->allocator);
+#endif
+    }
+
+#endif
 
     JPH::JobSystemThreadPool *jobSystem = new JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
 

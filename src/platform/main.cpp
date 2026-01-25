@@ -419,9 +419,7 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     if (bytesRead == 0)
     {
         // NOTE(marvin): Could also rewind the stream, but going
-        // through end and start again is safer. Risk of infinite
-        // recursion if keeps failing, since this is an internal
-        // feature, just let it happen.
+        // through end and start again is safer.
         SDLEndInputPlayback(state);
         SDLBeginInputPlayback(state);
         bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
