@@ -76,5 +76,5 @@ typedef GAME_LOAD(game_load_t);
 #define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, b32 editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
-#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 deltaTime)
+#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 frameTime)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);

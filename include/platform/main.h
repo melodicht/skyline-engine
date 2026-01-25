@@ -2,6 +2,13 @@
 
 #include <skl_types.h>
 
+enum SDLMemoryFlags
+{
+    sdlMem_none = 0b0,
+    sdlMem_allocatedDuringLoop = 0b1,
+    sdlMem_freedDuringLoop = 0b10,
+};
+
 struct SDLMemoryBlock
 {
     // NOTE(marvin): requestedBase is the base of memory that the user
@@ -9,9 +16,17 @@ struct SDLMemoryBlock
     // memory, including padding at front for alignment, this memory
     // block and the user's requested memory.
     void* requestedBase;
+    u64 requestedSize;
     void* wholeBase;
     SDLMemoryBlock* prev;
     SDLMemoryBlock* next;
+    SDLMemoryFlags loopingFlags;
+};
+
+struct SDLSavedMemoryBlock
+{
+    void* requestedBase;
+    u64 requestedSize;
 };
 
 enum LoopedLiveEditingState
@@ -23,6 +38,7 @@ enum LoopedLiveEditingState
 
 struct SDLState
 {
+    // TODO(marvin): Could be in its own structure.
     // NOTE(marvin): Not keen on the platonic ideal of a deque with
     // inheritance of some sort, and fully encapsulating feels like
     // more trouble than it's worth at the moment.
@@ -43,6 +59,12 @@ struct SDLState
         SDL_IOStream* playbackHandle;
     };
 };
+
+inline b32 SDLIsInLoop(SDLState* state)
+{
+    b32 result = (state->loopedLiveEditingState != loopedLiveEditingState_none);
+    return result;
+}
 
 
 inline void InitMemoryBlockDeque(SDLMemoryBlock *sentinel)

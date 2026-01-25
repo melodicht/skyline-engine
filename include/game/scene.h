@@ -18,7 +18,7 @@ typedef u32 ComponentID;
 constexpr u32 MAX_COMPONENTS = 32;
 typedef std::bitset<MAX_COMPONENTS> ComponentMask;
 constexpr u32 MAX_ENTITIES = 32768;
-constexpr u32 MAX_SYSTEMS = 128;
+constexpr u32 MAX_SYSTEMS = 64;
 
 constexpr u32 SYSTEMS_MEMORY = Kilobytes(16);
 
@@ -371,7 +371,8 @@ public:
     EntitiesPool entities;
     FreeIndicesStack freeIndices;
 
-    SystemsBuffer systemsBuffer;
+    SystemsBuffer variableTimestepSystemsBuffer;
+    SystemsBuffer semifixedTimestepSystemsBuffer;
     MemoryArena systemsArena;
 
     ComponentPoolsBuffer componentPools;
@@ -390,11 +391,15 @@ public:
 
     ~Scene();
     
-    void AddSystem(System *system);
+    void AddVariableTimestepSystem(System *system);
+
+    void AddSemifixedTimestepSystem(System *system);
     
     void InitSystems();
 
-    void UpdateSystems(GameInput *input, f32 deltaTime);
+    void UpdateVariableTimestepSystems(GameInput *input, f32 deltaTime);
+
+    void UpdateSemifixedTimestepSystems(GameInput *input, f32 deltaTime);
 
     void AddComponentPool(size_t componentSize);
 
@@ -507,10 +512,18 @@ public:
     #define PushSystem(scene, T) (PushStruct(&((scene)->systemsArena), T))
 
     template <typename T, typename... Args>
-    T* CreateSystem(Args... args)
+    T* CreateVariableTimestepSystem(Args... args)
     {
         T* system = new (PushSystem(this, T)) T(args...);
-        this->AddSystem(system);
+        this->AddVariableTimestepSystem(system);
+        return system;
+    }
+
+    template <typename T, typename... Args>
+    T* CreateSemifixedTimestepSystem(Args... args)
+    {
+        T* system = new (PushSystem(this, T)) T(args...);
+        this->AddSemifixedTimestepSystem(system);
         return system;
     }
 };

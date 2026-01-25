@@ -28,6 +28,8 @@ void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     last->next = block;
     sentinel->prev = block;
     EndTicketMutex(&state->memoryMutex);
+
+    last->loopingFlags = static_cast<SDLMemoryFlags>(SDLIsInLoop(state) ? sdlMem_allocatedDuringLoop : 0);
 }
 
 void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
@@ -61,7 +63,7 @@ void* AlignedAllocate(siz requestedSize, siz alignment)
     if(base == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        Assert(false && "Failed to aligned allocate.");
+        ASSERT(false && "Failed to aligned allocate.");
     }
 #endif
 
@@ -71,6 +73,7 @@ void* AlignedAllocate(siz requestedSize, siz alignment)
     void *result = static_cast<void *>(requestedBase);
     memoryBlockBase->requestedBase = result;
     memoryBlockBase->wholeBase = base;
+    memoryBlockBase->requestedSize = requestedSize;
     AddMemoryBlock(&globalSDLState, memoryBlockBase);
 
     return result;
@@ -80,8 +83,15 @@ void AlignedFree(void* block)
 {
     SDLMemoryBlock *memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
-    RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
-    SDL_aligned_free(toFree);
+    if (SDLIsInLoop(&globalSDLState))
+    {
+        memoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+    }
+    else
+    {
+        RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
+        SDL_aligned_free(toFree);
+    }
 }
 
 // TODO(marvin): The non-aligned de/allocation procedures look very similar to their aligned counterparts. Main difference is round up to multiple and figuring out where memory block base is. Is it worth abstracting? 
@@ -96,7 +106,7 @@ void* Allocate(siz requestedSize)
     if(base == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        Assert(false && "Failed to allocate.");
+        ASSERT(false && "Failed to allocate.");
     }
 #endif
 
@@ -105,6 +115,7 @@ void* Allocate(siz requestedSize)
     void *result = static_cast<void *>(requestedBase);
     memoryBlockBase->requestedBase = result;
     memoryBlockBase->wholeBase = base;
+    memoryBlockBase->requestedSize = requestedSize;
     AddMemoryBlock(&globalSDLState, memoryBlockBase);
     return result;
 }
@@ -114,8 +125,15 @@ void Free(void* block)
     // TODO(marvin): Very similar to AlignedFree, except SDL_free instead of SDL_aligned_free.... Is it worth abstracting?
     SDLMemoryBlock* memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
-    RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
-    SDL_free(toFree);
+    if (SDLIsInLoop(&globalSDLState))
+    {
+        memoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+    }
+    else
+    {
+        RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
+        SDL_free(toFree);
+    }
 }
 
 void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
@@ -145,7 +163,17 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
     if (newMemoryBlockBase != oldMemoryBlockBase)
     {
         newMemoryBlockBase->requestedBase = result;
-        RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
+        newMemoryBlockBase->wholeBase = newBase;
+        newMemoryBlockBase->requestedSize = newRequestedSize;
+
+        if (SDLIsInLoop(&globalSDLState))
+        {
+            oldMemoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+        }
+        else
+        {
+            RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
+        }
         AddMemoryBlock(&globalSDLState, newMemoryBlockBase);
     }
 

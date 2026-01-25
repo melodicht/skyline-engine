@@ -12,6 +12,7 @@
 
 #include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/Factory.h>
+#include <Jolt/Core/Memory.h>
 #include <Jolt/Core/Reference.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
@@ -23,6 +24,8 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
+
+#include <cmath>
 
 #include <meta_definitions.h>
 #include <skl_math_types.h>
@@ -147,19 +150,70 @@ inline glm::vec3 JoltToOurCoordinateSystem(JPH::Vec3 joltVec3)
     return result;
 }
 
-void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual, JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime)
+inline JPH::Vec3 LerpJPHVec3(JPH::Vec3 a, JPH::Vec3 b, f32 blendFactor)
 {
-    JPH::Vec3 velocity = characterVirtual->GetLinearVelocity();
-    JPH::Vec3Arg gravity{0, -9.81f, 0};
-    velocity += gravity * deltaTime;
-    velocity.SetX(0.0f);
-    velocity.SetZ(0.0f);
-    velocity += movementDirection * moveSpeed;
+    JPH::Vec3Arg result{
+        std::lerp(a.GetX(), b.GetX(), blendFactor),
+        std::lerp(a.GetY(), b.GetY(), blendFactor),
+        std::lerp(a.GetZ(), b.GetZ(), blendFactor),
+    };
+    return result;
+}
+
+void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual, JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld, f32 deltaTime)
+{
+    JPH::Vec3 currentVelocity = characterVirtual->GetLinearVelocity();
+    JPH::Vec3 currentVerticalVelocity{
+        0.0f,
+        currentVelocity.GetY(),
+        0.0f,
+    };
+
+    // NOTE(marvin): Vertical movement, with variable jump height.
+    f32 initialJumpVelocity = 10.0f;
+    f32 gravityConstant = 30.0f;
+    JPH::Vec3Arg gravityAcceleration{0, -gravityConstant, 0};
+    f32 maxJumpHeight = 5.0f;
+    f32 minJumpHeight = maxJumpHeight * 0.3f; // 30% of max height
+    // NOTE(marvin): Derived from 0.5mv^2 = mgh, and solving for v. 
+    f32 minJumpVelocity = sqrt(2.0f * gravityConstant * minJumpHeight);
+
+    // NOTE(marvin): Jump initiation.
+    if (!this->isJumping && jumpHeld && characterVirtual->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround)
+    {
+        currentVerticalVelocity.SetY(initialJumpVelocity);
+        this->isJumping = true;
+    }
+    // NOTE(marvin): Player wants to cut the jump short.
+    else if (this->isJumping && !jumpHeld && currentVelocity.GetY() >= minJumpVelocity)
+    {
+        currentVerticalVelocity.SetY(minJumpVelocity);
+        this->isJumping = false;
+    }
+    else if (currentVelocity.GetY() < minJumpVelocity)
+    {
+        this->isJumping = false;
+    }
+
+    JPH::Vec3 verticalVelocity = currentVerticalVelocity + (gravityAcceleration * deltaTime);
+
+    // NOTE(marvin): Horizontal movement.
+    JPH::Vec3 currentGroundedVelocity = currentVelocity;
+    currentGroundedVelocity.SetY(0.0f);
+
+    f32 sharpness = 15.0f;
+    f32 myMoveSpeed = 8.5f;
+
+    JPH::Vec3 targetGroundedVelocity = movementDirection * myMoveSpeed;
+    JPH::Vec3 groundedVelocity = LerpJPHVec3(currentGroundedVelocity, targetGroundedVelocity,
+                                             1 - std::exp(-sharpness * deltaTime));
+    
+    JPH::Vec3 velocity = groundedVelocity + verticalVelocity;
     characterVirtual->SetLinearVelocity(velocity);
 
     JPH::CharacterVirtual::ExtendedUpdateSettings settings;
     characterVirtual->ExtendedUpdate(deltaTime,
-                                    gravity,
+                                    gravityAcceleration,
                                     settings,
                                     this->physicsSystem->GetDefaultBroadPhaseLayerFilter(Layer::MOVING),
                                     this->physicsSystem->GetDefaultLayerFilter(Layer::MOVING),
@@ -230,6 +284,7 @@ void *JoltReallocate(void *block, size_t oldSize, size_t newSize)
 SKLPhysicsSystem::SKLPhysicsSystem() : SYSTEM_SUPER(SKLPhysicsSystem)
 {
     this->Initialize(true);
+    this->isJumping = false;
 }
 
 SKLPhysicsSystem::~SKLPhysicsSystem()
@@ -308,7 +363,8 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
 
     glm::vec3 ourMovementDirection = GetMovementDirection(input, pt);
     JPH::Vec3 joltMovementDirection = OurToJoltCoordinateSystem(ourMovementDirection);
-    MoveCharacterVirtual(cv, joltMovementDirection, moveSpeed, deltaTime);
+    b32 jumpHeld = input->keysDown.contains("Space");
+    MoveCharacterVirtual(cv, joltMovementDirection, moveSpeed, jumpHeld, deltaTime);
 
     // Update player's transform from character virtual's position
     JPH::Vec3 joltPosition = cv->GetPosition();
@@ -342,6 +398,35 @@ void SKLPhysicsSystem::Initialize(b32 firstTime)
     const u32 maxContactConstraints = 1024;
     const u32 numPhysicsThreads = std::thread::hardware_concurrency() - 1;  // Subtract main thread
 
+#if 0
+    if (!firstTime)
+    {
+        // NOTE(marvin): This isn't necessary, could just let it leak
+        // since this is a development feature. Did this cause I
+        // thought it had to do with a bug but it didn't. Can't delete
+        // because the destructor is virtual, which is lost after a
+        // hot reload. We take advantage of the fact that from the
+        // Jolt source code, we can see that the new/delete simply
+        // forwards the pointer as-is to the allocation functions.
+#if defined(JPH_COMPILER_MINGW) && JPH_CPU_ARCH_BITS == 32
+        JPH::AlignedFree(this->physicsSystem);
+        JPH::AlignedFree(this->broadPhaseLayer);
+        JPH::AlignedFree(this->objectVsBoradPhaseLayerFilter);
+        JPH::AlignedFree(this->objectLayerPairFilter);
+        JPH::AlignedFree(this->jobSystem);
+        JPH::AlignedFree(this->allocator);
+#else
+        JPH::Free(this->physicsSystem);
+        JPH::Free(this->broadPhaseLayer);
+        JPH::Free(this->objectVsBroadPhaseLayerFilter);
+        JPH::Free(this->objectLayerPairFilter);
+        JPH::Free(this->jobSystem);
+        JPH::Free(this->allocator);
+#endif
+    }
+
+#endif
+
     JPH::JobSystemThreadPool *jobSystem = new JPH::JobSystemThreadPool(maxPhysicsJobs, maxPhysicsBarriers, numPhysicsThreads);
 
     // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well.
@@ -364,7 +449,7 @@ void SKLPhysicsSystem::Initialize(b32 firstTime)
 #if SKL_SLOW
     if (!firstTime)
     {
-        Assert(this->allocator->GetUsage() == 0);
+        ASSERT(this->allocator->GetUsage() == 0);
     }
 #endif
     this->allocator = new JPH::TempAllocatorImpl(TEMPORARY_MEMORY_SIZE);
