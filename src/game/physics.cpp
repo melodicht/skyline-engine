@@ -171,7 +171,7 @@ void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirt
 
     // NOTE(marvin): Vertical movement, with variable jump height.
     f32 initialJumpVelocity = 10.0f;
-    f32 gravityConstant = 9.81f;
+    f32 gravityConstant = 30.0f;
     JPH::Vec3Arg gravityAcceleration{0, -gravityConstant, 0};
     f32 maxJumpHeight = 5.0f;
     f32 minJumpHeight = maxJumpHeight * 0.3f; // 30% of max height
@@ -201,8 +201,8 @@ void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirt
     JPH::Vec3 currentGroundedVelocity = currentVelocity;
     currentGroundedVelocity.SetY(0.0f);
 
-    f32 sharpness = 20.0f;
-    f32 myMoveSpeed = 7.5f;
+    f32 sharpness = 15.0f;
+    f32 myMoveSpeed = 8.5f;
 
     JPH::Vec3 targetGroundedVelocity = movementDirection * myMoveSpeed;
     JPH::Vec3 groundedVelocity = LerpJPHVec3(currentGroundedVelocity, targetGroundedVelocity,
