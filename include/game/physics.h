@@ -32,9 +32,7 @@ private:
     b32 triggerWasDown;
 #endif
 
-    void MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual,
-                              JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld,
-                              f32 deltaTime);
+    void MoveCharacterVirtual(JPH::CharacterVirtual* characterVirtual, Transform3D* playerTransform, JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld, Scene* scene, f32 deltaTime);
 
 public:
     SKLPhysicsSystem();

@@ -43,22 +43,30 @@ SYSTEM_ON_UPDATE(GravityBallsSystem)
 
     this->triggerWasDown = triggerIsDown;
 
-    // NOTE(marvin): Gravity ball gradually grows in size. Maybe gravity ball has a time alive variable which size and possibly speed can use?
+    std::vector<EntityID> gbToDestroy;
+
+    // NOTE(marvin): Gravity ball size changes based on its life.
     for (EntityID ent : SceneView<GravityBall, Transform3D>(*scene))
     {
         GravityBall* gb = scene->Get<GravityBall>(ent);
         Transform3D* t = scene->Get<Transform3D>(ent);
-        if (!gb->activated)
+        f32 lifetime = gb->life;
+        // NOTE(marvin): At t=0, multiplier is 1. As t approaches
+        // infinity, multipler approaches 2.
+        f32 sharpness = -0.02;
+        f32 sizeMultiplier = 10.0f - 9.0f * std::exp(sharpness * lifetime);
+        // NOTE(marvin): Assumes that the transform has an original scale of 1.
+        glm::vec3 newScale{sizeMultiplier};
+        t->SetLocalScale(newScale);
+
+        if (gb->stage == gravityBallStage_decaying && gb->life <= 0)
         {
-            f32 lifetime = gb->lifetime;
-            // NOTE(marvin): At t=0, multiplier is 1. As t approaches
-            // infinity, multipler approaches 2.
-            f32 sharpness = -0.02;
-            f32 sizeMultiplier = 10.0f - 9.0f * std::exp(sharpness * lifetime);
-            // NOTE(marvin): Assumes that the transform has an original scale of 1.
-            glm::vec3 newScale{sizeMultiplier};
-            t->SetLocalScale(newScale);
+            gbToDestroy.push_back(ent);
         }
     }
 
+    for (EntityID ent : gbToDestroy)
+    {
+        scene->DestroyEntity(ent);
+    }
 }

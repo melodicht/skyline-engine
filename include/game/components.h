@@ -129,6 +129,14 @@ SERIALIZE(Spin, speed)
 COMPONENT(Spin)
 
 #ifdef MARVIN_GAME
+
+enum GravityBallStage
+{
+    gravityBallStage_growing,
+    gravityBallStage_prime,
+    gravityBallStage_decaying,
+};
+
 namespace JPH
 {
     class Body;
@@ -137,8 +145,9 @@ namespace JPH
 struct GravityBall
 {
     JPH::Body* body = nullptr;
-    f32 lifetime = 0;
-    b32 activated = false;
+    f32 life;
+    f32 primeCounter;
+    GravityBallStage stage = gravityBallStage_growing;
 };
 SERIALIZE(GravityBall)
 COMPONENT(GravityBall)

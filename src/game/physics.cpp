@@ -19,6 +19,8 @@
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
@@ -275,7 +277,7 @@ inline JPH::Vec3 LerpJPHVec3(JPH::Vec3 a, JPH::Vec3 b, f32 blendFactor)
     return result;
 }
 
-void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual, JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld, f32 deltaTime)
+void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual* characterVirtual, Transform3D* playerTransform, JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld, Scene* scene, f32 deltaTime)
 {
     JPH::Vec3 currentVelocity = characterVirtual->GetLinearVelocity();
     JPH::Vec3 currentVerticalVelocity{
@@ -324,6 +326,42 @@ void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirt
                                              1 - std::exp(-sharpness * deltaTime));
     
     JPH::Vec3 velocity = groundedVelocity + verticalVelocity;
+
+#if MARVIN_GAME
+    // NOTE(marvin): The player's velocity is affected by the pull of gravity balls.
+    JPH::Vec3 gravityBallAcceleration{0.0f, 0.0f, 0.0f};
+    for (EntityID ent : SceneView<GravityBall, Transform3D>(*scene))
+    {
+        GravityBall* gb = scene->Get<GravityBall>(ent);
+        Transform3D* t = scene->Get<Transform3D>(ent);
+
+        JPH::Vec3 accelerationToAdd{0.0f, 0.0f, 0.0f};
+
+        // NOTE(marvin): a = G / r^2, using inverse square law, where
+        // masses are assumed to be 1, r is distance, and G is some
+        // constant.
+
+        f32 gravitationalConstant = 100.0f;
+        f32 distance = glm::distance(playerTransform->GetWorldPosition(), t->GetWorldPosition());
+        glm::vec3 ourVectorToGravityBall = glm::normalize(t->GetWorldPosition() - playerTransform->GetWorldPosition());
+        JPH::Vec3 joltVectorToGravityBall = OurToJoltCoordinateSystem(ourVectorToGravityBall);
+
+        f32 primeMultiplier = 10.0f;
+
+        if (gb->stage == gravityBallStage_prime)
+        {
+            accelerationToAdd = joltVectorToGravityBall * primeMultiplier * (gravitationalConstant / (distance * distance));
+        }
+        else if (gb->stage == gravityBallStage_decaying)
+        {
+            accelerationToAdd = joltVectorToGravityBall * (gravitationalConstant / (distance * distance));
+        }
+
+        gravityBallAcceleration += accelerationToAdd;
+    }
+    velocity += gravityBallAcceleration * deltaTime;
+#endif
+
     characterVirtual->SetLinearVelocity(velocity);
 
     JPH::CharacterVirtual::ExtendedUpdateSettings settings;
@@ -372,6 +410,8 @@ void InitializeGravityBall(GravityBall* gb, JPH::BodyInterface* bodyInterface,
     JPH::Body* body = bodyInterface->CreateBody(ballSettings);
     JPH::BodyID bodyID = body->GetID();
     gb->body = body;
+    gb->stage = gravityBallStage_growing;
+    gb->life = 0;
     bodyInterface->AddBody(bodyID, JPH::EActivation::Activate);
     bodyInterface->SetLinearVelocity(body->GetID(), direction * shootSpeed);
     // NOTE(marvin): This is to allow us to go from body ID to the component.
@@ -389,12 +429,18 @@ SKLRay GetRayFromCamera(Transform3D* cameraTransform)
 
 void ActivateGravityBall(JPH::BodyInterface* bodyInterface, JPH::BodyID bodyID)
 {
-    // NOTE(marvin): To trigger means to stop movement and growth
+    // NOTE(marvin): To activate means to stop movement and growth, and begin the pull.
     JPH::Vec3 zeroVec3{0.0f, 0.0f, 0.0f};
     bodyInterface->SetLinearVelocity(bodyID, zeroVec3);
     u64 gbAsU64 = bodyInterface->GetUserData(bodyID);
     GravityBall* gb = reinterpret_cast<GravityBall*>(gbAsU64);
-    gb->activated = true;
+    gb->stage = gravityBallStage_prime;
+    gb->primeCounter = 2.0f;
+}
+
+void BeginGravityBallDecay(GravityBall* gb)
+{
+    gb->stage = gravityBallStage_decaying;
 }
 #endif
 
@@ -510,6 +556,7 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
     }
 
 #if MARVIN_GAME
+
     for (EntityID ent : SceneView<GravityBall, Transform3D>(*scene))
     {
         GravityBall* gb = scene->Get<GravityBall>(ent);
@@ -523,18 +570,81 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
             InitializeGravityBall(gb, this->bodyInterface, initialPosition, direction, shootSpeed);
         }
 
-        // TODO(marvin): If left clicked on, or hit a wall, trigger.
-
-        gb->lifetime += deltaTime;
-
+        if (gb->stage == gravityBallStage_growing)
+        {
+            gb->life += deltaTime;
+        }
+        else if (gb->stage == gravityBallStage_prime)
+        {
+            if (gb->primeCounter <= 0.0f)
+            {
+                BeginGravityBallDecay(gb);
+            }
+            gb->primeCounter -= deltaTime;
+        }
+        else if (gb->stage == gravityBallStage_decaying)
+        {
+            gb->life -= deltaTime;
+        }
 
         // NOTE(marvin): Don't load the transform into body, let the body be the source of truth on position. Load body's position into transform.
         JPH::Vec3 joltPosition = gb->body->GetPosition();
         glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
         t->SetLocalPosition(position);
+
+        // NOTE(marvin): If the gravity ball runs into a static object, trigger it.
+        if (gb->stage == gravityBallStage_growing)
+        {
+            JPH::BodyID bodyID = gb->body->GetID();
+            const JPH::BodyLockInterface *bodyLockInterface = &this->physicsSystem->GetBodyLockInterface();
+
+            JPH::RMat44 gbJoltTransform;
+            const JPH::Shape* gbShape;
+            {
+                JPH::BodyLockRead lock(*bodyLockInterface, bodyID);
+                if (!lock.Succeeded())
+                {
+                    continue;
+                }
+                const JPH::Body* gbBody = &lock.GetBody();
+                gbJoltTransform = gbBody->GetWorldTransform();
+                gbShape = gbBody->GetShape();
+            }
+            JPH::CollideShapeSettings collideShapeSettings;
+            JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
+
+            this->physicsSystem->GetNarrowPhaseQuery().CollideShape(gbShape,
+                                                                    JPH::Vec3::sReplicate(1.0f),
+                                                                    gbJoltTransform,
+                                                                    collideShapeSettings,
+                                                                    JPH::RVec3::sZero(),
+                                                                    collector);
+
+            b32 shouldActivateGravityBall = false;
+            for (const JPH::CollideShapeResult& hit : collector.mHits)
+            {
+                JPH::BodyLockRead hitLock(*bodyLockInterface, hit.mBodyID2);
+                if (hitLock.Succeeded())
+                {
+                    const JPH::Body* hitBody = &hitLock.GetBody();
+                    if (hitBody->GetObjectLayer() == MarvinLayer::NON_MOVING)
+                    {
+                        shouldActivateGravityBall = true;
+                        break;
+                    }
+                }
+            }
+
+            if (shouldActivateGravityBall)
+            {
+                ActivateGravityBall(this->bodyInterface, bodyID);
+            }
+        }
     }
 
-    // NOTE(marvin): If user clicked on a gravity ball, trigger it.
+    // NOTE(marvin): If user clicked on a gravity ball, trigger
+    // it. Technically this could happen when ball collides with a
+    // wall at the exact same frame, but it's fine.
     b32 triggerIsDown = input->keysDown.contains("Mouse 1");
     if (triggerIsDown && !this->triggerWasDown)
     {
@@ -553,7 +663,6 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
         }
     }
     this->triggerWasDown = triggerIsDown;
-    
 #endif
 
     JPH::CharacterVirtual *cv = pc->characterVirtual;
@@ -572,7 +681,7 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
     glm::vec3 ourMovementDirection = GetMovementDirection(input, pt);
     JPH::Vec3 joltMovementDirection = OurToJoltCoordinateSystem(ourMovementDirection);
     b32 jumpHeld = input->keysDown.contains("Space");
-    MoveCharacterVirtual(cv, joltMovementDirection, moveSpeed, jumpHeld, deltaTime);
+    MoveCharacterVirtual(cv, pt, joltMovementDirection, moveSpeed, jumpHeld, scene, deltaTime);
 
     // Update player's transform from character virtual's position
     JPH::Vec3 joltPosition = cv->GetPosition();

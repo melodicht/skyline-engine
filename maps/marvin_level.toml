@@ -36,10 +36,12 @@ diffuse = [1.0, 1.0, 1.0]
 specular = [1.0, 1.0, 1.0]
 
 
-## Test gravity ball
+## Static Box
 
-[gb.Transform3D]
+[sb.Transform3D]
 position = [10.0, 0.0, 2.0]
-[gb.MeshComponent]
+[sb.MeshComponent]
 mesh = "cube"
 texture = "diamond_ore"
+[sb.StaticBox]
+volume = [1.5, 1.5, 1.5]
