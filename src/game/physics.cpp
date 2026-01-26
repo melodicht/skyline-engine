@@ -78,11 +78,12 @@ public:
         // NOTE(marvin): Layer and BroadPhaseLayer maps 1:1, which is why we can do this.
         return JPH::BroadPhaseLayer(objectLayer);
     }
-
+#if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
     virtual const char *GetBroadPhaseLayerName(JPH::BroadPhaseLayer layer) const override
     {
         return "SKLBroadPhaseLayer";
     }
+#endif
 };
 
 // NOTE(marvin): See https://jrouwe.github.io/JoltPhysicsDocs/5.3.0/index.html#collision-detection
