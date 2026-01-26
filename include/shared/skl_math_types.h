@@ -43,3 +43,9 @@ private:
     std::unordered_set<Transform3D *> children;
     glm::mat4 worldTransform;
 };
+
+struct SKLRay {
+    glm::vec3 origin;
+    glm::vec3 direction;
+};
+

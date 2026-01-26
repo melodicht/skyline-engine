@@ -17,6 +17,10 @@
 #include <overlay.h>
 #include <city_builder.h>
 
+#if MARVIN_GAME
+#include <marvin_systems.h>
+#endif
+
 #include <movement.h>
 #include <draw_scene.h>
 
@@ -92,9 +96,14 @@ GAME_INITIALIZE(GameInitialize)
     else
     {
     #endif
+#if MARVIN_GAME
+        scene.CreateVariableTimestepSystem<GravityBallsSystem>();
+#endif
+
         memory.sklPhysicsSystem = static_cast<void*>(scene.CreateSemifixedTimestepSystem<SKLPhysicsSystem>());
         scene.CreateSemifixedTimestepSystem<MovementSystem>();
         scene.CreateSemifixedTimestepSystem<BuilderSystem>(slowStep);
+
 
         FindCamera(*gameState);
     #if SKL_ENABLED_EDITOR

@@ -44,6 +44,10 @@ if(NOT DEFINED SKL_INTERNAL)
         option(SKL_INTERNAL "Whether debug functionality is enabled" 1)
 endif()
 
+if(NOT DEFINED MARVIN_GAME)
+        option(MARVIN_GAME "Whether you're making the Marvin game" 0)
+endif()
+
 # When debugging mode is active, determines whether logging should also be enabled.
 if(NOT DEFINED SKL_ENABLE_LOGGING)
         if(${SKL_INTERNAL})
@@ -80,6 +84,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR}
         SKL_ENABLED_LOGGING=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
+        MARVIN_GAME=${MARVIN_GAME}
         SKL_SLOW=${SKL_SLOW}
         SKL_BASE_PATH="${SKL_BASE_PATH}"
         GLM_FORCE_DEPTH_ZERO_TO_ONE

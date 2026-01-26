@@ -17,6 +17,7 @@ class SKLPhysicsSystem : public System
 {
 private:
     JPH::PhysicsSystem* physicsSystem;
+    JPH::BodyInterface* bodyInterface;
     JPH::BroadPhaseLayerInterface* broadPhaseLayer;
     JPH::ObjectVsBroadPhaseLayerFilter* objectVsBroadPhaseLayerFilter;
     JPH::ObjectLayerPairFilter* objectLayerPairFilter;
@@ -26,6 +27,10 @@ private:
     // NOTE(marvin): Defined by the character having enough velocity
     // to reach to minimum jump height.
     b32 isJumping;
+
+#if MARVIN_GAME
+    b32 triggerWasDown;
+#endif
 
     void MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual,
                               JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld,

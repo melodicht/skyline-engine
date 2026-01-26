@@ -5,8 +5,6 @@
 
 struct Transform3D;
 
-// TODO(marvin): Create a macro that does all the boiler plate.
-
 class MovementSystem : public System
 {
 public:
