@@ -128,4 +128,20 @@ struct Spin
 SERIALIZE(Spin, speed)
 COMPONENT(Spin)
 
+#ifdef MARVIN_GAME
+namespace JPH
+{
+    class Body;
+}
+
+struct GravityBall
+{
+    JPH::Body* body = nullptr;
+    f32 lifetime = 0;
+    b32 activated = false;
+};
+SERIALIZE(GravityBall)
+COMPONENT(GravityBall)
+#endif
+
 COMPONENT(NameComponent)

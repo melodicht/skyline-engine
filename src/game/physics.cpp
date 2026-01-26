@@ -18,6 +18,8 @@
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
@@ -35,7 +37,7 @@
 #include <utils.h>
 #include <scene_view.h>
 
-constexpr siz TEMPORARY_MEMORY_SIZE = Kilobytes(100);
+constexpr siz TEMPORARY_MEMORY_SIZE = Megabytes(1);
 
 /* From the Jolt 5.3.0 documentation:
   
@@ -130,6 +132,118 @@ class SklObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
         }
     }
 };
+
+#if MARVIN_GAME
+namespace MarvinLayer
+{
+    static constexpr JPH::ObjectLayer NON_MOVING = 0;
+    static constexpr JPH::ObjectLayer PLAYER = 1;
+    static constexpr JPH::ObjectLayer GRAVITY_BALLS = 2;
+    static constexpr JPH::ObjectLayer BULLETS = 3;
+    static constexpr u32 NUM_LAYERS = 4;
+};
+
+namespace MarvinBroadPhaseLayerNS
+{
+    static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
+    static constexpr JPH::BroadPhaseLayer PLAYER(1);
+    static constexpr JPH::BroadPhaseLayer GRAVITY_BALLS(2);
+    static constexpr JPH::BroadPhaseLayer BULLETS(3);
+    static constexpr u32 NUM_LAYERS(4);
+};
+
+class MarvinBroadPhaseLayer final : public JPH::BroadPhaseLayerInterface
+{
+public:
+    virtual u32 GetNumBroadPhaseLayers() const override
+    {
+        return MarvinBroadPhaseLayerNS::NUM_LAYERS;
+    }
+
+    virtual JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer objectLayer) const override
+    {
+        ASSERT(objectLayer < this->GetNumBroadPhaseLayers());
+        return JPH::BroadPhaseLayer(objectLayer);
+    }
+
+    virtual const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer layer) const override
+    {
+        return "MarvinBroadPhaseLayer";
+    }
+};
+
+class MarvinObjectVsBroadPhaseLayerFilter final : public JPH::ObjectVsBroadPhaseLayerFilter
+{
+    virtual bool ShouldCollide(JPH::ObjectLayer layer1, JPH::BroadPhaseLayer layer2) const override
+    {
+        switch (layer1)
+        {
+          case MarvinLayer::NON_MOVING:
+          {
+              return layer2 == MarvinBroadPhaseLayerNS::PLAYER ||
+              layer2 == MarvinBroadPhaseLayerNS::GRAVITY_BALLS ||
+              layer2 == MarvinBroadPhaseLayerNS::BULLETS;
+          }
+          case MarvinLayer::PLAYER:
+          {
+              return layer2 == MarvinBroadPhaseLayerNS::NON_MOVING ||
+              layer2 == MarvinBroadPhaseLayerNS::BULLETS;
+          }
+          case MarvinLayer::GRAVITY_BALLS:
+          {
+              return layer2 == MarvinBroadPhaseLayerNS::NON_MOVING ||
+              layer2 == MarvinBroadPhaseLayerNS::BULLETS;
+          }
+          case MarvinLayer::BULLETS:
+          {
+              return layer2 == MarvinBroadPhaseLayerNS::NON_MOVING ||
+              layer2 == MarvinBroadPhaseLayerNS::PLAYER ||
+              layer2 == MarvinBroadPhaseLayerNS::GRAVITY_BALLS;
+          }
+          default:
+          {
+              return false;
+          }
+        }
+    }
+};
+
+class MarvinObjectLayerPairFilter final : public JPH::ObjectLayerPairFilter
+{
+    virtual bool ShouldCollide(JPH::ObjectLayer layer1, JPH::ObjectLayer layer2) const override
+    {
+        switch (layer1)
+        {
+          case MarvinLayer::NON_MOVING:
+          {
+              return layer2 == MarvinLayer::PLAYER ||
+              layer2 == MarvinLayer::GRAVITY_BALLS ||
+              layer2 == MarvinLayer::BULLETS;
+          }
+          case MarvinLayer::PLAYER:
+          {
+              return layer2 == MarvinLayer::NON_MOVING ||
+              layer2 == MarvinLayer::BULLETS;
+          }
+          case MarvinLayer::GRAVITY_BALLS:
+          {
+              return layer2 == MarvinLayer::NON_MOVING ||
+              layer2 == MarvinLayer::BULLETS;
+          }
+          case MarvinLayer::BULLETS:
+          {
+              return layer2 == MarvinLayer::NON_MOVING ||
+              layer2 == MarvinLayer::PLAYER ||
+              layer2 == MarvinLayer::GRAVITY_BALLS;
+          }
+          default:
+          {
+              return false;
+          }
+        }
+    }
+};
+#endif
 
 
 inline JPH::Vec3 OurToJoltCoordinateSystem(glm::vec3 ourVec3)
@@ -226,7 +340,7 @@ void SKLPhysicsSystem::MoveCharacterVirtual(JPH::CharacterVirtual *characterVirt
     this->physicsSystem->Update(deltaTime, collisionSteps, this->allocator, this->jobSystem);
 }
 
-void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsSystem)
+void InitializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsSystem)
 {
     JPH::CharacterVirtualSettings characterVirtualSettings;
     f32 halfHeightOfCylinder = 1.0f;
@@ -239,6 +353,49 @@ void initializePlayerCharacter(PlayerCharacter *pc, JPH::PhysicsSystem *physicsS
     JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
     pc->characterVirtual = characterVirtual;
 }
+
+
+#if MARVIN_GAME
+void InitializeGravityBall(GravityBall* gb, JPH::BodyInterface* bodyInterface,
+                           JPH::Vec3Arg initialPosition, JPH::Vec3Arg direction,
+                           f32 shootSpeed)
+{
+    // TODO(marvin): How to correspond our size to Jolt's size?
+    f32 ballRadius = 3.0f;
+    JPH::BodyCreationSettings ballSettings(new JPH::SphereShape(ballRadius),
+                                      initialPosition,
+                                      JPH::Quat::sIdentity(),
+                                      JPH::EMotionType::Kinematic,
+                                      Layer::MOVING);
+
+    JPH::Body* body = bodyInterface->CreateBody(ballSettings);
+    JPH::BodyID bodyID = body->GetID();
+    gb->body = body;
+    bodyInterface->AddBody(bodyID, JPH::EActivation::Activate);
+    bodyInterface->SetLinearVelocity(body->GetID(), direction * shootSpeed);
+    // NOTE(marvin): This is to allow us to go from body ID to the component.
+    u64 gbAsU64 = reinterpret_cast<u64>(gb);
+    bodyInterface->SetUserData(bodyID, gbAsU64);
+}
+
+SKLRay GetRayFromCamera(Transform3D* cameraTransform)
+{
+    SKLRay result = {};
+    result.origin = cameraTransform->GetWorldPosition();
+    result.direction = cameraTransform->GetForwardVector();
+    return result;
+}
+
+void ActivateGravityBall(JPH::BodyInterface* bodyInterface, JPH::BodyID bodyID)
+{
+    // NOTE(marvin): To trigger means to stop movement and growth
+    JPH::Vec3 zeroVec3{0.0f, 0.0f, 0.0f};
+    bodyInterface->SetLinearVelocity(bodyID, zeroVec3);
+    u64 gbAsU64 = bodyInterface->GetUserData(bodyID);
+    GravityBall* gb = reinterpret_cast<GravityBall*>(gbAsU64);
+    gb->activated = true;
+}
+#endif
 
 /**
  * JOLT ALLOCATION FUNCTIONS
@@ -315,9 +472,12 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
     EntityID playerEnt = *playerView.begin();
     PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
 
+    EntityID cameraEnt = *cameraView.begin();
+    Transform3D* ct = scene->Get<Transform3D>(cameraEnt);
+
     if (pc->characterVirtual == nullptr)
     {
-        initializePlayerCharacter(pc, this->physicsSystem);
+        InitializePlayerCharacter(pc, this->physicsSystem);
     }
 
     JPH::BodyInterface &bodyInterface = this->physicsSystem->GetBodyInterface();
@@ -347,6 +507,53 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
             sb->initialized = true;
         }
     }
+
+#if MARVIN_GAME
+    for (EntityID ent : SceneView<GravityBall, Transform3D>(*scene))
+    {
+        GravityBall* gb = scene->Get<GravityBall>(ent);
+        Transform3D* t = scene->Get<Transform3D>(ent);
+
+        if (gb->body == nullptr)
+        {
+            f32 shootSpeed = 1.0f;
+            JPH::Vec3 initialPosition = OurToJoltCoordinateSystem(t->GetLocalPosition());
+            JPH::Vec3 direction = OurToJoltCoordinateSystem(t->GetLocalRotation());
+            InitializeGravityBall(gb, this->bodyInterface, initialPosition, direction, shootSpeed);
+        }
+
+        // TODO(marvin): If left clicked on, or hit a wall, trigger.
+
+        gb->lifetime += deltaTime;
+
+
+        // NOTE(marvin): Don't load the transform into body, let the body be the source of truth on position. Load body's position into transform.
+        JPH::Vec3 joltPosition = gb->body->GetPosition();
+        glm::vec3 position = JoltToOurCoordinateSystem(joltPosition);
+        t->SetLocalPosition(position);
+    }
+
+    // NOTE(marvin): If user clicked on a gravity ball, trigger it.
+    b32 triggerIsDown = input->keysDown.contains("Mouse 1");
+    if (triggerIsDown && !this->triggerWasDown)
+    {
+        SKLRay sklRay = GetRayFromCamera(ct);
+        f32 rayLength = 1000.0f;
+        JPH::Vec3 joltRayCastOrigin = OurToJoltCoordinateSystem(sklRay.origin);
+        JPH::Vec3 joltRayCastDirection = OurToJoltCoordinateSystem(sklRay.direction);
+        JPH::RayCast joltRayCast{joltRayCastOrigin, joltRayCastDirection * rayLength};
+        JPH::RRayCast joltRRayCast{joltRayCast};
+        JPH::RayCastResult joltRayCastResult;
+        b32 hit = this->physicsSystem->GetNarrowPhaseQuery().CastRay(joltRRayCast, joltRayCastResult);
+
+        if (hit)
+        {
+            ActivateGravityBall(this->bodyInterface, joltRayCastResult.mBodyID);
+        }
+    }
+    this->triggerWasDown = triggerIsDown;
+    
+#endif
 
     JPH::CharacterVirtual *cv = pc->characterVirtual;
     f32 moveSpeed = pc->moveSpeed;
@@ -432,15 +639,22 @@ void SKLPhysicsSystem::Initialize(b32 firstTime)
     // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well.
     JPH::PhysicsSystem* physicsSystem = new JPH::PhysicsSystem();
 
+#if MARVIN_GAME
+    JPH::BroadPhaseLayerInterface* sklBroadPhaseLayer = new MarvinBroadPhaseLayer();
+    JPH::ObjectVsBroadPhaseLayerFilter* sklObjectVsBroadPhaseLayerFilter = new MarvinObjectVsBroadPhaseLayerFilter();
+    JPH::ObjectLayerPairFilter* sklObjectLayerPairFilter = new MarvinObjectLayerPairFilter();
+#else
     JPH::BroadPhaseLayerInterface* sklBroadPhaseLayer = new SklBroadPhaseLayer();
     JPH::ObjectVsBroadPhaseLayerFilter* sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
     JPH::ObjectLayerPairFilter* sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
+#endif
 
     physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
                         *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
                         *sklObjectLayerPairFilter);
 
     this->physicsSystem = physicsSystem;
+    this->bodyInterface = &physicsSystem->GetBodyInterface();
     this->broadPhaseLayer = sklBroadPhaseLayer;
     this->objectVsBroadPhaseLayerFilter = sklObjectVsBroadPhaseLayerFilter;
     this->objectLayerPairFilter = sklObjectLayerPairFilter;
