@@ -58,6 +58,9 @@ struct SDLState
         SDL_IOStream* recordingHandle;
         SDL_IOStream* playbackHandle;
     };
+
+    // NOTE(marvin): nullptr if there is no game process.
+    SDL_Process* gameProcess;
 };
 
 inline b32 SDLIsInLoop(SDLState* state)
