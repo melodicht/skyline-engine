@@ -356,7 +356,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
         }
 
         // NOTE(marvin): Save scene button
-        if (ImGui::Button("Save Scene"))
+        if (ImGui::Button("Save Scene") || (input->keysDown.contains("S") && (input->keysDown.contains("Left Ctrl") || input->keysDown.contains("Right Ctrl"))))
         {
             SaveCurrentMap(*scene);
         }
