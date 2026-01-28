@@ -194,6 +194,13 @@ SYSTEM_ON_UPDATE(EditorSystem)
 
         glm::vec3 movementDirection = GetMovementDirection(input, t);
         t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
+
+        // NOTE(marvin): This is so that when the user intends to move
+        // around, they don't accidentally write into the text boxes.
+        if (!ImGui::GetIO().WantCaptureMouse)
+        {
+            ImGui::SetWindowFocus(nullptr);
+        }
     }
 
     // TODO(marvin): Maybe the ecs editor functionality shouldn't be within the EditorSystem? Feels strange that the overlay GUI is split in two places. Maybe an EditorState? Which could hold some of the stuff defined at a global level in scene_loader.cpp.
