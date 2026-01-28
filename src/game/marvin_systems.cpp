@@ -1,8 +1,9 @@
 #include <marvin_systems.h>
-#include <game.h>
+#include <engine.h>
 #include <scene.h>
 #include <meta_definitions.h>
-#include <components.h>
+#include <engine_components.h>
+#include <game_components.h>
 #include <scene_view.h>
 
 MAKE_SYSTEM_MANUAL_VTABLE(GravityBallsSystem);

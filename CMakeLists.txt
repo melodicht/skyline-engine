@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.24)
 project("skyline-engine")
 
 set(CMAKE_CXX_STANDARD 20)
@@ -266,7 +266,7 @@ target_compile_definitions(game-module PRIVATE
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         Jolt
-        engine)
+        "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
 target_include_directories(game-module PRIVATE
         ${CMAKE_SOURCE_DIR}/include/shared
         ${CMAKE_SOURCE_DIR}/include/engine

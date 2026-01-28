@@ -1,8 +1,8 @@
 #include <imgui.h>
 
 #include <editor.h>
-#include <components.h>
-#include <game.h>
+#include <engine_components.h>
+#include <engine.h>
 #include <scene.h>
 #include <map_loader.h>
 #include <utils.h>
@@ -185,7 +185,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
 {
     if (input->keysDown.contains("Mouse 3"))
     {
-        FlyingMovement *f = scene->Get<FlyingMovement>(this->editorCam);
+        EditorController *f = scene->Get<EditorController>(this->editorCam);
         Transform3D *t = scene->Get<Transform3D>(this->editorCam);
 
         t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});

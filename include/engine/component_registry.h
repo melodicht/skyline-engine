@@ -2,9 +2,11 @@
 
 #ifdef REGISTRY
 
-#include <map_loader.h>
 #include <typeinfo>
 #include <typeindex>
+
+#include <asset_types.h>
+#include <map_loader.h>
 
 template <typename T>
 const char* compName;

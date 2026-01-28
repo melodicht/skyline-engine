@@ -1,9 +1,10 @@
 #include <city_builder.h>
 #include <meta_definitions.h>
 #include <scene.h>
-#include <components.h>
+#include <engine_components.h>
+#include <game_components.h>
 #include <skl_math_utils.h>
-#include <game.h>
+#include <engine.h>
 #include <scene_view.h>
 
 // A vocabulary

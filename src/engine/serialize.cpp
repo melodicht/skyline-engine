@@ -2,7 +2,7 @@
 
 #include <meta_definitions.h>
 #include <asset_types.h>
-#include <game.h>
+#include <engine.h>
 
 template <typename T>
 s32 WriteFromData(T* dest, DataEntry* data) { return 0; }

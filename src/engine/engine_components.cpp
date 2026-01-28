@@ -3,7 +3,7 @@
 #include <map_loader.h>
 
 #define REGISTRY
-#include <components.h>
+#include <engine_components.h>
 
 template <>
 s32 WriteComponent<Transform3D>(Scene &scene, EntityID entity, DataEntry* compData)

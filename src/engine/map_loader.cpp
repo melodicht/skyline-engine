@@ -3,7 +3,7 @@
 #include <meta_definitions.h>
 #include <scene.h>
 #include <map_loader.h>
-#include <game.h>
+#include <engine.h>
 #include <scene_view.h>
 #include <entity_view.h>
 

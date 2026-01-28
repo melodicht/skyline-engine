@@ -2,8 +2,8 @@
 
 #include <draw_scene.h>
 #include <meta_definitions.h>
-#include <game.h>
-#include <components.h>
+#include <engine.h>
+#include <engine_components.h>
 #include <scene.h>
 #include <map_loader.h>
 #include <scene_view.h>

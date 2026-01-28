@@ -1,7 +1,7 @@
 #pragma once
 
 #include <scene.h>
-#include <components.h>
+#include <engine_components.h>
 #include <system_registry.h>
 #include <skl_types.h>
 

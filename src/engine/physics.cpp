@@ -33,9 +33,9 @@
 
 #include <meta_definitions.h>
 #include <skl_math_types.h>
-#include <game.h>
+#include <engine.h>
 #include <physics.h>
-#include <components.h>
+#include <engine_components.h>
 #include <utils.h>
 #include <scene_view.h>
 
