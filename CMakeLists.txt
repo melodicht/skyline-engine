@@ -6,11 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaderbin)
+FILE(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+FILE(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/shaderbin)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
@@ -67,7 +67,7 @@ if(NOT DEFINED SKL_SLOW)
 endif()
 
 if (XCODE)
-        set(SKL_BASE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
+        set(SKL_BASE_PATH "${CMAKE_SOURCE_DIR}")
 elseif(EMSCRIPTEN)
         set(SKL_BASE_PATH ".")
 else()
@@ -89,7 +89,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
 # PACKAGE MANAGER
 #==============================================================================
 
-set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/build-external")
+set(CPM_SOURCE_CACHE "${CMAKE_CURRENT_SOURCE_DIR}/build-external")
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
@@ -225,8 +225,8 @@ target_link_libraries(engine PUBLIC
         SHARED_DEPENDENCIES
         Jolt)
 target_include_directories(engine PUBLIC
-        ${CMAKE_SOURCE_DIR}/include/shared
-        ${CMAKE_SOURCE_DIR}/include/engine
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/shared
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/engine
         ${JoltPhysics_SOURCE_DIR})
 
 set(PCH_HEADERS
@@ -246,25 +246,25 @@ if (WIN32)
         list(APPEND PCH_HEADERS <windows.h>)
 endif()
 
-target_precompile_headers(engine PRIVATE ${PCH_HEADERS})
+target_precompile_headers(engine PUBLIC ${PCH_HEADERS})
 
 
 #==============================================================================
 # GAME MODULE
 #==============================================================================
-file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
+if (NOT DEFINED SKL_EXTERNAL_GAME)
+    file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
 
-add_library(game-module MODULE ${GAME_SRC})
-# Version the PDB file to avoid locking issues
-string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
-set_target_properties(game-module PROPERTIES
-        PDB_NAME "game_module_${BUILD_TIME}")
-target_link_libraries(game-module PRIVATE
-        "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
-target_include_directories(game-module PRIVATE
-        ${CMAKE_SOURCE_DIR}/include/game)
-
-target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
+    add_library(game-module MODULE ${GAME_SRC})
+    # Version the PDB file to avoid locking issues
+    string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
+    set_target_properties(game-module PROPERTIES
+            PDB_NAME "game_module_${BUILD_TIME}")
+    target_link_libraries(game-module PRIVATE
+            "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
+    target_include_directories(game-module PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/game)
+endif()
 
 #==============================================================================
 # PLATFORM
@@ -309,7 +309,7 @@ if(NOT EMSCRIPTEN)
         endif()
 
         set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-        set(SHADERS_OUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin")
+        set(SHADERS_OUT_DIR "${CMAKE_SOURCE_DIR}/shaderbin")
 
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
@@ -341,7 +341,7 @@ if(NOT EMSCRIPTEN)
                 add_dependencies(platform build_shaders)
         elseif(SKL_RENDER_SYS STREQUAL "WebGPU")
                 add_custom_command(TARGET platform PRE_LINK
-                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin"
+                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_SOURCE_DIR}/shaderbin"
                 )
         endif()
 

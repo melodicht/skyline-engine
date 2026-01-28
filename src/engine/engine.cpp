@@ -61,8 +61,6 @@ GAME_INITIALIZE(GameInitialize)
     gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
-    assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
-
     CreateComponentPools(scene);
 
     s32 rv = LoadMap(scene, mapName);
@@ -85,13 +83,15 @@ GAME_INITIALIZE(GameInitialize)
         scene.Assign<Transform3D>(gameState->currentCamera);
 
         EditorSystem *editorSystem = scene.CreateVariableTimestepSystem<EditorSystem>(gameState->currentCamera, &gameState->overlayMode);
+
+        OnEditorStart(gameState);
     }
     else
     {
     #endif
         memory.sklPhysicsSystem = static_cast<void*>(scene.CreateSemifixedTimestepSystem<SKLPhysicsSystem>());
 
-        OnGameStart(gameState, mapName);
+        OnGameStart(gameState);
 
         FindCamera(*gameState);
     #if SKL_ENABLED_EDITOR

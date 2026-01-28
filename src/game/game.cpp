@@ -1,5 +1,7 @@
 #include <string>
+#include <array>
 
+#include <meta_definitions.h>
 #include <game.h>
 #include <engine.h>
 #include <city_builder.h>
@@ -11,7 +13,7 @@
 
 #include <movement.h>
 
-void OnGameStart(GameState* gameState, std::string mapName)
+void OnGameStart(GameState* gameState)
 {
     Scene &scene = gameState->scene;
     b32 slowStep = false;
@@ -21,4 +23,8 @@ void OnGameStart(GameState* gameState, std::string mapName)
 #endif
     scene.CreateSemifixedTimestepSystem<MovementSystem>();
     scene.CreateSemifixedTimestepSystem<BuilderSystem>(slowStep);
+
+    assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 }
+
+void OnEditorStart(GameState* gameState) {}

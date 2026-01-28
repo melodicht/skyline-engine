@@ -557,7 +557,7 @@ int main(int argc, char** argv)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
 
-    std::string mapName = "test";
+    std::string mapName = "start";
     bool editor = false;
 
     for (int i = 0; i < argc; i++)

@@ -4,4 +4,6 @@
 
 #include <engine.h>
 
-void OnGameStart(GameState* gameState, std::string mapName);
+void OnGameStart(GameState* gameState);
+
+void OnEditorStart(GameState* gameState);
