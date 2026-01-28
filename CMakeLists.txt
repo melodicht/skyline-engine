@@ -4,11 +4,6 @@ project("skyline-engine")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# TODO(marvin): Work towards getting this out by doing things properly
-if (WIN32)
-        set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
-
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
@@ -122,7 +117,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
 #==============================================================================
 
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
-add_library(imgui SHARED ${imgui_sources})
+add_library(imgui STATIC ${imgui_sources})
 target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 
 #==============================================================================
@@ -188,7 +183,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         endif()
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
-        add_library(vulkan-backend SHARED
+        add_library(vulkan-backend STATIC
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
                 ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
