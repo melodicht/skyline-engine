@@ -217,14 +217,14 @@ endif()
 #==============================================================================
 file(GLOB_RECURSE ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/engine/*.cpp)
 add_library(engine STATIC ${ENGINE_SRC})
-target_compile_definitions(engine PRIVATE
+target_compile_definitions(engine PUBLIC
         _CRT_SECURE_NO_WARNINGS
         debugRecordArray=debugRecordsGame
         SKL_GAME_MODULE)
-target_link_libraries(engine PRIVATE
+target_link_libraries(engine PUBLIC
         SHARED_DEPENDENCIES
         Jolt)
-target_include_directories(engine PRIVATE
+target_include_directories(engine PUBLIC
         ${CMAKE_SOURCE_DIR}/include/shared
         ${CMAKE_SOURCE_DIR}/include/engine
         ${JoltPhysics_SOURCE_DIR})
@@ -259,19 +259,10 @@ add_library(game-module MODULE ${GAME_SRC})
 string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
 set_target_properties(game-module PROPERTIES
         PDB_NAME "game_module_${BUILD_TIME}")
-target_compile_definitions(game-module PRIVATE
-        _CRT_SECURE_NO_WARNINGS
-        debugRecordArray=debugRecordsGame
-        SKL_GAME_MODULE)
 target_link_libraries(game-module PRIVATE
-        SHARED_DEPENDENCIES
-        Jolt
         "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
 target_include_directories(game-module PRIVATE
-        ${CMAKE_SOURCE_DIR}/include/shared
-        ${CMAKE_SOURCE_DIR}/include/engine
-        ${CMAKE_SOURCE_DIR}/include/game
-        ${JoltPhysics_SOURCE_DIR})
+        ${CMAKE_SOURCE_DIR}/include/game)
 
 target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
 
