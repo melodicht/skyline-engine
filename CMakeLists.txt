@@ -218,25 +218,20 @@ elseif(${SKL_RENDER_SYS} STREQUAL "WebGPU")
 endif()
 
 #==============================================================================
-# GAME MODULE
+# ENGINE
 #==============================================================================
-file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
-
-add_library(game-module MODULE ${GAME_SRC})
-# Version the PDB file to avoid locking issues
-string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
-set_target_properties(game-module PROPERTIES
-        PDB_NAME "game_module_${BUILD_TIME}")
-target_compile_definitions(game-module PRIVATE
+file(GLOB_RECURSE ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/engine/*.cpp)
+add_library(engine STATIC ${ENGINE_SRC})
+target_compile_definitions(engine PRIVATE
         _CRT_SECURE_NO_WARNINGS
         debugRecordArray=debugRecordsGame
         SKL_GAME_MODULE)
-target_link_libraries(game-module PRIVATE
+target_link_libraries(engine PRIVATE
         SHARED_DEPENDENCIES
         Jolt)
-target_include_directories(game-module PRIVATE
+target_include_directories(engine PRIVATE
         ${CMAKE_SOURCE_DIR}/include/shared
-        ${CMAKE_SOURCE_DIR}/include/game
+        ${CMAKE_SOURCE_DIR}/include/engine
         ${JoltPhysics_SOURCE_DIR})
 
 set(PCH_HEADERS
@@ -255,6 +250,33 @@ set(PCH_HEADERS
 if (WIN32)
         list(APPEND PCH_HEADERS <windows.h>)
 endif()
+
+target_precompile_headers(engine PRIVATE ${PCH_HEADERS})
+
+
+#==============================================================================
+# GAME MODULE
+#==============================================================================
+file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
+
+add_library(game-module MODULE ${GAME_SRC})
+# Version the PDB file to avoid locking issues
+string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
+set_target_properties(game-module PROPERTIES
+        PDB_NAME "game_module_${BUILD_TIME}")
+target_compile_definitions(game-module PRIVATE
+        _CRT_SECURE_NO_WARNINGS
+        debugRecordArray=debugRecordsGame
+        SKL_GAME_MODULE)
+target_link_libraries(game-module PRIVATE
+        SHARED_DEPENDENCIES
+        Jolt
+        engine)
+target_include_directories(game-module PRIVATE
+        ${CMAKE_SOURCE_DIR}/include/shared
+        ${CMAKE_SOURCE_DIR}/include/engine
+        ${CMAKE_SOURCE_DIR}/include/game
+        ${JoltPhysics_SOURCE_DIR})
 
 target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
 
