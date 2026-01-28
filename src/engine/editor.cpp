@@ -293,6 +293,11 @@ SYSTEM_ON_UPDATE(EditorSystem)
             selectedEntityID = newEntityID;
         }
 
+        // NOTE(marvin): Duplicate selected entity.
+        if (ImGui::Button("Duplicate Entity"))
+        {
+        }
+
         if (IsEntityValid(selectedEntityID))
         {
             // NOTE(marvin): Component interactive tree view
