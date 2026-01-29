@@ -22,6 +22,8 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
+#define EXECUTABLE_FILE_NAME "skyline-engine.exe"
+
 #define JOLT_LIB_SRC_FILE_NAME "Jolt"
 
 #include <debug.h>
@@ -55,16 +57,18 @@ struct AppInformation
     SDLGameCode &gameCode;
     GameMemory &gameMemory;
     SDL_Event &e;
+    const char* mapName;
     bool playing;
     u64 now;
     u64 last;
     b32 editor;
 
-    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast, b32 setEditor) :
+    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, const char* mapName, bool setPlaying, u64 setNow, u64 setLast, b32 setEditor) :
         window(setWindow),
         gameCode(gameCode),
         gameMemory(gameMemory),
         e(setE),
+        mapName(mapName),
         playing(setPlaying),
         now(setNow),
         last(setLast),
@@ -121,17 +125,25 @@ local inline SDL_Time SDLGetFileLastWritten(const char *path)
     return result;
 }
 
-local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
+// The reason for the tag in the name is that if we are running the
+// editor and the game at the same time, they both each need their own
+// DLL.
+local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten, b32 editor)
 {
     SDLGameCode result = {};
+    std::string tag = "game";
+    if (editor)
+    {
+        tag = "editor";
+    }
     const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
     // NOTE(marvin): Could make a macro to generalize, but lazy and
     // unsure of impact on compile time.
     std::string gameCodeUseFilePath;
 #ifdef PLATFORM_WINDOWS
-    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "{}.dll", reloadCount);
+    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "_{}_{}.dll", tag.c_str(), reloadCount);
 #else
-    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "{}.so", reloadCount);
+    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "_{}_{}.so", tag.c_str(), reloadCount);
 #endif
 
     // NOTE(marvin): Need to have a copy for the platform executable
@@ -167,10 +179,10 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     return result;
 }
 
-local SDLGameCode SDLLoadGameCode()
+local SDLGameCode SDLLoadGameCode(b32 editor)
 {
     const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
-    return SDLLoadGameCode(SDLGetFileLastWritten(gameCodeSrcFilePath));
+    return SDLLoadGameCode(SDLGetFileLastWritten(gameCodeSrcFilePath), editor);
 }
 
 local void SDLUnloadGameCode(SDLGameCode *gameCode)
@@ -430,6 +442,20 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     SDLPlaybackStdSetOfString(state, &gameInput->keysDown);
 }
 
+// Kills the previous game process if it exists before creating the new game process.
+local void LaunchGame(SDLState* state, const char* mapName)
+{
+    if (state->gameProcess)
+    {
+        bool forceful = false;
+        SDL_KillProcess(state->gameProcess, forceful);
+    }
+
+    const char* arguments[] = { EXECUTABLE_FILE_NAME, "-map", mapName, NULL };
+    bool pipe_stdio = false;
+    state->gameProcess = SDL_CreateProcess(arguments, pipe_stdio);
+}
+
 void updateLoop(void* appInfo) {
     AppInformation* info = (AppInformation* )appInfo;
     info->last = info->now;
@@ -441,7 +467,7 @@ void updateLoop(void* appInfo) {
     if (SDLGameCodeChanged(&gameCode))
     {
         SDLUnloadGameCode(&gameCode);
-        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
+        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_, info->editor);
         gameCode = info->gameCode;
         gameCode.gameLoad(info->gameMemory, info->editor, true);
     }
@@ -467,6 +493,10 @@ void updateLoop(void* appInfo) {
                     ToggleLoopedLiveEditingState(&globalSDLState);
                 }
 #endif
+                else if (info->editor && info->e.key.key == SDLK_R && (SDL_GetModState() & SDL_KMOD_CTRL))
+                {
+                    LaunchGame(&globalSDLState, info->mapName);
+                }
                 keysDown.insert(SDL_GetKeyName(info->e.key.key));
                 break;
             case SDL_EVENT_KEY_UP:
@@ -600,7 +630,7 @@ int main(int argc, char** argv)
         LOG_ERROR(SDL_GetError());
     }
 
-    SDLGameCode gameCode = SDLLoadGameCode();
+    SDLGameCode gameCode = SDLLoadGameCode(editor);
     GameMemory gameMemory = {};
 #if SKL_INTERNAL
     gameMemory.debugState = globalDebugState;
@@ -617,7 +647,7 @@ int main(int argc, char** argv)
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last, editor);
+    AppInformation app = AppInformation(window, gameCode, gameMemory, e, mapName.c_str(), playing, now, last, editor);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {

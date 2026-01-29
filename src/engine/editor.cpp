@@ -173,6 +173,26 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayStructDataEntry(std::s
     return result;
 }
 
+local EntityID CreateNewEntity(Scene* scene, std::string entityName)
+{
+    // TODO(marvin): Probably want a helper that creates the entity through this ritual. Common with the one in scene_loader::LoadScene, but that one doesn't assign a Transform3D.
+    EntityID newEntityID = scene->NewEntity();
+
+    entityIds[entityName] = newEntityID;
+    NameComponent* nameComp = scene->Assign<NameComponent>(newEntityID);
+    nameComp->name = entityName;
+    scene->Assign<Transform3D>(newEntityID);
+
+    return newEntityID;
+}
+
+local EntityID CreateNewEntity(Scene* scene, const char* name)
+{
+    std::string entityName = name;
+    EntityID result = CreateNewEntity(scene, entityName);
+    return result;
+}
+
 EditorSystem::EditorSystem(EntityID editorCam, OverlayMode *overlayMode) : SYSTEM_SUPER(EditorSystem)
 {
     this->editorCam = editorCam;
@@ -194,6 +214,13 @@ SYSTEM_ON_UPDATE(EditorSystem)
 
         glm::vec3 movementDirection = GetMovementDirection(input, t);
         t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
+
+        // NOTE(marvin): This is so that when the user intends to move
+        // around, they don't accidentally write into the text boxes.
+        if (!ImGui::GetIO().WantCaptureMouse)
+        {
+            ImGui::SetWindowFocus(nullptr);
+        }
     }
 
     // TODO(marvin): Maybe the ecs editor functionality shouldn't be within the EditorSystem? Feels strange that the overlay GUI is split in two places. Maybe an EditorState? Which could hold some of the stuff defined at a global level in scene_loader.cpp.
@@ -273,21 +300,44 @@ SYSTEM_ON_UPDATE(EditorSystem)
         // NOTE(marvin): Add new entity.
         if (ImGui::Button("New Entity"))
         {
-            // TODO(marvin): Probably want a helper that creates the entity through this ritual. Common with the one in scene_loader::LoadScene, but that one doesn't assign a Transform3D.
-            EntityID newEntityID = scene->NewEntity();
-
-            // TODO(marvin): Will there be problems if there is an entity with that name already?
-            std::string entityName = "New Entity";
-            entityIds[entityName] = newEntityID;
-            NameComponent* nameComp = scene->Assign<NameComponent>(newEntityID);
-            nameComp->name = entityName;
-            scene->Assign<Transform3D>(newEntityID);
-
+            EntityID newEntityID = CreateNewEntity(scene, "New Entity");
             selectedEntityID = newEntityID;
         }
 
         if (IsEntityValid(selectedEntityID))
         {
+            // NOTE(marvin): Duplicate selected entity.
+            if (ImGui::Button("Duplicate Entity"))
+            {
+                NameComponent* nameComp = scene->Get<NameComponent>(selectedEntityID);
+                std::string originalName = nameComp->name;
+                std::string duplicateName = std::format("{} Duplicate", originalName);
+                EntityID duplicatedEntityID = CreateNewEntity(scene, duplicateName);
+
+                for (ComponentID componentID : EntityView(*scene, selectedEntityID))
+                {
+                    ComponentInfo& compInfo = CompInfos()[componentID];
+
+                    if (compInfo.name == NAME_COMPONENT)
+                    {
+                        continue;
+                    }
+
+                    if (compInfo.name != TRANSFORM_COMPONENT)
+                    {
+                        compInfo.assignFunc(*scene, duplicatedEntityID);
+                    }
+
+                    DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
+                    s32 val = compInfo.writeFunc(*scene, duplicatedEntityID, dataEntry);
+                    if (val != 0)
+                    {
+                        LOG_ERROR("failed to write component");
+                    }
+                }
+                
+            }
+
             // NOTE(marvin): Component interactive tree view
             for (ComponentID componentID : EntityView(*scene, selectedEntityID))
             {
@@ -349,7 +399,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
         }
 
         // NOTE(marvin): Save scene button
-        if (ImGui::Button("Save Scene"))
+        if (ImGui::Button("Save Scene") || (input->keysDown.contains("S") && (input->keysDown.contains("Left Ctrl") || input->keysDown.contains("Right Ctrl"))))
         {
             SaveCurrentMap(*scene);
         }
