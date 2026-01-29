@@ -10,6 +10,7 @@ struct NameComponent
 };
 
 #define NAME_COMPONENT "NameComponent"
+#define TRANSFORM_COMPONENT "Transform3D"
 
 struct Scene;
 struct DataEntry;
