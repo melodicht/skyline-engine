@@ -61,13 +61,13 @@ typedef size_t   siz;
 // Posted by David Titarenco, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-01-22, License - CC BY-SA 4.0
 #define Maximum(a,b)                            \
-    ({ __typeof__ (a) _a = (a);                 \
-        __typeof__ (b) _b = (b);                \
+    ({ decltype(a) _a = (a);                 \
+        decltype(b) _b = (b);                \
         _a > _b ? _a : _b; })
 
 #define Minimum(a,b)                            \
-    ({ __typeof__ (a) _a = (a);                 \
-        __typeof__ (b) _b = (b);                \
+    ({ decltype(a) _a = (a);                 \
+        decltype(b) _b = (b);                \
         _a < _b ? _a : _b; })
 
 
