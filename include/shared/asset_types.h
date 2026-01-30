@@ -39,15 +39,15 @@ struct DataEntry
     const EntryType type;
     const union
     {
-        s32 intVal;
-        f32 floatVal;
+        s64 intVal;
+        f64 floatVal;
         bool boolVal;
         glm::vec3 vecVal;
         std::string stringVal;
         std::vector<DataEntry*> structVal;
     };
-    DataEntry(std::string name, s32 val) : name(name), intVal(val), type(INT_ENTRY) {}
-    DataEntry(std::string name, f32 val) : name(name), floatVal(val), type(FLOAT_ENTRY) {}
+    DataEntry(std::string name, s64 val) : name(name), intVal(val), type(INT_ENTRY) {}
+    DataEntry(std::string name, f64 val) : name(name), floatVal(val), type(FLOAT_ENTRY) {}
     DataEntry(std::string name, bool val) : name(name), boolVal(val), type(BOOL_ENTRY) {}
     DataEntry(std::string name, glm::vec3 val) : name(name), vecVal(val), type(VEC_ENTRY) {}
     DataEntry(std::string name, std::string val) : name(name), stringVal(val), type(STR_ENTRY) {}

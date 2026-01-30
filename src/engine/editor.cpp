@@ -42,7 +42,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayDataEntry(DataEntry *d
 
             ImGui::Text("%s", fieldName);
             ImGui::NextColumn();
-            if (ImGui::InputInt(fieldName, &(dataEntry->intVal)))
+            if (ImGui::InputScalar(fieldName, ImGuiDataType_S64, &(dataEntry->intVal)))
             {
                 result = REWRITE;
             }
@@ -59,7 +59,7 @@ ComponentDataEntryActionOutcome EditorSystem::ImguiDisplayDataEntry(DataEntry *d
 
             ImGui::Text("%s", fieldName);
             ImGui::NextColumn();
-            if (ImGui::InputFloat(fieldName, &(dataEntry->floatVal)))
+            if (ImGui::InputDouble(fieldName, &(dataEntry->floatVal)))
             {
                 result = REWRITE;
             }
