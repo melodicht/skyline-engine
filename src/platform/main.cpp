@@ -22,7 +22,11 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
+#ifdef PLATFORM_WINDOWS
 #define EXECUTABLE_FILE_NAME "skyline-engine.exe"
+#else
+#define EXECUTABLE_FILE_NAME "./skyline-engine"
+#endif
 
 #define JOLT_LIB_SRC_FILE_NAME "Jolt"
 
@@ -454,6 +458,10 @@ local void LaunchGame(SDLState* state, const char* mapName)
     const char* arguments[] = { EXECUTABLE_FILE_NAME, "-map", mapName, NULL };
     bool pipe_stdio = false;
     state->gameProcess = SDL_CreateProcess(arguments, pipe_stdio);
+    if (!state->gameProcess)
+    {
+        LOG_ERROR("Failed to launch game process! SDL_ERROR: " << SDL_GetError());
+    }
 }
 
 void updateLoop(void* appInfo) {
