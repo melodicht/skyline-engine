@@ -1,16 +1,13 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.24)
 project("skyline-engine")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# TODO(marvin): Work towards getting this out by doing things properly
-if (WIN32)
-        set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
-
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+FILE(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaderbin)
 if (EMSCRIPTEN)
         set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/webbin)
         set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/webbin)
@@ -18,7 +15,6 @@ else()
         set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
         set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 endif()
-FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaderbin)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
@@ -52,6 +48,10 @@ else()
         set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+if(NOT DEFINED MARVIN_GAME)
+        option(MARVIN_GAME "Whether you're making the Marvin game" 0)
+endif()
+
 # When debugging mode is active, determines whether logging should also be enabled.
 if(NOT DEFINED SKL_ENABLE_LOGGING)
         if(${SKL_INTERNAL})
@@ -76,7 +76,7 @@ if(NOT DEFINED SKL_SLOW)
 endif()
 
 if (XCODE)
-        set(SKL_BASE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
+        set(SKL_BASE_PATH "${CMAKE_SOURCE_DIR}")
 elseif(EMSCRIPTEN)
         set(SKL_BASE_PATH ".")
 else()
@@ -88,6 +88,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR}
         SKL_ENABLED_LOGGING=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
+        MARVIN_GAME=${MARVIN_GAME}
         SKL_SLOW=${SKL_SLOW}
         SKL_BASE_PATH="${SKL_BASE_PATH}"
         GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -138,7 +139,7 @@ endif()
 # PACKAGE MANAGER
 #==============================================================================
 
-set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/build-external")
+set(CPM_SOURCE_CACHE "${CMAKE_CURRENT_SOURCE_DIR}/build-external")
 
 if (EMSCRIPTEN)
         add_library(SDL3PORT INTERFACE)
@@ -176,8 +177,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
 #==============================================================================
 
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
-add_library(imgui SHARED ${imgui_sources})
-set_side_module(imgui)
+add_library(imgui STATIC ${imgui_sources})
 target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 
 #==============================================================================
@@ -243,7 +243,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         endif()
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
-        add_library(vulkan-backend SHARED
+        add_library(vulkan-backend STATIC
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
                 ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
@@ -273,26 +273,20 @@ elseif(${SKL_RENDER_SYS} STREQUAL "WebGPU")
 endif()
 
 #==============================================================================
-# GAME MODULE
+# ENGINE
 #==============================================================================
-file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
-
-add_library(game-module MODULE ${GAME_SRC})
-# Version the PDB file to avoid locking issues
-string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
-set_target_properties(game-module PROPERTIES
-        PDB_NAME "game_module_${BUILD_TIME}")
-target_compile_definitions(game-module PRIVATE
+file(GLOB_RECURSE ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/engine/*.cpp)
+add_library(engine STATIC ${ENGINE_SRC})
+target_compile_definitions(engine PUBLIC
         _CRT_SECURE_NO_WARNINGS
         debugRecordArray=debugRecordsGame
         SKL_GAME_MODULE)
-target_link_libraries(game-module PRIVATE
+target_link_libraries(engine PUBLIC
         SHARED_DEPENDENCIES
         Jolt)
-set_side_module(game-module)
-target_include_directories(game-module PRIVATE
-        ${CMAKE_SOURCE_DIR}/include/shared
-        ${CMAKE_SOURCE_DIR}/include/game
+target_include_directories(engine PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/shared
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/engine
         ${JoltPhysics_SOURCE_DIR})
 
 set(PCH_HEADERS
@@ -312,7 +306,25 @@ if (WIN32)
         list(APPEND PCH_HEADERS <windows.h>)
 endif()
 
-target_precompile_headers(game-module PRIVATE ${PCH_HEADERS})
+target_precompile_headers(engine PUBLIC ${PCH_HEADERS})
+
+
+#==============================================================================
+# GAME MODULE
+#==============================================================================
+if (NOT DEFINED SKL_EXTERNAL_GAME)
+    file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
+
+    add_library(game-module MODULE ${GAME_SRC})
+    # Version the PDB file to avoid locking issues
+    string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
+    set_target_properties(game-module PROPERTIES
+            PDB_NAME "game_module_${BUILD_TIME}")
+    target_link_libraries(game-module PRIVATE
+            "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
+    target_include_directories(game-module PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/game)
+endif()
 
 #==============================================================================
 # PLATFORM
@@ -350,7 +362,7 @@ if(NOT EMSCRIPTEN)
         set(BUILD_DIR ${CMAKE_BINARY_DIR})
 
         set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-        set(SHADERS_OUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin")
+        set(SHADERS_OUT_DIR "${CMAKE_SOURCE_DIR}/shaderbin")
 
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan")
@@ -382,7 +394,7 @@ if(NOT EMSCRIPTEN)
                 add_dependencies(platform build_shaders)
         elseif(SKL_RENDER_SYS STREQUAL "WebGPU")
                 add_custom_command(TARGET platform PRE_LINK
-                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin"
+                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_SOURCE_DIR}/shaderbin"
                 )
         endif()
 

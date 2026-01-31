@@ -1,7 +1,7 @@
 #pragma once
 
 #include <scene.h>
-#include <components.h>
+#include <engine_components.h>
 #include <system_registry.h>
 #include <skl_types.h>
 
@@ -17,14 +17,22 @@ class SKLPhysicsSystem : public System
 {
 private:
     JPH::PhysicsSystem* physicsSystem;
+    JPH::BodyInterface* bodyInterface;
     JPH::BroadPhaseLayerInterface* broadPhaseLayer;
     JPH::ObjectVsBroadPhaseLayerFilter* objectVsBroadPhaseLayerFilter;
     JPH::ObjectLayerPairFilter* objectLayerPairFilter;
     JPH::JobSystem* jobSystem;
     JPH::TempAllocatorImpl* allocator;
 
-    void MoveCharacterVirtual(JPH::CharacterVirtual *characterVirtual,
-                              JPH::Vec3 movementDirection, f32 moveSpeed, f32 deltaTime);
+    // NOTE(marvin): Defined by the character having enough velocity
+    // to reach to minimum jump height.
+    b32 isJumping;
+
+#if MARVIN_GAME
+    b32 triggerWasDown;
+#endif
+
+    void MoveCharacterVirtual(JPH::CharacterVirtual* characterVirtual, Transform3D* playerTransform, JPH::Vec3 movementDirection, f32 moveSpeed, b32 jumpHeld, Scene* scene, f32 deltaTime);
 
 public:
     SKLPhysicsSystem();

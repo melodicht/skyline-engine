@@ -9,13 +9,11 @@
 // This represents constants/typedefs often used throughout program
 // Really any compile time math concept
 
+struct DataEntry;
+
 class Transform3D
 {
 public:
-    glm::vec3 position;
-    glm::vec3 rotation;
-    glm::vec3 scale = glm::vec3(1);
-
     glm::vec3 GetLocalPosition();
     void SetLocalPosition(glm::vec3 newPos);
     void AddLocalPosition(glm::vec3 offset);
@@ -37,9 +35,24 @@ public:
 
     ~Transform3D();
 
+    template<typename T>
+    friend s32 WriteFromData(T*, DataEntry*);
+
+    template<typename T>
+    friend DataEntry* ReadToData(T*, std::string);
+
 private:
+    glm::vec3 position;
+    glm::vec3 rotation;
+    glm::vec3 scale = glm::vec3(1);
     bool dirty = true;
     Transform3D *parent;
     std::unordered_set<Transform3D *> children;
     glm::mat4 worldTransform;
 };
+
+struct SKLRay {
+    glm::vec3 origin;
+    glm::vec3 direction;
+};
+

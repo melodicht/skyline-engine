@@ -124,7 +124,7 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
     std::vector<WGPUBackendDynamicShadowedPointLightData> ret{ };
     ret.reserve(cpuType.size());
     for (PointLightRenderInfo& cpuDat : cpuType) {
-        glm::vec3 lightPos = cpuDat.transform->position;
+        glm::vec3 lightPos = cpuDat.transform->GetWorldPosition();
 
         // Calculates cube map 
         glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (float)shadowWidth/(float)shadowHeight, 0.1f, cpuDat.radius);
@@ -163,7 +163,7 @@ std::vector<WGPUBackendDynamicShadowedSpotLightData> ConvertSpotLights(std::vect
         gpuDat.m_specular = cpuDat.specular;
         gpuDat.m_outerCutoff = cpuDat.outerCone;
         gpuDat.m_direction = cpuDat.transform->GetForwardVector();
-        gpuDat.m_position = cpuDat.transform->position;
+        gpuDat.m_position = cpuDat.transform->GetWorldPosition();
 
         ret.push_back(gpuDat);
     }

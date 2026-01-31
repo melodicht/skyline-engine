@@ -192,6 +192,17 @@ Any other dependencies of our project are installed when cmake is run.
 ## Emscripten Example Build Steps
 
 
+# Engine Features
+
+## Looped-live Playback
+
+One could create a loop similar to one in a music software. To create the start
+of the loop, press `L`. The game may freeze for a bit as engine prepares for the
+loop. Once it unfreezes, you can do whatever you wish to loop, and when done,
+press `L` again. What you just did in that loop will continue to repeat itself
+until you press `L` again. This features works well with hot reloading, where
+you can keep repeating the same thing but with different game modules.
+
 # Design Notes
 
 - The reason why `u64` is used for EntityID is to avoid narrowing. We use

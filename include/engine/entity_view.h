@@ -55,7 +55,12 @@ public:
 
     const Iterator begin() const
     {
-        return Iterator(0, componentMask);
+        u32 index = 0;
+        while (index < MAX_COMPONENTS && !componentMask.test(index))
+        {
+            index++;
+        }
+        return Iterator(index, componentMask);
     }
 
     const Iterator end() const
@@ -117,7 +122,12 @@ public:
 
     const Iterator begin() const
     {
-        return Iterator(0, componentMask, scene.GetNumCompTypes());
+        u32 index = 0;
+        while (index < scene.GetNumCompTypes() && componentMask.test(index))
+        {
+            index++;
+        }
+        return Iterator(index, componentMask, scene.GetNumCompTypes());
     }
 
     const Iterator end() const

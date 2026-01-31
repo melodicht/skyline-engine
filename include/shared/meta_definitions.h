@@ -72,6 +72,20 @@ typedef size_t   siz;
 // Assumes that the Expression evaluates to an array.
 #define ArrayCount(Expression) (sizeof(Expression)/sizeof((Expression)[0]))
 
+// Source - https://stackoverflow.com/a
+// Posted by David Titarenco, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-01-22, License - CC BY-SA 4.0
+#define Maximum(a,b)                            \
+    ({ decltype(a) _a = (a);                 \
+        decltype(b) _b = (b);                \
+        _a > _b ? _a : _b; })
+
+#define Minimum(a,b)                            \
+    ({ decltype(a) _a = (a);                 \
+        decltype(b) _b = (b);                \
+        _a < _b ? _a : _b; })
+
+
 #if SKL_SLOW
 
 #if defined(_MSC_VER)

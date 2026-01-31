@@ -1,9 +1,10 @@
 #include <city_builder.h>
 #include <meta_definitions.h>
 #include <scene.h>
-#include <components.h>
+#include <engine_components.h>
+#include <game_components.h>
 #include <skl_math_utils.h>
-#include <game.h>
+#include <engine.h>
 #include <scene_view.h>
 
 // A vocabulary
@@ -40,14 +41,6 @@ constexpr f32 roofHeightMax = 64;
 
 void BuilderSystem::Step(Scene *scene)
 {
-
-    for (EntityID ent : SceneView<Transform3D, Spin>(*scene))
-    {
-        Transform3D *t = scene->Get<Transform3D>(ent);
-        Spin *s = scene->Get<Spin>(ent);
-        t->AddLocalRotation({0, 0, s->speed * 1.25f});
-    }
-
     // Plane Rules
     for (EntityID ent: SceneView<BuilderPlane, Transform3D>(*scene))
     {
@@ -239,6 +232,13 @@ MAKE_SYSTEM_MANUAL_VTABLE(BuilderSystem);
 
 SYSTEM_ON_UPDATE(BuilderSystem)
 {
+    for (EntityID ent : SceneView<Transform3D, Spin>(*scene))
+    {
+        Transform3D *t = scene->Get<Transform3D>(ent);
+        Spin *s = scene->Get<Spin>(ent);
+        t->AddLocalRotation({0, 0, s->speed * deltaTime * 10.25f});
+    }
+
     if (this->slowStep && this->timer > 0.0f)
     {
         this->timer -= deltaTime;

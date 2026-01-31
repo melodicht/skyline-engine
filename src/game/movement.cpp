@@ -1,6 +1,7 @@
 #include <movement.h>
 #include <meta_definitions.h>
-#include <components.h>
+#include <engine_components.h>
+#include <game_components.h>
 #include <utils.h>
 #include <scene_view.h>
 

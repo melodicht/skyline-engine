@@ -3,7 +3,6 @@
 
 #include <meta_definitions.h>
 #include <skl_math_types.h>
-#include <asset_types.h>
 #include <component_registry.h>
 
 // Define the game's components here
@@ -52,38 +51,12 @@ struct CameraComponent
 SERIALIZE(CameraComponent, fov, nearPlane, farPlane)
 COMPONENT(CameraComponent, "gizmos/camera")
 
-
-struct FlyingMovement
+struct EditorController
 {
     f32 moveSpeed = 5;
     f32 turnSpeed = 0.1;
 };
-SERIALIZE(FlyingMovement, moveSpeed, turnSpeed)
-COMPONENT(FlyingMovement)
-
-struct HorizontalLook
-{
-    f32 turnSpeed = 0.1f;
-};
-SERIALIZE(HorizontalLook, turnSpeed)
-COMPONENT(HorizontalLook)
-
-struct VerticalLook
-{
-    f32 turnSpeed = 0.1;
-};
-SERIALIZE(VerticalLook, turnSpeed)
-COMPONENT(VerticalLook)
-
-
-struct BuilderPlane
-{
-    f32 width = 1;
-    f32 length = 1;
-};
-SERIALIZE(BuilderPlane, width, length)
-COMPONENT(BuilderPlane)
-
+COMPONENT(EditorController)
 
 struct DirLight
 {
@@ -120,12 +93,5 @@ struct PointLight
 };
 SERIALIZE(PointLight, diffuse, specular, radius, falloff)
 COMPONENT(PointLight, "gizmos/point_light")
-
-struct Spin
-{
-    f32 speed = 20.0f;
-};
-SERIALIZE(Spin, speed)
-COMPONENT(Spin)
 
 COMPONENT(NameComponent)

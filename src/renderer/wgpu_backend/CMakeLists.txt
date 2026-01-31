@@ -59,8 +59,7 @@ set(SKL_WGPU_TARGET_INCLUDE_LIST
         ${CMAKE_SOURCE_DIR}/include/renderer/webgpu
         $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/empty.c "")
-add_library(webgpu STATIC ${CMAKE_CURRENT_BINARY_DIR}/empty.c)
+add_library(webgpu INTERFACE)
 if(EMSCRIPTEN)
         # Fetches emscripten Dawn port
         # Got a lot of help from "https://github.com/eliemichel/WebGPU-distribution/blob/main/emdawnwebgpu/CMakeLists.txt"
@@ -77,7 +76,7 @@ else()
 
         # Fetches Dawn
         # set(DAWN_FETCH_DEPENDENCIES ON)
-        set(DAWN_BUILD_MONOLITHIC_LIBRARY SHARED)
+        set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC)
 
         CPMAddPackage(NAME dawn URL "https://github.com/Jianwen-Ding/Dawn-Xcode-Compliant/releases/download/Misc/dawn_7559_Xcode_compliant.tar.gz")
         
@@ -87,7 +86,7 @@ endif()
 # Includes ported SDL3-webgpu conduit
 add_subdirectory(${CMAKE_SOURCE_DIR}/include/renderer/webgpu/sdl3webgpu-main sdl3webgpu)
 
-add_library(wgpu-backend SHARED ${SKL_WGPU_SOURCES})
+add_library(wgpu-backend STATIC ${SKL_WGPU_SOURCES})
 target_include_directories(wgpu-backend PRIVATE ${SKL_WGPU_TARGET_INCLUDE_LIST})
 target_compile_definitions(wgpu-backend PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 target_precompile_headers(wgpu-backend PRIVATE ${SKL_WGPU_PCH_HEADERS})
@@ -99,4 +98,3 @@ target_link_libraries(wgpu-backend PRIVATE
         glm::glm
         imgui
         skl-utils)
-set_side_module(wgpu-backend)

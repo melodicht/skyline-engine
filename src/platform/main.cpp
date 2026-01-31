@@ -16,6 +16,8 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
+#define EXECUTABLE_FILE_NAME "skyline-engine.exe"
+
 #define JOLT_LIB_SRC_FILE_NAME "Jolt"
 
 #include <debug.h>
@@ -49,16 +51,18 @@ struct AppInformation
     SDLGameCode &gameCode;
     GameMemory &gameMemory;
     SDL_Event &e;
+    const char* mapName;
     bool playing;
     u64 now;
     u64 last;
     b32 editor;
 
-    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast, b32 setEditor) :
+    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, GameMemory &gameMemory, SDL_Event &setE, const char* mapName, bool setPlaying, u64 setNow, u64 setLast, b32 setEditor) :
         window(setWindow),
         gameCode(gameCode),
         gameMemory(gameMemory),
         e(setE),
+        mapName(mapName),
         playing(setPlaying),
         now(setNow),
         last(setLast),
@@ -117,17 +121,25 @@ local inline SDL_Time SDLGetFileLastWritten(const char *path)
     return result;
 }
 
-local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
+// The reason for the tag in the name is that if we are running the
+// editor and the game at the same time, they both each need their own
+// DLL.
+local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten, b32 editor)
 {
     SDLGameCode result = {};
+    std::string tag = "game";
+    if (editor)
+    {
+        tag = "editor";
+    }
     const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
     // NOTE(marvin): Could make a macro to generalize, but lazy and
     // unsure of impact on compile time.
     std::string gameCodeUseFilePath;
 #if defined(PLATFORM_WINDOWS)
-    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "{}.dll", reloadCount);
+    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "_{}_{}.dll", tag.c_str(), reloadCount);
 #else
-    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "{}.so", reloadCount);
+    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "_{}_{}.so", tag.c_str(), reloadCount);
 #endif
 
     // NOTE(marvin): Need to have a copy for the platform executable
@@ -163,10 +175,10 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     return result;
 }
 
-local SDLGameCode SDLLoadGameCode()
+local SDLGameCode SDLLoadGameCode(b32 editor)
 {
     const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
-    return SDLLoadGameCode(SDLGetFileLastWritten(gameCodeSrcFilePath));
+    return SDLLoadGameCode(SDLGetFileLastWritten(gameCodeSrcFilePath), editor);
 }
 
 local void SDLUnloadGameCode(SDLGameCode *gameCode)
@@ -202,6 +214,38 @@ local const char* SDLGetInputFilePath()
     return result;
 }
 
+inline SDLSavedMemoryBlock InitSavedMemoryBlock(SDLMemoryBlock* source)
+{
+    SDLSavedMemoryBlock result = {};
+    result.requestedBase = source->requestedBase;
+    result.requestedSize = source->requestedSize;
+    return result;
+}
+
+local void WriteSavedMemoryBlockToFile(SDLSavedMemoryBlock* savedMemoryBlock, SDL_IOStream* fileHandle)
+{
+    ASSERT(SDL_WriteIO(fileHandle, savedMemoryBlock, sizeof(*savedMemoryBlock)) == sizeof(*savedMemoryBlock));
+    ASSERT(SDL_WriteIO(fileHandle, savedMemoryBlock->requestedBase, savedMemoryBlock->requestedSize) == savedMemoryBlock->requestedSize);
+}
+
+local void WriteMemoryBlocksToFile(SDLState* state, SDL_IOStream* fileHandle)
+{
+    SDLMemoryBlock* sentinel = &state->memoryBlockSentinel;
+    BeginTicketMutex(&state->memoryMutex);
+    for (SDLMemoryBlock* sourceBlock = sentinel->next;
+         sourceBlock != sentinel;
+         sourceBlock = sourceBlock->next)
+    {
+        SDLSavedMemoryBlock savedMemoryBlock = InitSavedMemoryBlock(sourceBlock);
+        WriteSavedMemoryBlockToFile(&savedMemoryBlock, fileHandle);
+    }
+    EndTicketMutex(&state->memoryMutex);
+
+    // NOTE(marvin): Ending with an empty saved block to mark the end.
+    SDLSavedMemoryBlock savedMemoryBlock = {};
+    WriteSavedMemoryBlockToFile(&savedMemoryBlock, fileHandle);
+}
+
 local void SDLBeginRecordingInput(SDLState* state)
 {
     const char* inputFilePath = SDLGetInputFilePath();
@@ -214,8 +258,7 @@ local void SDLBeginRecordingInput(SDLState* state)
     else
     {
         state->loopedLiveEditingState = loopedLiveEditingState_recording;
-
-        // TODO(marvin): Take a picture of game memory and the dynamic arenas.
+        WriteMemoryBlocksToFile(state, state->recordingHandle);
     }
     
 }
@@ -226,8 +269,59 @@ local void SDLEndRecordingInput(SDLState* state)
     state->loopedLiveEditingState = loopedLiveEditingState_none;
 }
 
+local void RestoreSavedMemoryBlock(SDLSavedMemoryBlock savedMemoryBlock, SDL_IOStream* fileHandle)
+{
+    void* requestedBase = savedMemoryBlock.requestedBase;
+    u64 requestedSize = savedMemoryBlock.requestedSize;
+    siz bytesRead = SDL_ReadIO(fileHandle, requestedBase, requestedSize);
+    ASSERT(bytesRead == requestedSize);
+}
+
+local void RestoreMemoryBlocksFromFile(SDL_IOStream* fileHandle)
+{
+    for (;;)
+    {
+        SDLSavedMemoryBlock savedMemoryBlock = {};
+        ASSERT(SDL_ReadIO(fileHandle, &savedMemoryBlock, sizeof(savedMemoryBlock)) == sizeof(savedMemoryBlock));
+        if (savedMemoryBlock.requestedBase != 0)
+        {
+            RestoreSavedMemoryBlock(savedMemoryBlock, fileHandle);
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
+void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block);
+
+local void SDLClearBlocksByMask(SDLState* state, SDLMemoryFlags mask)
+{
+    SDLMemoryBlock* sentinel = &state->memoryBlockSentinel;
+    // NOTE(marvin): Need to set the next prior to removing the block.
+    for (SDLMemoryBlock* cursor = sentinel->next;
+         cursor != sentinel;
+         )
+    {
+        SDLMemoryBlock* block = cursor;
+        cursor = cursor->next;
+        
+        if ((block->loopingFlags & mask) == mask)
+        {
+            RemoveMemoryBlock(state, block);
+        }
+        else
+        {
+            block->loopingFlags = sdlMem_none;
+        }
+    }
+}
+
 local void SDLBeginInputPlayback(SDLState* state)
 {
+    SDLClearBlocksByMask(state, sdlMem_allocatedDuringLoop);
+    
     const char* inputFilePath = SDLGetInputFilePath();
     state->playbackHandle = SDL_IOFromFile(inputFilePath, "r");
     if (state->playbackHandle == NULL)
@@ -238,13 +332,14 @@ local void SDLBeginInputPlayback(SDLState* state)
     else
     {
         state->loopedLiveEditingState = loopedLiveEditingState_playing;
-
-        // TODO(marvin): Restore the picture of game memory and the dynamic arenas.
+        RestoreMemoryBlocksFromFile(state->playbackHandle);
     }
 }
 
 local void SDLEndInputPlayback(SDLState* state)
 {
+    SDLClearBlocksByMask(state, sdlMem_freedDuringLoop);
+    
     ASSERT(SDL_CloseIO(state->playbackHandle));
     state->loopedLiveEditingState = loopedLiveEditingState_none;
 }
@@ -332,9 +427,7 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     if (bytesRead == 0)
     {
         // NOTE(marvin): Could also rewind the stream, but going
-        // through end and start again is safer. Risk of infinite
-        // recursion if keeps failing, since this is an internal
-        // feature, just let it happen.
+        // through end and start again is safer.
         SDLEndInputPlayback(state);
         SDLBeginInputPlayback(state);
         bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
@@ -345,18 +438,32 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     SDLPlaybackStdSetOfString(state, &gameInput->keysDown);
 }
 
+// Kills the previous game process if it exists before creating the new game process.
+local void LaunchGame(SDLState* state, const char* mapName)
+{
+    if (state->gameProcess)
+    {
+        bool forceful = false;
+        SDL_KillProcess(state->gameProcess, forceful);
+    }
+
+    const char* arguments[] = { EXECUTABLE_FILE_NAME, "-map", mapName, NULL };
+    bool pipe_stdio = false;
+    state->gameProcess = SDL_CreateProcess(arguments, pipe_stdio);
+}
+
 void updateLoop(void* appInfo) {
     AppInformation* info = (AppInformation* )appInfo;
     info->last = info->now;
     info->now = SDL_GetPerformanceCounter();
 
-    f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
+    f32 frameTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
     SDLGameCode &gameCode = info->gameCode;
     if (SDLGameCodeChanged(&gameCode))
     {
         SDLUnloadGameCode(&gameCode);
-        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
+        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_, info->editor);
         gameCode = info->gameCode;
         gameCode.gameLoad(info->gameMemory, info->editor, true);
     }
@@ -382,6 +489,10 @@ void updateLoop(void* appInfo) {
                     ToggleLoopedLiveEditingState(&globalSDLState);
                 }
 #endif
+                else if (info->editor && info->e.key.key == SDLK_R && (SDL_GetModState() & SDL_KMOD_CTRL))
+                {
+                    LaunchGame(&globalSDLState, info->mapName);
+                }
                 keysDown.insert(SDL_GetKeyName(info->e.key.key));
                 break;
             case SDL_EVENT_KEY_UP:
@@ -434,13 +545,13 @@ void updateLoop(void* appInfo) {
       } break;
     }
     
-    gameCode.gameUpdateAndRender(info->gameMemory, gameInput, deltaTime);
+    gameCode.gameUpdateAndRender(info->gameMemory, gameInput, frameTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
 
-    f32 msPerFrame =  1000.0f * deltaTime;
-    f32 fps = 1 / deltaTime;
+    f32 msPerFrame =  1000.0f * frameTime;
+    f32 fps = 1 / frameTime;
     //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     return;
 }
@@ -472,7 +583,7 @@ int main(int argc, char** argv)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
 
-    std::string mapName = "test";
+    std::string mapName = "start";
     bool editor = false;
 
     for (int i = 0; i < argc; i++)
@@ -515,7 +626,7 @@ int main(int argc, char** argv)
         LOG_ERROR(SDL_GetError());
     }
 
-    SDLGameCode gameCode = SDLLoadGameCode();
+    SDLGameCode gameCode = SDLLoadGameCode(editor);
     GameMemory gameMemory = {};
 #if SKL_INTERNAL
     gameMemory.debugState = globalDebugState;
@@ -532,7 +643,7 @@ int main(int argc, char** argv)
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, gameCode, gameMemory, e, playing, now, last, editor);
+    AppInformation app = AppInformation(window, gameCode, gameMemory, e, mapName.c_str(), playing, now, last, editor);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {

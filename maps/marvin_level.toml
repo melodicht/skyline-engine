@@ -1,0 +1,47 @@
+### NOTE(marvin): For my game, will require MARVIN_GAME flag when cmake.
+
+
+## Player character
+
+[playerBody.Transform3D]
+position = [0.0, 0.0, 3.0]
+[playerBody.HorizontalLook]
+[playerBody.PlayerCharacter]
+[playerBody.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+
+[playerHead.Transform3D]
+position = [0.0, 0.0, 2.0]
+parent = "playerBody"
+[playerHead.CameraComponent]
+farPlane = 100.0
+[playerHead.VerticalLook]
+
+
+## The floor
+
+[floor.Transform3D]
+position = [0.0, 0.0, -5.0]
+scale = [100.0, 100.0, 1.0]
+[floor.MeshComponent]
+mesh = "cube"
+[floor.StaticBox]
+volume = [50.0, 50.0, 1.0]
+
+[mainLight.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+[mainLight.DirLight]
+diffuse = [1.0, 1.0, 1.0]
+specular = [1.0, 1.0, 1.0]
+
+
+## Static Box
+
+[sb.Transform3D]
+position = [10.0, 0.0, 2.0]
+[sb.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+[sb.StaticBox]
+volume = [1.5, 1.5, 1.5]

@@ -1391,7 +1391,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     .m_combined = camSpace,
     .m_view = mainCamView,
     .m_proj = mainCamProj,
-    .m_pos = state.cameraTransform->position,
+    .m_pos = state.cameraTransform->GetWorldPosition(),
     .m_dirLightCount = (u32)shadowedDirLightData.size(),
     .m_pointLightCount = (u32)shadowedPointLightData.size(),
     .m_spotLightCount = (u32)shadowedSpotLightData.size(),

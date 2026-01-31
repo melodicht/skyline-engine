@@ -3,7 +3,7 @@
 #include <meta_definitions.h>
 #include <scene.h>
 #include <map_loader.h>
-#include <game.h>
+#include <engine.h>
 #include <scene_view.h>
 #include <entity_view.h>
 
@@ -58,12 +58,14 @@ s32 LoadMap(Scene& scene, std::string name)
     DataEntry* data = assetUtils.LoadDataAsset(filepath);
     if (data->type != STRUCT_ENTRY)
     {
+        printf("entry must be struct but instead is %d\n", data->type);
         return -1;
     }
     for (DataEntry* entity : data->structVal)
     {
         if (entity->type != STRUCT_ENTRY)
         {
+            printf("entry must be struct but instead is %d\n", data->type);
             return -1;
         }
         EntityID id = scene.NewEntity();
@@ -76,6 +78,7 @@ s32 LoadMap(Scene& scene, std::string name)
         {
             if (!stringToId.contains(comp->name))
             {
+                printf("invalid component name: %s", comp->name.c_str());
                 return -1;
             }
             ComponentID compIndex = stringToId[comp->name];
