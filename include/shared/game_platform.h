@@ -14,8 +14,30 @@ struct GameInput
     u32 mouseX;
     u32 mouseY;
 
-    std::set<std::string> keysDown;
+    std::set<std::string> keysDownPrevFrame;
+    std::set<std::string> keysDownThisFrame;
 };
+
+// NOTE(marvin): When OnPress produces true for some key, OnHold will
+// also produce true for that same key.
+
+inline b32 OnPress(GameInput* input, std::string key)
+{
+    b32 result = input->keysDownThisFrame.contains(key) && !input->keysDownPrevFrame.contains(key);
+    return result;
+}
+
+inline b32 OnRelease(GameInput* input, std::string key)
+{
+    b32 result = !input->keysDownThisFrame.contains(key) && input->keysDownPrevFrame.contains(key);
+    return result;
+}
+
+inline b32 OnHold(GameInput* input, std::string key)
+{
+    b32 result = input->keysDownThisFrame.contains(key);
+    return result;
+}
 
 #define ASSET_UTIL_FUNCS(method)\
     method(MeshAsset *,LoadMeshAsset,(std::string name))\

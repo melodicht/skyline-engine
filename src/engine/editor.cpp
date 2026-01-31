@@ -203,7 +203,7 @@ MAKE_SYSTEM_MANUAL_VTABLE(EditorSystem);
 
 SYSTEM_ON_UPDATE(EditorSystem)
 {
-    if (input->keysDown.contains("Mouse 3"))
+    if (OnHold(input, "Mouse 3"))
     {
         EditorController *f = scene->Get<EditorController>(this->editorCam);
         Transform3D *t = scene->Get<Transform3D>(this->editorCam);
@@ -240,7 +240,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
 
         ImGui::Begin("Overlay", nullptr, window_flags);
 
-        if (input->keysDown.contains("Mouse 1"))
+        if (OnHold(input, "Mouse 1"))
         {
             u32 cursorEntityIndex = renderer.GetIndexAtCursor();
             selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
@@ -399,7 +399,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
         }
 
         // NOTE(marvin): Save scene button
-        if (ImGui::Button("Save Scene") || (input->keysDown.contains("S") && (input->keysDown.contains("Left Ctrl") || input->keysDown.contains("Right Ctrl"))))
+        if (ImGui::Button("Save Scene") || (OnHold(input, "S") && (OnHold(input, "Left Ctrl") || OnHold(input, "Right Ctrl"))))
         {
             SaveCurrentMap(*scene);
         }

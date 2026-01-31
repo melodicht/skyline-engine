@@ -349,7 +349,7 @@ SKL_PHYSICS_SUBSYSTEM(PlayerCharacterPreUpdate)
 
     glm::vec3 ourMovementDirection = GetMovementDirection(input, pt);
     JPH::Vec3 joltMovementDirection = OurToJoltCoordinateSystem(ourMovementDirection);
-    b32 jumpHeld = input->keysDown.contains("Space");
+    b32 jumpHeld = OnHold(input, "Space");
     MoveCharacterVirtual(cv, pc, pt, sklPhysicsSystem, joltMovementDirection, moveSpeed, jumpHeld, scene, deltaTime);
 }
 
@@ -468,8 +468,7 @@ SKL_PHYSICS_SUBSYSTEM(GravityBallsPreUpdate)
     // NOTE(marvin): If user clicked on a gravity ball, trigger
     // it. Technically this could happen when ball collides with a
     // wall at the exact same frame, but it's fine.
-    b32 triggerIsDown = input->keysDown.contains("Mouse 1");
-    if (triggerIsDown && !sklPhysicsSystem->triggerWasDown)
+    if (OnPress(input, "Mouse 1"))
     {
         SKLRay sklRay = GetRayFromCamera(ct);
         f32 rayLength = 1000.0f;
@@ -485,7 +484,6 @@ SKL_PHYSICS_SUBSYSTEM(GravityBallsPreUpdate)
             ActivateGravityBall(bodyInterface, joltRayCastResult.mBodyID);
         }
     }
-    sklPhysicsSystem->triggerWasDown = triggerIsDown;
 }
 
 SKL_PHYSICS_SUBSYSTEM(GravityBallsPostUpdate)

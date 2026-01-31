@@ -44,11 +44,6 @@ public:
     SKLPhysicsSubSystemBuffer preUpdateSubsystemBuffer;
     SKLPhysicsSubSystemBuffer postUpdateSubsystemBuffer;
     
-#if MARVIN_GAME
-    // TODO(marvin): Change input to be able to know if press vs held down.
-    b32 triggerWasDown;
-#endif
-
     SKLPhysicsSystem();
 
     ~SKLPhysicsSystem();

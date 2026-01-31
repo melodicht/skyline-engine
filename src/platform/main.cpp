@@ -397,7 +397,8 @@ local void SDLRecordInput(SDLState* state, GameInput* gameInput)
     ASSERT(bytesWritten == sizeof(*gameInput) && "Failed to properly write.");
 
     // NOTE(marvin): Have to manually deserialize std set.
-    SDLRecordStdSetOfString(state, &gameInput->keysDown);
+    SDLRecordStdSetOfString(state, &gameInput->keysDownPrevFrame);
+    SDLRecordStdSetOfString(state, &gameInput->keysDownThisFrame);
 }
 
 local void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
@@ -429,7 +430,8 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
 
     // NOTE(marvin): Need to destroy the std set prior to writing to
     // it because the write will corrupt std set memory. Reconstruct it after.
-    gameInput->keysDown.~set();
+    gameInput->keysDownPrevFrame.~set();
+    gameInput->keysDownThisFrame.~set();
     siz bytesRead = SDL_ReadIO(state->playbackHandle, gameInput, sizeof(*gameInput));
 
     if (bytesRead == 0)
@@ -442,8 +444,10 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     }
     ASSERT(bytesRead == sizeof(*gameInput));
     
-    new (&gameInput->keysDown) std::set<std::string>();
-    SDLPlaybackStdSetOfString(state, &gameInput->keysDown);
+    new (&gameInput->keysDownPrevFrame) std::set<std::string>();
+    new (&gameInput->keysDownThisFrame) std::set<std::string>();
+    SDLPlaybackStdSetOfString(state, &gameInput->keysDownPrevFrame);
+    SDLPlaybackStdSetOfString(state, &gameInput->keysDownThisFrame);
 }
 
 // Kills the previous game process if it exists before creating the new game process.
@@ -479,6 +483,9 @@ void updateLoop(void* appInfo) {
         gameCode = info->gameCode;
         gameCode.gameLoad(info->gameMemory, info->editor, true);
     }
+
+    GameInput gameInput;
+    gameInput.keysDownPrevFrame = keysDown;
 
     while (SDL_PollEvent(&info->e))
     {
@@ -536,12 +543,11 @@ void updateLoop(void* appInfo) {
         keysDown.erase("Mouse 1");
     }
 
-    GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
     gameInput.mouseDeltaY = mouseDeltaY;
     gameInput.mouseX = mouseX;
     gameInput.mouseY = mouseY;
-    gameInput.keysDown = keysDown;
+    gameInput.keysDownThisFrame = keysDown;
 
     SDLState* state = &globalSDLState;
     switch (state->loopedLiveEditingState)
