@@ -11,11 +11,14 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+if (EMSCRIPTEN)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/webbin)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/webbin)
+else()
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+endif()
 FILE(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaderbin)
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake)
 
@@ -42,6 +45,11 @@ endif()
 # SKL_INTERNAL specifies whether a build is being made for debug purposes or not
 if(NOT DEFINED SKL_INTERNAL)
         option(SKL_INTERNAL "Whether debug functionality is enabled" 1)
+endif()
+if (${SKL_INTERNAL})
+        set(CMAKE_BUILD_TYPE "Debug")
+else()
+        set(CMAKE_BUILD_TYPE "Release")
 endif()
 
 # When debugging mode is active, determines whether logging should also be enabled.
@@ -86,14 +94,64 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         GLM_FORCE_LEFT_HANDED)
 
 #==============================================================================
+# EMSCRIPTEN HANDLER
+#==============================================================================
+# Attach main module to library that holds main file
+# Attach side module to any other shared libraries
+
+set(EMSCRIPTEN_OPTIONS
+        -sASYNCIFY
+        -sALLOW_MEMORY_GROWTH
+        "SHELL:-sASYNCIFY_IMPORTS=['*']")
+
+set(SIDE_MODULE_TARGET_LIST)
+
+function(set_main_module LIBRARY) 
+        if (EMSCRIPTEN)
+                target_compile_options(${LIBRARY} PRIVATE
+                -sMAIN_MODULE=1)
+                target_link_options(${LIBRARY} PRIVATE
+                ${EMSCRIPTEN_OPTIONS}
+                -sASYNCIFY_STACK_SIZE=65536
+                -sALLOW_TABLE_GROWTH=1
+                -sMAIN_MODULE=1)
+        endif()
+endfunction()
+
+function(set_side_module LIBRARY) 
+        if (EMSCRIPTEN)
+                target_compile_options(${LIBRARY} PRIVATE
+                -sSIDE_MODULE=1)
+                target_link_options(${LIBRARY} PRIVATE
+                ${EMSCRIPTEN_OPTIONS}
+                -sSIDE_MODULE=1)
+                set(SIDE_MODULE_TARGET_LIST "${SIDE_MODULE_TARGET_LIST};${LIBRARY}" CACHE INTERNAL "")
+        endif()
+endfunction()
+
+if (EMSCRIPTEN)
+        link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+        set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
+endif()
+
+#==============================================================================
 # PACKAGE MANAGER
 #==============================================================================
 
 set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/build-external")
-CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
+
+if (EMSCRIPTEN)
+        add_library(SDL3PORT INTERFACE)
+        target_compile_options(SDL3PORT INTERFACE -sUSE_SDL=3)
+        target_link_options(SDL3PORT INTERFACE -sUSE_SDL=3)
+        add_library(SDL3::SDL3 ALIAS SDL3PORT)
+else()
+        CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
+endif()
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
-CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
+CPMAddPackage("gh:ocornut/imgui#v1.92.5")
+
 CPMAddPackage("gh:marzer/tomlplusplus#v3.4.0")
 
 CPMAddPackage(
@@ -109,6 +167,7 @@ CPMAddPackage(
         "ENABLE_ALL_WARNINGS OFF"
         "BUILD_SHARED_LIBS ON"
       )
+set_side_module(Jolt)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
 
@@ -118,6 +177,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
 
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
 add_library(imgui SHARED ${imgui_sources})
+set_side_module(imgui)
 target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 
 #==============================================================================
@@ -229,6 +289,7 @@ target_compile_definitions(game-module PRIVATE
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         Jolt)
+set_side_module(game-module)
 target_include_directories(game-module PRIVATE
         ${CMAKE_SOURCE_DIR}/include/shared
         ${CMAKE_SOURCE_DIR}/include/game
@@ -271,6 +332,7 @@ target_link_libraries(platform PRIVATE
         fastgltf::fastgltf
         SDL3::SDL3
         tomlplusplus::tomlplusplus)
+set_main_module(platform)
 
 add_dependencies(platform game-module)
 
@@ -286,14 +348,6 @@ if(NOT EMSCRIPTEN)
         # Represents the directory the resulting executable will be at
         # Depending on build system this may be shifted
         set(BUILD_DIR ${CMAKE_BINARY_DIR})
-
-        if(XCODE)
-                # This makes the assumption that if SKL_ENABLE_DEBUGGING is true, xcode is also running in debug mode
-                # This behavior needs to be enforced by XCODE
-                if(SKL_INTERNAL)
-                       set(BUILD_DIR ${CMAKE_BINARY_DIR}/Debug)
-                endif()
-        endif()
 
         set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
         set(SHADERS_OUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaderbin")
@@ -341,6 +395,13 @@ else()
                 "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/models@/models/"
                 "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/fonts@/fonts/"
                 "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/textures@/textures/"
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/maps@/maps/"
                 --preload-plugins
         )
+
+        foreach(dylib ${SIDE_MODULE_TARGET_LIST})
+                target_link_options(platform PRIVATE
+                        "SHELL:--preload-file $<TARGET_FILE:${dylib}>@/$<TARGET_FILE_NAME:${dylib}>"
+                )
+        endforeach()
 endif()

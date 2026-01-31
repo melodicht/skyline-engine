@@ -460,7 +460,7 @@ void WGPURenderBackend::DrawImGui() {
   wgpuCommandEncoderRelease(imguiCommandEncoder);
 
   wgpuQueueSubmit(m_wgpuQueue, 1, &imguiCommand);
-  wgpuCommandBufferRelease(imguiCommand);
+  wgpuCommandBufferRelease(imguiCommand); 
 }
 #pragma endregion
 
@@ -628,7 +628,7 @@ WGPUShaderModule loadShader(const WGPUDevice& device, std::string fileName, std:
   // Makes sure data actually gets loaded in
   ASSERT(loadedDat);
 
-  WGPUShaderModuleWGSLDescriptor wgslShaderDesc {
+  WGPUShaderSourceWGSL wgslShaderDesc {
     .chain {
       .next = nullptr,
       .sType = WGPUSType_ShaderSourceWGSL,
@@ -686,7 +686,7 @@ void WGPURenderBackend::InitPipelines()
   };
   
   WGPUDepthStencilState depthStencilSetSlopeBiased = depthStencilState;
-  depthStencilSetSlopeBiased.depthBias = 0.000015;
+  depthStencilSetSlopeBiased.depthBias = 2;
   depthStencilSetSlopeBiased.depthBiasSlopeScale = 4.5f; // TODO: Make less arbitrary allow to pass in
 
   WGPUDepthStencilState depthStencilReadOnlyState = depthStencilState;

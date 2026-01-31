@@ -364,7 +364,7 @@ void SKLPhysicsSystem::Initialize(b32 firstTime)
 #if SKL_SLOW
     if (!firstTime)
     {
-        Assert(this->allocator->GetUsage() == 0);
+        ASSERT(this->allocator->GetUsage() == 0);
     }
 #endif
     this->allocator = new JPH::TempAllocatorImpl(TEMPORARY_MEMORY_SIZE);

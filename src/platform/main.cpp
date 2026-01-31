@@ -1,10 +1,4 @@
-#if defined(__unix__) || defined(__unix) || defined(unix) ||    \
-    (defined(__APPLE__) && defined(__MACH__))
-    #define PLATFORM_UNIX
-#elif defined(_WIN32) || defined(_WIN64)
-    #define PLATFORM_WINDOWS
-#endif
-
+#include <meta_definitions.h>
 #include <format>
 #include <filesystem>
 #include <iostream>
@@ -87,7 +81,7 @@ file_global u32 reloadCount = 0;
 local const char* SDLGetGameCodeSrcFilePath()
 {
     const char* result;
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS)
     result = GAME_CODE_SRC_FILE_NAME ".dll";
 #else
     result = "./lib" GAME_CODE_SRC_FILE_NAME ".so";
@@ -98,8 +92,10 @@ local const char* SDLGetGameCodeSrcFilePath()
 local const char* SDLGetJoltLibSrcFilePath()
 {
     const char* result;
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS)
     result = JOLT_LIB_SRC_FILE_NAME ".dll";
+#elif defined(PLATFORM_APPLE)
+    result = "./lib" JOLT_LIB_SRC_FILE_NAME ".dylib";
 #else
     result = "./lib" JOLT_LIB_SRC_FILE_NAME ".so";
 #endif
@@ -128,7 +124,7 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     // NOTE(marvin): Could make a macro to generalize, but lazy and
     // unsure of impact on compile time.
     std::string gameCodeUseFilePath;
-#ifdef PLATFORM_WINDOWS
+#if defined(PLATFORM_WINDOWS)
     gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "{}.dll", reloadCount);
 #else
     gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "{}.so", reloadCount);

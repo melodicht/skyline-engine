@@ -38,14 +38,14 @@ local void InitDebugAllocationsStoreInPlace(DebugAllocationsStore *store, Memory
 
 local DebugGeneralAllocation *GetFromDebugGeneralAllocationPool(DebugAllocationsStorePool *pool, u32 index)
 {
-    Assert(index < MAX_GENERAL_ALLOCATIONS);
+    ASSERT(index < MAX_GENERAL_ALLOCATIONS);
     DebugGeneralAllocation *result = pool->arena + index;
     return result;
 }
 
 local DebugGeneralAllocation *AddNewDebugGeneralAllocation(DebugAllocationsStorePool *pool)
 {
-    Assert(pool->count < MAX_GENERAL_ALLOCATIONS);
+    ASSERT(pool->count < MAX_GENERAL_ALLOCATIONS);
     DebugGeneralAllocation *result = pool->arena + pool->count;
     result->id = pool->count++;
     return result;
@@ -142,7 +142,7 @@ local void AddAllocation(DebugAllocations *allocations, DebugGeneralAllocation *
 
 local void RemoveAllocation(DebugGeneralAllocation* toRemove)
 {
-    Assert(toRemove->prev && toRemove->next);
+    ASSERT(toRemove->prev && toRemove->next);
     toRemove->prev->next = toRemove->next;
     toRemove->next->prev = toRemove->prev;
 }
@@ -179,7 +179,7 @@ local void DeleteDebugGeneralAllocation(DebugAllocationsStore* store, DebugGener
 
 local void TruncateAllocation(DebugAllocations* allocations, siz size)
 {
-    Assert(!DebugAllocationsEmpty(allocations) &&
+    ASSERT(!DebugAllocationsEmpty(allocations) &&
            "The assertion failure should happen in memory's PopSize first.");
 
     siz remainingSize = size;
@@ -188,7 +188,7 @@ local void TruncateAllocation(DebugAllocations* allocations, siz size)
     {
         // NOTE(marvin): In theory, the user could truncate into a
         // child arena, but in practice, the user shouldn't.
-        Assert(cursor->type == allocationType_regular);
+        ASSERT(cursor->type == allocationType_regular);
         DebugRegularAllocation* allocation = &cursor->regular;
         remainingSize = TruncateDebugRegularAllocation(allocation, remainingSize);
         DebugGeneralAllocation* nextCursor = cursor->prev;
@@ -326,7 +326,7 @@ local DebugArena *FindTargetOfSourceArenaFromPool(DebugAllocationsStorePool *poo
         }
     }
 
-    Assert(false && "Target not found.");
+    ASSERT(false && "Target not found.");
     return 0;
 }
 
@@ -341,7 +341,7 @@ local DebugArena *FindTargetOfSourceArena(DebugAllocationsStore *store, MemoryAr
 local void ForceLastAllocationToArena(DebugAllocations *allocations, DebugAllocationsStore *targetStore, MemoryArena subArenaSource, MemoryArena *miscArena, const char *ourDebugID, const char *name)
 {
     DebugGeneralAllocation *last = GetLastAllocation(allocations);
-    Assert(last->type == allocationType_regular);
+    ASSERT(last->type == allocationType_regular);
 
     DebugRegularAllocation *regular = &last->regular;
 
@@ -351,7 +351,7 @@ local void ForceLastAllocationToArena(DebugAllocations *allocations, DebugAlloca
     // allocation.
     if (regular->offset > 0)
     {
-        Assert(regular->size == subArenaSource.size);
+        ASSERT(regular->size == subArenaSource.size);
         regular->size = 0;
         DebugGeneralAllocation *subArenaTarget = NewDebugGeneralAllocation(targetStore);
         AddAllocation(allocations, subArenaTarget);

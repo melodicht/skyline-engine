@@ -14,6 +14,7 @@ set(DAWN_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(DAWN_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(DAWN_ENABLE_NULL OFF CACHE BOOL "" FORCE)
 set(DAWN_USE_GLFW OFF CACHE BOOL "" FORCE)
+set(DAWN_BUILD_WIRE OFF CACHE BOOL "" FORCE)
 
 # Tint options (Dawn's shader compiler)
 set(TINT_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
@@ -30,6 +31,19 @@ set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 
 set(DAWN_FETCH_DEPENDENCIES ON)
 
+set(SKL_WGPU_PCH_HEADERS
+        <iostream>
+        <string>
+        <vector>
+        <algorithm>
+        <webgpu/webgpu.h>)
+
+if(APPLE)
+        set_source_files_properties(${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp PROPERTIES 
+                COMPILE_FLAGS "-x objective-c++"
+                SKIP_PRECOMPILE_HEADERS ON)
+endif()
+
 set(SKL_WGPU_SOURCES
         renderer_wgpu.cpp 
         render_backend_wgpuimpl.cpp
@@ -45,57 +59,44 @@ set(SKL_WGPU_TARGET_INCLUDE_LIST
         ${CMAKE_SOURCE_DIR}/include/renderer/webgpu
         $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/empty.c "")
+add_library(webgpu STATIC ${CMAKE_CURRENT_BINARY_DIR}/empty.c)
 if(EMSCRIPTEN)
-        add_library(wgpu-backend SHARED ${SKL_WGPU_SOURCES})
-        target_include_directories(wgpu-backend PRIVATE ${SKL_WGPU_TARGET_INCLUDE_LIST})
-
-        add_library(webgpu INTERFACE)
         # Fetches emscripten Dawn port
         # Got a lot of help from "https://github.com/eliemichel/WebGPU-distribution/blob/main/emdawnwebgpu/CMakeLists.txt"
-        CPMAddPackage(NAME emdawn URL "https://github.com/google/dawn/releases/download/v20250519.170457/emdawnwebgpu_pkg-v20250519.170457.zip")
+        CPMAddPackage(NAME emdawn URL "https://github.com/google/dawn/releases/download/v20260116.192439/emdawnwebgpu_pkg-v20260116.192439.zip")
         set(emdawn_ROOT "${emdawn_SOURCE_DIR}")
         target_link_options(webgpu INTERFACE 
-                -sUSE_SDL=3
-                -sASYNCIFY
-                -sALLOW_MEMORY_GROWTH
+                ${EMSCRIPTEN_OPTIONS}
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
                 --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
         target_compile_options(webgpu INTERFACE 
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
-                -DDAWN_DEBUG_BREAK_ON_ERROR=1
-                IMGUI_DISABLE)
-        set_property(TARGET webgpu APPEND PROPERTY LINK_DEPENDS 
-                ../notes.txt
-        )
+                -DDAWN_DEBUG_BREAK_ON_ERROR=1)
 else()
-        add_library(wgpu-backend SHARED ${SKL_WGPU_SOURCES})
-        target_include_directories(wgpu-backend PRIVATE ${SKL_WGPU_TARGET_INCLUDE_LIST})
-
-        add_library(webgpu INTERFACE)
-
-        target_compile_definitions(wgpu-backend PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 
         # Fetches Dawn
         # set(DAWN_FETCH_DEPENDENCIES ON)
         set(DAWN_BUILD_MONOLITHIC_LIBRARY SHARED)
 
-        CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/chromium/7285.tar.gz")
-
+        CPMAddPackage(NAME dawn URL "https://github.com/Jianwen-Ding/Dawn-Xcode-Compliant/releases/download/Misc/dawn_7559_Xcode_compliant.tar.gz")
+        
         target_link_libraries(webgpu INTERFACE dawn::webgpu_dawn)
 endif()
 
 # Includes ported SDL3-webgpu conduit
 add_subdirectory(${CMAKE_SOURCE_DIR}/include/renderer/webgpu/sdl3webgpu-main sdl3webgpu)
 
-set(SKL_WGPU_PCH_HEADERS
-        <iostream>
-        <string>
-        <vector>
-        <algorithm>
-        <webgpu/webgpu.h>)
-
+add_library(wgpu-backend SHARED ${SKL_WGPU_SOURCES})
+target_include_directories(wgpu-backend PRIVATE ${SKL_WGPU_TARGET_INCLUDE_LIST})
+target_compile_definitions(wgpu-backend PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 target_precompile_headers(wgpu-backend PRIVATE ${SKL_WGPU_PCH_HEADERS})
 
-target_link_libraries(wgpu-backend PRIVATE SKL_COMPILE_DEFINITIONS)
-
-target_link_libraries(wgpu-backend PRIVATE glm::glm sdl3webgpu imgui skl-utils)
+target_link_libraries(wgpu-backend PUBLIC 
+        sdl3webgpu)
+target_link_libraries(wgpu-backend PRIVATE
+        SKL_COMPILE_DEFINITIONS
+        glm::glm
+        imgui
+        skl-utils)
+set_side_module(wgpu-backend)

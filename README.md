@@ -189,6 +189,9 @@ Any other dependencies of our project are installed when cmake is run.
 5. Click auto generate schemes and select 'platform' scheme.
 6. Hit run.
 
+## Emscripten Example Build Steps
+
+
 # Design Notes
 
 - The reason why `u64` is used for EntityID is to avoid narrowing. We use

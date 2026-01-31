@@ -36,6 +36,21 @@ typedef size_t   siz;
 #define local static
 #define local_persist static
 
+// Platform definitions
+#if (defined(__APPLE__) && defined(__MACH__))
+    #define PLATFORM_APPLE
+#endif
+
+#if defined(__unix__) || defined(__unix) || defined(unix) ||    \
+    (defined(PLATFORM_APPLE))
+    #define PLATFORM_UNIX
+#endif 
+
+#if defined(_WIN32) || defined(_WIN64)
+    #define PLATFORM_WINDOWS
+#endif
+
+
 // Logging
 #if SKL_ENABLED_LOGGING
 

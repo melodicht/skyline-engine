@@ -39,19 +39,19 @@ static u64 EstimateCPUTimerFreq(void)
     return CPUFreq;
 }
 
-#if defined(__aarch64__)
+#if defined(PLATFORM_UNIX)
+// Uses POSiX time library to get nanoseconds
+#include <time.h>
 static u64 GetOSTimerFreq(void)
 {
-    uint64_t freq;
-    asm volatile("mrs %0, cntfrq_el0" : "=r"(freq));
-    return freq;
+    return 1000000000ULL;
 }
 
 static u64 ReadOSTimer(void)
 {
-    uint64_t cntvct;
-    asm volatile("mrs %0, cntvct_el0" : "=r"(cntvct) :: "memory");
-    return cntvct;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (u64)ts.tv_sec * 1000000000ULL + (u64)ts.tv_nsec;
 }
 
 #elif defined(_WIN32)
@@ -90,6 +90,17 @@ static u64 ReadOSTimer(void)
 	
 	u64 Result = GetOSTimerFreq()*(u64)Value.tv_sec + (u64)Value.tv_usec;
 	return Result;
+}
+#elif EMSCRIPTEN
+#include <emscripten.h>
+static u64 GetOSTimerFreq(void)
+{
+	return 1000000000ULL;
+}
+
+static u64 ReadOSTimer(void)
+{
+	return static_cast<u64>(emscripten_get_now() * 1000000ULL);
 }
 #else
 #warning "Platform is unsupported by skyline engine timer"
