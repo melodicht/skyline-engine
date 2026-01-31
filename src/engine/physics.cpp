@@ -254,7 +254,7 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
 
         if (!sb->initialized)
         {
-            JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(sb->volume);
+            JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(t->GetLocalScale());
             JPH::Vec3 halfExtent{
                 abs(abs(joltVolume.GetX()) / 2),
                 abs(abs(joltVolume.GetY()) / 2),

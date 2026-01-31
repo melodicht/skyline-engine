@@ -40,10 +40,9 @@ COMPONENT(PlayerCharacter)
 
 struct StaticBox
 {
-    glm::vec3 volume;
     bool initialized = false;
 };
-SERIALIZE(StaticBox, volume)
+SERIALIZE(StaticBox)
 COMPONENT(StaticBox)
 
 struct CameraComponent
