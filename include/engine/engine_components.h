@@ -29,6 +29,10 @@ struct PlayerCharacter
 {
     JPH::CharacterVirtual* characterVirtual = nullptr;
     f32 moveSpeed = 5.0f;
+
+    // NOTE(marvin): Defined by the character having enough velocity
+    // to reach to minimum jump height.
+    b32 isJumping;
 };
 SERIALIZE(PlayerCharacter, moveSpeed)
 COMPONENT(PlayerCharacter)
@@ -36,10 +40,9 @@ COMPONENT(PlayerCharacter)
 
 struct StaticBox
 {
-    glm::vec3 volume;
     bool initialized = false;
 };
-SERIALIZE(StaticBox, volume)
+SERIALIZE(StaticBox)
 COMPONENT(StaticBox)
 
 struct CameraComponent

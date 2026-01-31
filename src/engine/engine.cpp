@@ -89,9 +89,17 @@ GAME_INITIALIZE(GameInitialize)
     else
     {
     #endif
-        memory.sklPhysicsSystem = static_cast<void*>(scene.CreateSemifixedTimestepSystem<SKLPhysicsSystem>());
+        #if !SKL_NO_DEFAULT_PHYSICS_SYSTEM
+        SKLPhysicsSystem* sklPhysicsSystem = scene.CreateSemifixedTimestepSystem<SKLPhysicsSystem>();
+        memory.sklPhysicsSystem = static_cast<void*>(sklPhysicsSystem);
+        #endif
 
-        OnGameStart(gameState);
+        OnGameStart(gameState, &memory);
+
+        #if !SKL_NO_DEFAULT_PHYSICS_SYSTEM
+        b32 physicsSystemFirstTimeInitialize = true;
+        sklPhysicsSystem->Initialize(physicsSystemFirstTimeInitialize);
+        #endif
 
         FindCamera(*gameState);
     #if SKL_ENABLED_EDITOR
@@ -121,11 +129,16 @@ GAME_LOAD(GameLoad)
 
     DebugUpdate(memory);
 
+    OnGameLoad(&memory);
+
+    // TODO(marvin): If user wants to sub in their own physics system, they need to allow the engine re-initialize it on hot reload. Thus, game load would need to hook into game side as well. Furthermore, would need to pass in either the entire game memory, or the memory address to the physics system. GameInitialize will also need to have that same parameter, to set it.
+    #if !SKL_NO_DEFAULT_PHYSICS_SYSTEM
     SKLPhysicsSystem* sklPhysicsSystem = static_cast<SKLPhysicsSystem*>(memory.sklPhysicsSystem);
     if (sklPhysicsSystem)
     {
         sklPhysicsSystem->Initialize();
     }
+    #endif
 }
 
 local void LogDebugRecords();

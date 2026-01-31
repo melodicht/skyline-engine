@@ -98,7 +98,7 @@ struct ComponentPool
 
     inline EntityID getOwner(u8 *ptr)
     {
-        return ((size_t)(ptr - pData)) / elementSize;
+        return CreateEntityId((size_t)(ptr - pData) / elementSize, 0);
     }
 };
 

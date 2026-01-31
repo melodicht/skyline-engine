@@ -32,6 +32,30 @@ s32 WriteFromData<f32>(f32* dest, DataEntry* data)
 }
 
 template <>
+s32 WriteFromData<s64>(s64* dest, DataEntry* data)
+{
+    if (data->type != INT_ENTRY)
+    {
+        printf("entry must be int but instead is %d\n", data->type);
+        return -1;
+    }
+    *dest = data->intVal;
+    return 0;
+}
+
+template <>
+s32 WriteFromData<f64>(f64* dest, DataEntry* data)
+{
+    if (data->type != FLOAT_ENTRY)
+    {
+        printf("entry must be float but instead is %d\n", data->type);
+        return -1;
+    }
+    *dest = data->floatVal;
+    return 0;
+}
+
+template <>
 s32 WriteFromData<bool>(bool* dest, DataEntry* data)
 {
     if (data->type != BOOL_ENTRY)
@@ -104,11 +128,23 @@ DataEntry* ReadToData(T* src, std::string name)
 template <>
 DataEntry* ReadToData<s32>(s32* src, std::string name)
 {
-    return new DataEntry(name, *src);
+    return new DataEntry(name, (s64)*src);
 }
 
 template <>
 DataEntry* ReadToData<f32>(f32* src, std::string name)
+{
+    return new DataEntry(name, *src);
+}
+
+template <>
+DataEntry* ReadToData<s64>(s64* src, std::string name)
+{
+    return new DataEntry(name, *src);
+}
+
+template <>
+DataEntry* ReadToData<f64>(f64* src, std::string name)
 {
     return new DataEntry(name, *src);
 }

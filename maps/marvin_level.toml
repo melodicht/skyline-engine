@@ -1,47 +1,68 @@
-### NOTE(marvin): For my game, will require MARVIN_GAME flag when cmake.
+[floor.MeshComponent]
+color = [ 1.0, 1.0, 1.0 ]
+mesh = 'cube'
+texture = ''
 
-
-## Player character
-
-[playerBody.Transform3D]
-position = [0.0, 0.0, 3.0]
-[playerBody.HorizontalLook]
-[playerBody.PlayerCharacter]
-[playerBody.MeshComponent]
-mesh = "cube"
-texture = "diamond_ore"
-
-[playerHead.Transform3D]
-position = [0.0, 0.0, 2.0]
-parent = "playerBody"
-[playerHead.CameraComponent]
-farPlane = 100.0
-[playerHead.VerticalLook]
-
-
-## The floor
+[floor.StaticBox]
+volume = [ 100.0, 100.0, 1.0 ]
 
 [floor.Transform3D]
-position = [0.0, 0.0, -5.0]
-scale = [100.0, 100.0, 1.0]
-[floor.MeshComponent]
-mesh = "cube"
-[floor.StaticBox]
-volume = [50.0, 50.0, 1.0]
+parent = ''
+position = [ 0.0, 0.0, -5.0 ]
+rotation = [ 0.0, 0.0, 0.0 ]
+scale = [ 100.0, 100.0, 1.0 ]
+
+[mainLight.DirLight]
+diffuse = [ 1.0, 1.0, 1.0 ]
+specular = [ 1.0, 1.0, 1.0 ]
 
 [mainLight.Transform3D]
-rotation = [0.0, 30.0, 30.0]
-[mainLight.DirLight]
-diffuse = [1.0, 1.0, 1.0]
-specular = [1.0, 1.0, 1.0]
+parent = ''
+position = [ 0.0, 0.0, 0.0 ]
+rotation = [ 0.0, 30.0, 30.0 ]
+scale = [ 1.0, 1.0, 1.0 ]
 
+[playerBody.HorizontalLook]
+turnSpeed = 0.10000000149011612
 
-## Static Box
+[playerBody.MeshComponent]
+color = [ 1.0, 1.0, 1.0 ]
+mesh = 'cube'
+texture = 'diamond_ore'
+
+[playerBody.PlayerCharacter]
+moveSpeed = 5.0
+
+[playerBody.Transform3D]
+parent = ''
+position = [ 0.0, 0.0, 3.0 ]
+rotation = [ 0.0, 0.0, 0.0 ]
+scale = [ 1.0, 1.0, 1.0 ]
+
+[playerHead.CameraComponent]
+farPlane = 100.0
+fov = 90.0
+nearPlane = 0.0099999997764825821
+
+[playerHead.Transform3D]
+parent = 'playerBody'
+position = [ 0.0, 0.0, 2.0 ]
+rotation = [ 0.0, 0.0, 0.0 ]
+scale = [ 1.0, 1.0, 1.0 ]
+
+[playerHead.VerticalLook]
+turnSpeed = 0.10000000149011612
+
+[sb.MeshComponent]
+color = [ 1.0, 1.0, 1.0 ]
+mesh = 'cube'
+texture = 'diamond_ore'
+
+[sb.StaticBox]
+volume = [ 3.0, 3.0, 3.0 ]
 
 [sb.Transform3D]
-position = [10.0, 0.0, 2.0]
-[sb.MeshComponent]
-mesh = "cube"
-texture = "diamond_ore"
-[sb.StaticBox]
-volume = [1.5, 1.5, 1.5]
+parent = ''
+position = [ 5.0, 0.0, -0.5 ]
+rotation = [ 0.0, 0.0, 0.0 ]
+scale = [ 3.0, 3.0, 3.0 ]

@@ -82,17 +82,17 @@ DataEntry* LoadNodeToData(std::string name, toml::node& node)
 {
     if (node.is_integer())
     {
-        return new DataEntry(name, (s32)node.as_integer()->get());
+        return new DataEntry(name, node.as_integer()->get());
     }
-    else if (node.is_floating_point())
+    if (node.is_floating_point())
     {
-        return new DataEntry(name, (f32)node.as_floating_point()->get());
+        return new DataEntry(name, node.as_floating_point()->get());
     }
-    else if (node.is_boolean())
+    if (node.is_boolean())
     {
         return new DataEntry(name, node.as_boolean()->get());
     }
-    else if (node.is_array())
+    if (node.is_array())
     {
         toml::array* array = node.as_array();
         glm::vec3 vector =
@@ -103,11 +103,11 @@ DataEntry* LoadNodeToData(std::string name, toml::node& node)
         };
         return new DataEntry(name, vector);
     }
-    else if (node.is_string())
+    if (node.is_string())
     {
         return new DataEntry(name, node.as_string()->get());
     }
-    else if (node.is_table())
+    if (node.is_table())
     {
         return LoadTableToData(name, node.as_table());
     }

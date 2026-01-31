@@ -8,22 +8,22 @@ glm::vec3 GetMovementDirection(GameInput *input, Transform3D *t)
 {
     glm::vec3 result{};
 
-    if (input->keysDown.contains("W"))
+    if (OnHold(input, "W"))
     {
         result += t->GetForwardVector();
     }
 
-    if (input->keysDown.contains("S"))
+    if (OnHold(input, "S"))
     {
         result -= t->GetForwardVector();
     }
 
-    if (input->keysDown.contains("D"))
+    if (OnHold(input, "D"))
     {
         result += t->GetRightVector();
     }
 
-    if (input->keysDown.contains("A"))
+    if (OnHold(input, "A"))
     {
         result -= t->GetRightVector();
     }

@@ -52,6 +52,10 @@ if(NOT DEFINED MARVIN_GAME)
         option(MARVIN_GAME "Whether you're making the Marvin game" 0)
 endif()
 
+if(NOT DEFINED SKL_NO_DEFAULT_PHYSICS_SYSTEM)
+        option(SKL_NO_DEFAULT_PHYSICS_SYSTEM "Whether you don't want the default physics system" 0)
+endif()
+
 # When debugging mode is active, determines whether logging should also be enabled.
 if(NOT DEFINED SKL_ENABLE_LOGGING)
         if(${SKL_INTERNAL})
@@ -89,6 +93,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_ENABLED_LOGGING=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
         MARVIN_GAME=${MARVIN_GAME}
+        SKL_NO_DEFAULT_PHYSICS_SYSTEM=${SKL_NO_DEFAULT_PHYSICS_SYSTEM}
         SKL_SLOW=${SKL_SLOW}
         SKL_BASE_PATH="${SKL_BASE_PATH}"
         GLM_FORCE_DEPTH_ZERO_TO_ONE

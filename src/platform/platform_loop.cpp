@@ -115,7 +115,7 @@ namespace {
         ASSERT(bytesWritten == sizeof(*gameInput) && "Failed to properly write.");
 
         // NOTE(marvin): Have to manually deserialize std set.
-        SDLRecordStdSetOfString(state, &gameInput->keysDown);
+        SDLRecordStdSetOfString(state, &gameInput->keysDownThisFrame);
     }
 
     void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
@@ -139,15 +139,15 @@ namespace {
         }
     }
 
-    void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
-    {
+    void SDLPlaybackInput(SDLState* state, GameInput* gameInput) {
         // NOTE(marvin): Would it be possible for there to be two notion
         // of mouse? One used in the game, and one for interacting with
         // the editor?
 
         // NOTE(marvin): Need to destroy the std set prior to writing to
         // it because the write will corrupt std set memory. Reconstruct it after.
-        gameInput->keysDown.~set();
+        gameInput->keysDownPrevFrame.~set();
+        gameInput->keysDownThisFrame.~set();
         siz bytesRead = SDL_ReadIO(state->loopState.playbackHandle, gameInput, sizeof(*gameInput));
 
         if (bytesRead == 0)
@@ -160,8 +160,10 @@ namespace {
         }
         ASSERT(bytesRead == sizeof(*gameInput));
         
-        new (&gameInput->keysDown) std::set<std::string>();
-        SDLPlaybackStdSetOfString(state, &gameInput->keysDown);
+        new (&gameInput->keysDownPrevFrame) std::set<std::string>();
+        new (&gameInput->keysDownThisFrame) std::set<std::string>();
+        SDLPlaybackStdSetOfString(state, &gameInput->keysDownPrevFrame);
+        SDLPlaybackStdSetOfString(state, &gameInput->keysDownThisFrame);
     }
 }
 

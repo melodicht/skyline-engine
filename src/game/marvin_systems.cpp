@@ -16,10 +16,7 @@ SYSTEM_ON_UPDATE(GravityBallsSystem)
 {
     // NOTE(marvin): When player right clicks, spawns a gravity ball, heading the
     // direction that the user is facing.
-    b32 triggerIsDown = input->keysDown.contains("Mouse 3");
-
-    // TODO(marvin): The idea of "on press" should be encoded into the input struct.
-    if (triggerIsDown and !triggerWasDown)
+    if (OnPress(input, "Mouse 3"))
     {
         EntityID gravityBall = scene->NewEntity();
         GravityBall *gb = scene->Assign<GravityBall>(gravityBall);
@@ -41,8 +38,6 @@ SYSTEM_ON_UPDATE(GravityBallsSystem)
         t->SetLocalPosition(cameraPosition);
         t->SetLocalRotation(cameraRotation);
     }
-
-    this->triggerWasDown = triggerIsDown;
 
     std::vector<EntityID> gbToDestroy;
 
