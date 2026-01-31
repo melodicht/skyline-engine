@@ -39,9 +39,10 @@ specular = [1.0, 1.0, 1.0]
 ## Static Box
 
 [sb.Transform3D]
-position = [10.0, 0.0, 2.0]
+position = [5.0, 0.0, 1.0]
+scale = [3.0, 3.0, 3.0]
 [sb.MeshComponent]
 mesh = "cube"
 texture = "diamond_ore"
 [sb.StaticBox]
-volume = [1.5, 1.5, 1.5]
+volume = [3.0, 3.0, 3.0]
