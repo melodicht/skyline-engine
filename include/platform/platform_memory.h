@@ -46,10 +46,6 @@ struct SDLState
 extern SDLState globalSDLState;
 
 // >>> Platform Allocator helpers <<<
-namespace {
-    inline siz RoundUpToMultiple(siz value, siz N);
-}
-
 void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block);
 
 void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block);

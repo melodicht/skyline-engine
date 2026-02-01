@@ -96,13 +96,21 @@ typedef size_t   siz;
 #define DEBUG_BREAK() (*(volatile int*)0 = 0)
 #endif
 
+// Breaks if expression is false, doesn't run at all in release build
 #define ASSERT(Expression) if(!(Expression)) { DEBUG_BREAK(); }
+//Breaks if expression is false and prints message, doesn't run at all in release build
 #define ASSERT_PRINT(Expression, Message) if(!(Expression)) { fputs(Message, stderr); DEBUG_BREAK(); }
 
+// Breaks if expression is false, keeps just expression in release build
+#define TRY(Expression) if (!(Expression)) { DEBUG_BREAK(); }
+// Breaks if expression has different value then expected, keeps just expression in release build
+#define TRY_EXPECT(Expression, Expected) if ((Expression) != (Expected)) { DEBUG_BREAK(); }
 
 #else
 #define ASSERT(Expression)
 #define ASSERT_PRINT(...)
+#define TRY(Expression) Expression;
+#define TRY_EXPECT(Expression, Expected) Expression;
 #endif
 
 

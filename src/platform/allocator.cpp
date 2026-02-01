@@ -13,15 +13,14 @@
 
 SDLState globalSDLState = {};
 
-// >>> Memory Helpers <<<
-
-namespace {
-    inline siz RoundUpToMultiple(siz value, siz N) {
-        siz result = ((value + N - 1) / N) * N;
-        return result;
-    }
+// >>> Local Helper Functions <<<
+local inline siz RoundUpToMultiple(siz value, siz N) {
+    siz result = ((value + N - 1) / N) * N;
+    return result;
 }
 
+// >>> Global Function Interface <<<
+// > Memory Helpers <
 void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
 {
     SDLMemoryBlock *sentinel = &state->memoryBlockSentinel;
@@ -51,7 +50,7 @@ void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     block->next = {};
 }
 
-// >>> Game Module Interface Implementation <<<
+// > Game Module Interface Implementation <
 
 void* AlignedAllocate(siz requestedSize, siz alignment)
 {

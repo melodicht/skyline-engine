@@ -39,34 +39,6 @@ struct LoopState {
     };
 };
 
-namespace {
-    const char* SDLGetInputFilePath();
-
-    bool SDLIsInLoop(SDLState* state);
-
-    void SDLClearBlocksByMask(SDLState* state, SDLMemoryFlags mask);
-
-    void SDLBeginInputPlayback(SDLState* state);
-
-    void SDLEndInputPlayback(SDLState* state);
-
-    void SDLBeginRecordingInput(SDLState* state);
-
-    void SDLEndRecordingInput(SDLState* state);
-
-    void SDLRecordStdString(SDLState* state, const std::string* str);
-
-    void SDLRecordStdSetOfString(SDLState* state, std::set<std::string>* strings);
-
-    void SDLRecordInput(SDLState* state, GameInput* gameInput);
-
-    void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings);
-
-    void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings);
-
-    void SDLPlaybackInput(SDLState* state, GameInput* gameInput);
-}
-
 void ToggleLoopedLiveEditingState(SDLState* state);
 
 // Based on live editing state, stores or plays game input
