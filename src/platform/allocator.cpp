@@ -34,7 +34,7 @@ void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     sentinel->prev = block;
     EndTicketMutex(&state->memoryMutex);
 
-    SetFlagAllocatedIfInLoop(state,&last->loopingFlags);
+    SetFlagAllocatedIfInLoop(state,&block->loopingFlags);
 }
 
 void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
