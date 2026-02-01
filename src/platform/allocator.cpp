@@ -1,12 +1,7 @@
 // Responsible for the platform's memory allocator functionality,
 // which allows for the game to make allocations after game
 // initialize.
-
-#include <SDL3/SDL.h>
-
-#include <meta_definitions.h>
-#include <skl_types.h>
-#include <main.h>
+#include <platform_memory.h>
 
 // TODO(marvin): Clients of this interface don't go through memory.h. A great divide between treatment of fix-sized and dynamic memory in the codebase.
 
@@ -16,6 +11,16 @@
 // the base pointer into the memory which the user may use. Every
 // allocation made here is kept track in the platform's dynamic arena.
 
+SDLState globalSDLState = {};
+
+// >>> Local Helper Functions <<<
+local inline siz RoundUpToMultiple(siz value, siz N) {
+    siz result = ((value + N - 1) / N) * N;
+    return result;
+}
+
+// >>> Global Function Interface <<<
+// > Memory Helpers <
 void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
 {
     SDLMemoryBlock *sentinel = &state->memoryBlockSentinel;
@@ -29,7 +34,7 @@ void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     sentinel->prev = block;
     EndTicketMutex(&state->memoryMutex);
 
-    last->loopingFlags = static_cast<SDLMemoryFlags>(SDLIsInLoop(state) ? sdlMem_allocatedDuringLoop : 0);
+    SetFlagAllocatedIfInLoop(state,&last->loopingFlags);
 }
 
 void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
@@ -45,11 +50,7 @@ void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     block->next = {};
 }
 
-
-inline siz RoundUpToMultiple(siz value, siz N) {
-    siz result = ((value + N - 1) / N) * N;
-    return result;
-}
+// > Game Module Interface Implementation <
 
 void* AlignedAllocate(siz requestedSize, siz alignment)
 {
@@ -83,11 +84,7 @@ void AlignedFree(void* block)
 {
     SDLMemoryBlock *memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
-    if (SDLIsInLoop(&globalSDLState))
-    {
-        memoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
-    }
-    else
+    if (!SetFlagFreedIfInLoop(&globalSDLState, &memoryBlockBase->loopingFlags))
     {
         RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
         SDL_aligned_free(toFree);
@@ -125,11 +122,8 @@ void Free(void* block)
     // TODO(marvin): Very similar to AlignedFree, except SDL_free instead of SDL_aligned_free.... Is it worth abstracting?
     SDLMemoryBlock* memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
-    if (SDLIsInLoop(&globalSDLState))
-    {
-        memoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
-    }
-    else
+
+    if (!SetFlagFreedIfInLoop(&globalSDLState, &memoryBlockBase->loopingFlags))
     {
         RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
         SDL_free(toFree);
@@ -166,11 +160,7 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
         newMemoryBlockBase->wholeBase = newBase;
         newMemoryBlockBase->requestedSize = newRequestedSize;
 
-        if (SDLIsInLoop(&globalSDLState))
-        {
-            oldMemoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
-        }
-        else
+        if (!SetFlagFreedIfInLoop(&globalSDLState, &oldMemoryBlockBase->loopingFlags))
         {
             RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
         }

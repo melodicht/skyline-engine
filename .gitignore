@@ -419,9 +419,9 @@ build-release/*
 !build-release/.gitkeep
 
 
+/webbin
 /build_external
 /build-external
-/xcodebuild
 /test
 /subprojects
 /webbuild

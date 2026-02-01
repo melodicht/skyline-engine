@@ -36,6 +36,21 @@ typedef size_t   siz;
 #define local static
 #define local_persist static
 
+// Platform definitions
+#if (defined(__APPLE__) && defined(__MACH__))
+    #define PLATFORM_APPLE
+#endif
+
+#if defined(__unix__) || defined(__unix) || defined(unix) ||    \
+    (defined(PLATFORM_APPLE))
+    #define PLATFORM_UNIX
+#endif 
+
+#if defined(_WIN32) || defined(_WIN64)
+    #define PLATFORM_WINDOWS
+#endif
+
+
 // Logging
 #if SKL_ENABLED_LOGGING
 
@@ -81,13 +96,21 @@ typedef size_t   siz;
 #define DEBUG_BREAK() (*(volatile int*)0 = 0)
 #endif
 
+// Breaks if expression is false, doesn't run at all in release build
 #define ASSERT(Expression) if(!(Expression)) { DEBUG_BREAK(); }
+//Breaks if expression is false and prints message, doesn't run at all in release build
 #define ASSERT_PRINT(Expression, Message) if(!(Expression)) { fputs(Message, stderr); DEBUG_BREAK(); }
 
+// Breaks if expression is false, keeps just expression in release build
+#define TRY(Expression) if (!(Expression)) { DEBUG_BREAK(); }
+// Breaks if expression has different value then expected, keeps just expression in release build
+#define TRY_EXPECT(Expression, Expected) if ((Expression) != (Expected)) { DEBUG_BREAK(); }
 
 #else
 #define ASSERT(Expression)
 #define ASSERT_PRINT(...)
+#define TRY(Expression) Expression;
+#define TRY_EXPECT(Expression, Expected) Expression;
 #endif
 
 

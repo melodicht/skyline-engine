@@ -428,7 +428,7 @@ public:
             .lodMinClamp = lowestMipMap,
             .lodMaxClamp = greatestMipMap,
             .compare = compareFunction,
-            .maxAnisotropy = maxAnisotropy,
+            .maxAnisotropy = maxAnisotropy
         };
     
         m_samplerData = wgpuDeviceCreateSampler(device, &samplerDesc);

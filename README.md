@@ -189,6 +189,9 @@ Any other dependencies of our project are installed when cmake is run.
 5. Click auto generate schemes and select 'platform' scheme.
 6. Hit run.
 
+## Emscripten Example Build Steps
+
+
 # Engine Features
 
 ## Looped-live Playback

@@ -152,12 +152,9 @@ struct DebugState
 
 extern DebugState *globalDebugState;
 
-#endif
 
 // NOTE(marvin): The reason for the macros is to have them compiled
 // away in non-internal release.
-
-#if SKL_INTERNAL
 
 #define DebugInitialize(...) DebugInitialize_(__VA_ARGS__)
 #define DebugUpdate(...) DebugUpdate_(__VA_ARGS__)
