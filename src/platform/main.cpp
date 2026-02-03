@@ -157,6 +157,9 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten, b32 editor)
     {
         LOG_ERROR("Game code loading failed.");
         LOG_ERROR(SDL_GetError());
+        SDL_RemovePath(gameCodeUseFilePath.c_str());
+        reloadCount--;
+        return result;
     }
 
     result.gameInitialize = (game_initialize_t *)SDL_LoadFunction(result.sharedObjectHandle, "GameInitialize");
@@ -169,9 +172,15 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten, b32 editor)
     else
     {
         LOG_ERROR("Unable to load symbols from game shared object.");
+        if (result.sharedObjectHandle)
+        {
+            SDL_UnloadObject(result.sharedObjectHandle);
+        }
+        result.sharedObjectHandle = 0;
         result.gameInitialize = 0;
         result.gameLoad = 0;
         result.gameUpdateAndRender = 0;
+        return result;
 
     }
     return result;
@@ -193,21 +202,24 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
     gameCode->gameInitialize = 0;
     gameCode->gameLoad = 0;
     gameCode->gameUpdateAndRender = 0;
-    reloadCount++;
 }
 
 local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
 {
-    b32 result;
     const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
-    gameCode->fileNewLastWritten_ = SDLGetFileLastWritten(gameCodeSrcFilePath);
-
-    if (gameCode->fileNewLastWritten_)
+    SDL_PathInfo pathInfo;
+    if (!SDL_GetPathInfo(gameCodeSrcFilePath, &pathInfo))
     {
-        result = gameCode->fileNewLastWritten_ > gameCode->fileLastWritten;
+        LOG_ERROR("Unable to get game code path info");
+        return false;
+    }
+    if (!pathInfo.size)
+    {
+        return false;
     }
 
-    return result;
+    gameCode->fileNewLastWritten_ = pathInfo.modify_time;
+    return gameCode->fileNewLastWritten_ > gameCode->fileLastWritten;
 }
 
 // Kills the previous game process if it exists before creating the new game process.
@@ -238,10 +250,15 @@ void updateLoop(void* appInfo) {
     SDLGameCode &gameCode = info->gameCode;
     if (SDLGameCodeChanged(&gameCode))
     {
-        SDLUnloadGameCode(&gameCode);
-        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_, info->editor);
-        gameCode = info->gameCode;
-        gameCode.gameLoad(info->gameMemory, info->editor, true);
+        reloadCount++;
+        SDLGameCode newCode = SDLLoadGameCode(gameCode.fileNewLastWritten_, info->editor);
+        if (newCode.sharedObjectHandle)
+        {
+            SDLUnloadGameCode(&gameCode);
+            info->gameCode = newCode;
+            gameCode = info->gameCode;
+            gameCode.gameLoad(info->gameMemory, info->editor, true);
+        }
     }
 
     GameInput gameInput;
