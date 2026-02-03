@@ -140,6 +140,12 @@ endif()
 #==============================================================================
 
 set(CPM_SOURCE_CACHE "${CMAKE_CURRENT_SOURCE_DIR}/build-external")
+set(SDL_GPU OFF)
+set(SDL_RENDER OFF)
+set(SDL_CAMERA OFF)
+set(SDL_HAPTIC OFF)
+set(SDL_POWER OFF)
+set(SDL_SENSOR OFF)
 
 if (EMSCRIPTEN)
         add_library(SDL3PORT INTERFACE)
