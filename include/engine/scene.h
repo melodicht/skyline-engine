@@ -189,7 +189,7 @@ ComponentID GetComponentId()
         return count;
     }
 
-    ASSERT(false && "Invalid component ID");
+    ASSERT_PRINT(false, "Invalid component ID");
     exit(1);
 }
 
@@ -199,7 +199,7 @@ ComponentID GetComponentId()
 
 struct EntityEntry
 {
-    EntityID id; // though redundent with index in array, required
+    EntityID id; // though redundant with index in array, required
     // for deleting entities,
 
     // NOTE(marvin): Only to be used within ECS-specific code.
@@ -237,7 +237,7 @@ inline b32 EntityEntryInvalid(EntityEntry *entityEntry)
 // The entity entry should be marked as invalid.
 inline void ValidateEntityEntryWithIndex(EntityEntry *entityEntry, u32 index)
 {
-    ASSERT(EntityEntryInvalid(entityEntry) &&
+    ASSERT_PRINT(EntityEntryInvalid(entityEntry),
            "A free entity entry should be marked as an invalid entity.");
 
     u32 entityVersion = GetEntityVersion(entityEntry->id);

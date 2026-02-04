@@ -46,7 +46,7 @@ local void SDLBeginInputPlayback(SDLState* state)
     if (state->loopState.playbackHandle == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        ASSERT(!"Failed to read recorded input file for looped-live editing.");
+        ASSERT_PRINT(false, "Failed to read recorded input file for looped-live editing.");
     }
     else
     {
@@ -70,7 +70,7 @@ local void SDLBeginRecordingInput(SDLState* state)
     if (state->loopState.recordingHandle == NULL)
     {
         LOG_ERROR(SDL_GetError());
-        ASSERT(!"Failed to create recording handle for looped-live editing.");
+        ASSERT_PRINT(false, "Failed to create recording handle for looped-live editing.");
     }
     else
     {
@@ -108,7 +108,7 @@ local void SDLRecordInput(SDLState* state, GameInput* gameInput)
 {
     // NOTE(marvin): The keys down is not going to be used.
     siz bytesWritten = SDL_WriteIO(state->loopState.recordingHandle, gameInput, sizeof(*gameInput));
-    ASSERT(bytesWritten == sizeof(*gameInput) && "Failed to properly write.");
+    ASSERT_PRINT(bytesWritten == sizeof(*gameInput), "Failed to properly write.");
 
     // NOTE(marvin): Have to manually deserialize std set.
     SDLRecordStdSetOfString(state, &gameInput->keysDownPrevFrame);
@@ -128,7 +128,7 @@ local void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
 local void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings)
 {
     u32 count;
-    ASSERT(SDL_ReadIO(state->loopState.playbackHandle, &count, sizeof(count)) == sizeof(count));
+    TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, &count, sizeof(count)), sizeof(count));
 
     for (u32 index = 0; index < count; ++index)
     {

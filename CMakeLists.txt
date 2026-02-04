@@ -54,26 +54,29 @@ endif()
 
 # When debugging mode is active, determines whether logging should also be enabled.
 if(NOT DEFINED SKL_ENABLE_LOGGING)
-        if(${SKL_INTERNAL})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 1)
-        elseif(NOT ${SKL_INTERNAL})
-                option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 0)
-                message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
-        endif()
+        option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 1)
 endif()
 
 # SKL_SLOW allows for slower but more safe code.
 # Currently only controls hard stopping asserts.
 if(NOT DEFINED SKL_SLOW)
-        if(${SKL_INTERNAL})
-                option(SKL_SLOW "Whether asserts should be enabled or not" 1)
-        elseif(NOT ${SKL_INTERNAL})
-                option(SKL_SLOW "Whether asserts should be enabled or not" 0)
-                if(${SKL_SLOW})
-                        message(FATAL_ERROR "Asserts cannot be turned on for non debugging builds")
-                endif()
-        endif()
+        option(SKL_SLOW "Whether asserts should be enabled or not" 1)
 endif()
+
+# SKL_STATIC_MONOLITHIC prevents hot reloading but
+# is supported by more platforms and likely faster
+if (NOT DEFINED SKL_STATIC_MONOLITHIC)
+        if (EMSCRIPTEN)
+                set(_MONO_RESULT 1)
+        else()
+                set(_MONO_RESULT 0)
+        endif()
+        option(SKL_STATIC_MONOLITHIC "Whether the engine should be built as a single static library" ${_MONO_RESULT})
+endif()
+if ((NOT SKL_STATIC_MONOLITHIC) AND EMSCRIPTEN) 
+        message(FATAL_ERROR "Emscripten backend does not support shared libraries or hot reloading")
+endif()
+
 
 if (XCODE)
         set(SKL_BASE_PATH "${CMAKE_SOURCE_DIR}")
@@ -90,6 +93,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_NO_DEFAULT_PHYSICS_SYSTEM=${SKL_NO_DEFAULT_PHYSICS_SYSTEM}
         SKL_SLOW=${SKL_SLOW}
+        SKL_STATIC_MONOLITHIC=${SKL_STATIC_MONOLITHIC}
         SKL_BASE_PATH="${SKL_BASE_PATH}"
         GLM_FORCE_DEPTH_ZERO_TO_ONE
         GLM_FORCE_LEFT_HANDED)
