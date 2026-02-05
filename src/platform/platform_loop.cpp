@@ -10,10 +10,10 @@ local const char* SDLGetInputFilePath()
     return result;
 }
 
-local bool SDLIsInLoop(SDLState* state)
-    {
-        return state->loopState.loopedLiveEditingState != LoopedLiveEditingState::none;
-    }
+bool SDLIsInLoop(SDLState* state)
+{
+    return state->loopState.loopedLiveEditingState != LoopedLiveEditingState::none;
+}
 
 local void SDLClearBlocksByMask(SDLState* state, SDLMemoryFlags mask)
 {
@@ -206,16 +206,20 @@ bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {
         return true;
     }
     *flag = sdlMem_none;
-    return false;
+    return true;
 }
 bool SetFlagFreedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {
     if (SDLIsInLoop(state)) {
-        *flag = sdlMem_freedDuringLoop;
+        if (*flag == sdlMem_none)
+        {
+            *flag = sdlMem_freedDuringLoop;
+        }
         return true;
     }
-    return false;
+    return true;
 }
 #else
+bool SDLIsInLoop(SDLState* state) { return false; }
 void ToggleLoopedLiveEditingState(SDLState* state) {}
 void ProcessInputWithLooping(SDLState* state, GameInput* gameInput) {}
 bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {return false;}

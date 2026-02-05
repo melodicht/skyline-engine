@@ -39,6 +39,8 @@ struct LoopState {
     };
 };
 
+bool SDLIsInLoop(SDLState* state);
+
 void ToggleLoopedLiveEditingState(SDLState* state);
 
 // Based on live editing state, stores or plays game input
