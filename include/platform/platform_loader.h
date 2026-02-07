@@ -20,6 +20,8 @@
 // start ONCE. Thus, load happens before game initialize on game boot,
 // and also before game update and render on hot reload (obviously).
 
+// Represents the logic of loading the game module 
+// from the platform.
 struct GameCode
 {
 private:
