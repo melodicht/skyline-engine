@@ -1,4 +1,5 @@
-#if SKL_INTERNAL
+// TODO(marvin): Turning off memory viewer temporarily.
+#if 0
 #include <meta_definitions.h>
 #include <debug.h>
 #include <memory.h>

@@ -27,7 +27,10 @@ typedef int64_t  s64;
 typedef float    f32;
 typedef double   f64;
 
-typedef s32      b32;
+typedef bool     b8;
+typedef u32      b32;
+// If this fails this means you have to substitute b8 on a different type on your system
+static_assert(sizeof(b8) == 1);
 
 typedef size_t   siz;
 

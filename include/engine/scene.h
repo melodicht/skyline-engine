@@ -18,6 +18,8 @@ typedef u32 ComponentID;
 constexpr u32 MAX_COMPONENTS = 32;
 typedef std::bitset<MAX_COMPONENTS> ComponentMask;
 constexpr u32 MAX_ENTITIES = 32768;
+// NOTE(marvin): Fixed and variable timestep systems each get MAX_SYSTEMS.
+// TODO(marvin): Bad name MAX_SYSTEMS.
 constexpr u32 MAX_SYSTEMS = 64;
 
 constexpr u32 SYSTEMS_MEMORY = Kilobytes(16);
@@ -125,7 +127,7 @@ typedef SYSTEM_VTABLE_ON_START(system_vtable_on_start_t);
 typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
 #define SYSTEM_ON_UPDATE(...) void __VA_ARGS__ __VA_OPT__(::) OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS)
 
-#define SYSTEM_SUPER(T) System(std::type_index(typeid(T)))
+#define SYSTEM_SUPER(T) System(SystemTypeToIndex()[std::type_index(typeid(T))])
 
 struct SystemVTable
 {
@@ -133,18 +135,20 @@ struct SystemVTable
     system_vtable_on_update_t *onUpdate;
 };
 
+typedef u32 SystemIndex;
+
 // A system in our ECS, which defines operations on a subset of
 // entities, using scene view.
 
 class System
 {
 protected:
-    System(std::type_index type_) : type(type_)
+    System(SystemIndex index_) : index(index_)
     {
     }
     
 public:
-    std::type_index type;
+    SystemIndex index;
 
     virtual ~System() = default;
 

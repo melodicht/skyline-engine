@@ -2,6 +2,7 @@
 // which allows for the game to make allocations after game
 // initialize.
 #include <platform_memory.h>
+#include <platform_loop.h>
 
 // TODO(marvin): Clients of this interface don't go through memory.h. A great divide between treatment of fix-sized and dynamic memory in the codebase.
 
@@ -142,31 +143,37 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
     siz newTotalSize = sizeForMemoryBlock + newRequestedSize;
 
     // NOTE(marvin): Need to preserve padding if any.
-
     SDLMemoryBlock* oldMemoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* oldMemoryBlockBaseAddr = static_cast<void*>(oldMemoryBlockBase);
     void* oldWholeBase = oldMemoryBlockBase->wholeBase;
     siz padding = static_cast<u8*>(oldMemoryBlockBaseAddr) - static_cast<u8*>(oldWholeBase);
     
-    void* newBase = SDL_realloc(oldWholeBase, newTotalSize);
+    // NOTE(marvin): If in loop and block is allocated prior to the
+    // loop, can't just use SDL_realloc as that would purge the memory
+    // block, when it is needed when the loop restarts.
+    b32 canRealloc = !SDLIsInLoop(&globalSDLState) || oldMemoryBlockBase->loopingFlags == sdlMem_allocatedDuringLoop;
+
+    void* newBase = canRealloc ? SDL_realloc(oldWholeBase, newTotalSize) : Allocate(newTotalSize);
     void* newMemoryBlockBaseAddr = static_cast<void*>(static_cast<u8*>(newBase) + padding);
     SDLMemoryBlock* newMemoryBlockBase = static_cast<SDLMemoryBlock*>(newMemoryBlockBaseAddr);
     u8* requestedBase = static_cast<u8*>(newMemoryBlockBaseAddr) + sizeForMemoryBlock;
     void* result = static_cast<void*>(requestedBase);
-    
-    if (newMemoryBlockBase != oldMemoryBlockBase)
+
+    if (canRealloc && newMemoryBlockBase != oldMemoryBlockBase)
     {
         newMemoryBlockBase->requestedBase = result;
         newMemoryBlockBase->wholeBase = newBase;
         newMemoryBlockBase->requestedSize = newRequestedSize;
 
-        if (!SetFlagFreedIfInLoop(&globalSDLState, &oldMemoryBlockBase->loopingFlags))
-        {
-            RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
-        }
+        RemoveMemoryBlock(&globalSDLState, oldMemoryBlockBase);
         AddMemoryBlock(&globalSDLState, newMemoryBlockBase);
     }
-
+    else if (!canRealloc)
+    {
+        // NOTE(marvin): It is a necessary condition that in loop, so can skip check.
+        oldMemoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+    }
+    
     return result;
 }
 

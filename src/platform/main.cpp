@@ -19,7 +19,8 @@
 #include <platform_loader.h>
 #include <main.h>
 
-#if SKL_INTERNAL
+// TODO(marvin): Turning off memory viewer temporarily.
+#if 0
 DebugState globalDebugState_;
 DebugState* globalDebugState = &globalDebugState_;
 #endif
@@ -149,7 +150,11 @@ void updateLoop(void* appInfo) {
     gameInput.mouseY = mouseY;
     gameInput.keysDownThisFrame = keysDown;
 
-    ProcessInputWithLooping(&globalSDLState, &gameInput);
+    b32 shouldReloadGameCode = ProcessInputWithLooping(&globalSDLState, &gameInput);
+    if (shouldReloadGameCode)
+    {
+        info->gameCode.gameLoad(info->gameMemory, info->editor, true);
+    }
     
     info->gameCode.gameUpdateAndRender(info->gameMemory, gameInput, frameTime);
 
@@ -225,7 +230,8 @@ int main(int argc, char** argv)
     GameCode gameCode{ editor };
 
     GameMemory gameMemory = {};
-#if SKL_INTERNAL
+    // TODO(marvin): Temporarily turning off memory viewer.
+#if 0
     gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;

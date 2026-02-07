@@ -23,32 +23,39 @@
 struct GameCode
 {
 private:
-    // Game Code with hot reloading logic
+    // >>> Game code with hot reloading logic <<<
     SDL_SharedObject *m_sharedObjectHandle;
 
     SDL_Time m_fileLastWritten;
-    SDL_Time m_fileNewLastWritten_;
+    SDL_Time m_fileNewLastWritten;
 
     game_initialize_t *m_gameInitializePtr;
     game_load_t *m_gameLoadPtr;
     game_update_and_render_t *m_gameUpdateAndRenderPtr;
-    u32 m_reloadCount{ 0 };
+
+    // The amount of time loadGameCode has been successfully run
+    u32 m_loadCount{ 0 };
 
     const char* getGameCodeSrcFilePath();
     const char* getJoltLibSrcFilePath();
     inline SDL_Time getFileLastWritten(const char *path);
-    void loadGameCode(SDL_Time newFileLastWritten, b32 editor);
-    void loadGameCode(b32 editor);
-    void unloadGameCode();
-    b32 hasGameCodeChanged();
 
-    // Game Code with monolithic logic
+    // Returns whether the load was successful or not 
+    b8 loadGameCode(SDL_Time newFileLastWritten, b8 editor);
+    b8 loadGameCode(b8 editor);
+    void unloadGameCode();
+    b8 hasGameCodeChanged();
+
+    // >>> Game code with static monolithic logic <<< 
 
 public:
-    // Common public interface
+    // >>> Common public interface <<<
     GameCode(bool editor);
 
-    void updateGameCode(GameMemory& memory, b32 hasEditor);
+    // Checks for any changes made to game code and attempts
+    // hot reload if any changes are found. 
+    // Does not do anything if SKL_STATIC_MONOLITHIC isn't turned on.
+    void updateGameCode(GameMemory& memory, b8 hasEditor);
 
     GAME_LOAD(gameLoad);
 

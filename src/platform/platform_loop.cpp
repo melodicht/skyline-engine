@@ -10,10 +10,10 @@ local const char* SDLGetInputFilePath()
     return result;
 }
 
-local bool SDLIsInLoop(SDLState* state)
-    {
-        return state->loopState.loopedLiveEditingState != LoopedLiveEditingState::none;
-    }
+bool SDLIsInLoop(SDLState* state)
+{
+    return state->loopState.loopedLiveEditingState != LoopedLiveEditingState::none;
+}
 
 local void SDLClearBlocksByMask(SDLState* state, SDLMemoryFlags mask)
 {
@@ -136,11 +136,14 @@ local void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* str
     }
 }
 
-local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
+// Did a reset happen?
+local b32 SDLPlaybackInput(SDLState* state, GameInput* gameInput)
 {
     // NOTE(marvin): Would it be possible for there to be two notion
     // of mouse? One used in the game, and one for interacting with
     // the editor?
+
+    b32 result = false;
 
     // NOTE(marvin): Need to destroy the std set prior to writing to
     // it because the write will corrupt std set memory. Reconstruct it after.
@@ -155,6 +158,7 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
         SDLEndInputPlayback(state);
         SDLBeginInputPlayback(state);
         bytesRead = SDL_ReadIO(state->loopState.playbackHandle, gameInput, sizeof(*gameInput));
+        result = true;
     }
     ASSERT(bytesRead == sizeof(*gameInput));
     
@@ -162,6 +166,7 @@ local void SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     new (&gameInput->keysDownThisFrame) std::set<std::string>();
     SDLPlaybackStdSetOfString(state, &gameInput->keysDownPrevFrame);
     SDLPlaybackStdSetOfString(state, &gameInput->keysDownThisFrame);
+    return result;
 }
 
 // >>> Global Interface <<<
@@ -185,7 +190,9 @@ void ToggleLoopedLiveEditingState(SDLState* state)
     }
 }
 
-void ProcessInputWithLooping(SDLState* state, GameInput* gameInput) {
+b32 ProcessInputWithLooping(SDLState* state, GameInput* gameInput)
+{
+    b32 result = false;
     switch (state->loopState.loopedLiveEditingState)
     {
       case LoopedLiveEditingState::none: {} break;
@@ -195,9 +202,10 @@ void ProcessInputWithLooping(SDLState* state, GameInput* gameInput) {
       } break;
       case LoopedLiveEditingState::playing:
       {
-          SDLPlaybackInput(state, gameInput);
+          result = SDLPlaybackInput(state, gameInput);
       } break;
     }
+    return result;
 }
 
 bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {
@@ -206,16 +214,20 @@ bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {
         return true;
     }
     *flag = sdlMem_none;
-    return false;
+    return true;
 }
 bool SetFlagFreedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {
     if (SDLIsInLoop(state)) {
-        *flag = sdlMem_freedDuringLoop;
+        if (*flag == sdlMem_none)
+        {
+            *flag = sdlMem_freedDuringLoop;
+        }
         return true;
     }
-    return false;
+    return true;
 }
 #else
+bool SDLIsInLoop(SDLState* state) { return false; }
 void ToggleLoopedLiveEditingState(SDLState* state) {}
 void ProcessInputWithLooping(SDLState* state, GameInput* gameInput) {}
 bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {return false;}

@@ -42,8 +42,14 @@ inline SDL_Time GameCode::getFileLastWritten(const char *path)
 }
 
 
-void GameCode::loadGameCode(SDL_Time newFileLastWritten, b32 editor)
+b8 GameCode::loadGameCode(SDL_Time newFileLastWritten, b8 editor)
 {
+    // Temporary objects only fully loaded in on confirmation of successful load
+    SDL_SharedObject* tempSharedHandle;
+    game_initialize_t* tempGameInitializePtr;
+    game_load_t* tempGameLoadPtr;
+    game_update_and_render_t* tempGameUpdateAndRenderPtr;
+
     std::string tag = "game";
     if (editor)
     {
@@ -54,9 +60,9 @@ void GameCode::loadGameCode(SDL_Time newFileLastWritten, b32 editor)
     // unsure of impact on compile time.
     std::string gameCodeUseFilePath;
 #if defined(PLATFORM_WINDOWS)
-    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "_{}_{}.dll", tag.c_str(), m_reloadCount);
+    gameCodeUseFilePath = std::format(GAME_CODE_USE_FILE_NAME "_{}_{}.dll", tag.c_str(), m_loadCount);
 #else
-    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "_{}_{}.so", tag.c_str(), m_reloadCount);
+    gameCodeUseFilePath = std::format("./lib" GAME_CODE_USE_FILE_NAME "_{}_{}.so", tag.c_str(), m_loadCount);
 #endif
 
     // NOTE(marvin): Need to have a copy for the platform executable
@@ -67,34 +73,45 @@ void GameCode::loadGameCode(SDL_Time newFileLastWritten, b32 editor)
         LOG_ERROR("Unable to copy game module source to used.");
         LOG_ERROR(SDL_GetError());
     }
-    m_sharedObjectHandle = SDL_LoadObject(gameCodeUseFilePath.c_str());
+    tempSharedHandle = SDL_LoadObject(gameCodeUseFilePath.c_str());
     if (!m_sharedObjectHandle)
     {
         LOG_ERROR("Game code loading failed.");
         LOG_ERROR(SDL_GetError());
+        SDL_RemovePath(gameCodeUseFilePath.c_str());
     }
 
-    m_gameInitializePtr = (game_initialize_t *)SDL_LoadFunction(m_sharedObjectHandle, "GameInitialize");
-    m_gameLoadPtr = (game_load_t *)SDL_LoadFunction(m_sharedObjectHandle, "GameLoad");
-    m_gameUpdateAndRenderPtr = (game_update_and_render_t *)SDL_LoadFunction(m_sharedObjectHandle, "GameUpdateAndRender");
-    if (m_gameInitializePtr && m_gameLoadPtr && m_gameUpdateAndRenderPtr)
+    tempGameInitializePtr = (game_initialize_t *)SDL_LoadFunction(tempSharedHandle, "GameInitialize");
+    tempGameLoadPtr = (game_load_t *)SDL_LoadFunction(tempSharedHandle, "GameLoad");
+    tempGameUpdateAndRenderPtr = (game_update_and_render_t *)SDL_LoadFunction(tempSharedHandle, "GameUpdateAndRender");
+    if (tempGameInitializePtr && tempGameLoadPtr && tempGameUpdateAndRenderPtr)
     {
         m_fileLastWritten = newFileLastWritten;
+        if (m_sharedObjectHandle) {
+            unloadGameCode();
+        }
+        m_sharedObjectHandle = tempSharedHandle;
+        m_gameInitializePtr =  tempGameInitializePtr;
+        m_gameLoadPtr = tempGameLoadPtr;
+        m_gameUpdateAndRenderPtr = tempGameUpdateAndRenderPtr;
+        m_loadCount++;
+        return true;
     }
     else
     {
         LOG_ERROR("Unable to load symbols from game shared object.");
-        m_gameInitializePtr = 0;
-        m_gameLoadPtr = 0;
-        m_gameUpdateAndRenderPtr = 0;
-
+        if (tempSharedHandle)
+        {
+            SDL_UnloadObject(tempSharedHandle);
+        }
+        return false;
     }
 }
 
-void GameCode::loadGameCode(b32 editor)
+b8 GameCode::loadGameCode(b8 editor)
 {
     const char *gameCodeSrcFilePath = getGameCodeSrcFilePath();
-    loadGameCode(getFileLastWritten(gameCodeSrcFilePath), editor);
+    return loadGameCode(getFileLastWritten(gameCodeSrcFilePath), editor);
 }
 
 void GameCode::unloadGameCode()
@@ -107,21 +124,24 @@ void GameCode::unloadGameCode()
     m_gameInitializePtr = 0;
     m_gameLoadPtr = 0;
     m_gameUpdateAndRenderPtr = 0;
-    m_reloadCount++;
 }
 
-b32 GameCode::hasGameCodeChanged()
+b8 GameCode::hasGameCodeChanged()
 {
-    b32 result;
     const char *gameCodeSrcFilePath = getGameCodeSrcFilePath();
-    m_fileNewLastWritten_ = getFileLastWritten(gameCodeSrcFilePath);
-
-    if (m_fileNewLastWritten_)
+    SDL_PathInfo pathInfo;
+    if (!SDL_GetPathInfo(gameCodeSrcFilePath, &pathInfo))
     {
-        result = m_fileNewLastWritten_ > m_fileLastWritten;
+        LOG_ERROR("Unable to get game code path info");
+        return false;
+    }
+    if (!pathInfo.size)
+    {
+        return false;
     }
 
-    return result;
+    m_fileNewLastWritten = pathInfo.modify_time;
+    return m_fileNewLastWritten > m_fileLastWritten;
 }
 
 GameCode::GameCode(bool editor) {
@@ -134,12 +154,12 @@ GameCode::GameCode(bool editor) {
     }
    loadGameCode(editor);
 }
-void GameCode::updateGameCode(GameMemory& memory, b32 hasEditor) {
+void GameCode::updateGameCode(GameMemory& memory, b8 hasEditor) {
     if (hasGameCodeChanged())
     {
-        unloadGameCode();
-        loadGameCode(m_fileNewLastWritten_, hasEditor);
-        gameLoad(memory, hasEditor, true);
+        if (loadGameCode(m_fileNewLastWritten, hasEditor)) {
+            gameLoad(memory, hasEditor, true);
+        }
     }
 }
 

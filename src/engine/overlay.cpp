@@ -4,7 +4,8 @@
 #include <imgui.h>
 #include <engine.h>
 
-#if SKL_INTERNAL
+// TODO(marvin): Turning off memory viewer temporarily because messing with looped-live playback.
+#if 0
 
 local void RenderSizesViewerAllocations(DebugAllocations *allocations);
 
@@ -103,7 +104,8 @@ void RenderOverlay(GameState &gameState)
                 gameState.overlayMode = overlayMode_ecsEditor;
                 ImGui::EndTabItem();
             }
-#if SKL_INTERNAL
+            // TODO(marvin): Temporarily turning off memory viewer.
+#if 0
             if (ImGui::BeginTabItem("Memory"))
             {
                 gameState.overlayMode = overlayMode_memory;
@@ -113,8 +115,8 @@ void RenderOverlay(GameState &gameState)
             ImGui::EndTabBar();
         }
 
-
-#if SKL_INTERNAL
+// TODO(marvin): Temporarily turning off memory viewer.
+#if 0
         // NOTE(marvin): Tab content.
         if (gameState.overlayMode == overlayMode_memory)
         {
