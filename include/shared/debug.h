@@ -9,10 +9,15 @@
 #include <timer.h>
 #include <skl_thread_safe_primitives.h>
 
+#endif
+
 // This file is responsible for declaring the definitions of the debug
 // infrastructure, in which there is profiling of two major pieces,
 // time and space. The timed blocks have a bug that if they exist but
 // the code path does not cross them, there will be a crash.
+
+// TODO(marvin): Turning off debug temporarily because it's messing with looped-live playback.
+#if 0
 
 /**
  * SPACE

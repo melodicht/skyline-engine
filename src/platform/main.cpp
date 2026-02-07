@@ -29,7 +29,8 @@
 #include <render_backend.h>
 #include <main.h>
 
-#if SKL_INTERNAL
+// TODO(marvin): Turning off memory viewer temporarily.
+#if 0
 DebugState globalDebugState_;
 DebugState* globalDebugState = &globalDebugState_;
 #endif
@@ -411,7 +412,8 @@ int main(int argc, char** argv)
 
     SDLGameCode gameCode = SDLLoadGameCode(editor);
     GameMemory gameMemory = {};
-#if SKL_INTERNAL
+    // TODO(marvin): Temporarily turning off memory viewer.
+#if 0
     gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
