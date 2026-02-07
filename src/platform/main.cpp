@@ -327,7 +327,11 @@ void updateLoop(void* appInfo) {
     gameInput.mouseY = mouseY;
     gameInput.keysDownThisFrame = keysDown;
 
-    ProcessInputWithLooping(&globalSDLState, &gameInput);
+    b32 shouldReloadGameCode = ProcessInputWithLooping(&globalSDLState, &gameInput);
+    if (shouldReloadGameCode)
+    {
+        gameCode.gameLoad(info->gameMemory, info->editor, true);
+    }
     
     gameCode.gameUpdateAndRender(info->gameMemory, gameInput, frameTime);
 

@@ -44,7 +44,9 @@ bool SDLIsInLoop(SDLState* state);
 void ToggleLoopedLiveEditingState(SDLState* state);
 
 // Based on live editing state, stores or plays game input
-void ProcessInputWithLooping(SDLState* state, GameInput* gameInput);
+// Produces a boolean on whether to reload game code.
+// TODO(marvin): Producing a boolean for ProcessInputWithLooping feels very contrived. Keep eyes opened for a better way.
+b32 ProcessInputWithLooping(SDLState* state, GameInput* gameInput);
 
 // Returns whether in loop
 bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag);
