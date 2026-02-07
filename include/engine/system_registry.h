@@ -11,11 +11,20 @@
 // scene_loader.h. Unlike the two, the system registry doesn't deal
 // with the scene.
 
-std::unordered_map<std::type_index, SystemVTable*>& SystemTypeToVTable();
+// NOTE(marvin): This map is only used for initialization, and not
+// after a hot reload. std::type_index is problematic after hot reloads.
+std::unordered_map<std::type_index, SystemIndex>& SystemTypeToIndex();
+
+SystemVTable** SystemIndexToVTable();
+
+
+extern SystemIndex globalNextSystemIndex;
 
 template <typename T>
-void RegisterSystem(SystemVTable *vtable)
+void RegisterSystem(SystemVTable* vtable)
 {
-    SystemTypeToVTable()[std::type_index(typeid(T))] = vtable;
+    SystemIndex systemIndex = globalNextSystemIndex++;
+    SystemTypeToIndex()[std::type_index(typeid(T))] = systemIndex;
+    SystemIndexToVTable()[systemIndex] = vtable;
 }
 

@@ -73,8 +73,8 @@ void PushSystemsBuffer(SystemsBuffer *systemsBuffer, System *system)
 
 inline SystemVTable* GetSystemVTable(System* system)
 {
-    std::type_index typeIndex = system->type;
-    SystemVTable* result = SystemTypeToVTable()[typeIndex];
+    SystemIndex index = system->index;
+    SystemVTable* result = SystemIndexToVTable()[index];
     return result;
 }
 
