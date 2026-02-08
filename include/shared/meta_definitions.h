@@ -108,7 +108,7 @@ typedef size_t   siz;
 // Breaks if expression is false, doesn't run at all in release build
 #define ASSERT(Expression) do { if(!(Expression)) { DEBUG_BREAK(); }}while(0)
 //Breaks if expression is false and prints message, doesn't run at all in release build
-#define ASSERT_PRINT(Expression, Message) do{if(!(Expression)) { std::cerr << (Message, stderr) << std::endl; DEBUG_BREAK(); }}while(0)
+#define ASSERT_PRINT(Expression, Message) do{if(!(Expression)) { std::cerr << (Message) << std::endl; DEBUG_BREAK(); }}while(0)
 
 // Breaks if expression is false, keeps just expression in release build
 #define TRY(Expression) do{if (!(Expression)) { DEBUG_BREAK(); }}while(0)

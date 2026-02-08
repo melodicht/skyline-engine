@@ -1,21 +1,17 @@
 #include <platform_loop.h>
 
-// >>> Local Helper Functions <<<
 #if SKL_INTERNAL
 #include <platform_memory.h>
 #include <game_platform.h>
-local const char* SDLGetInputFilePath()
+
+// >>> Local Helper Functions <<<
+const char* LoopUtils::SDLGetInputFilePath()
 {
     const char* result = "loop_start.skli";
     return result;
 }
 
-bool SDLIsInLoop(SDLState* state)
-{
-    return state->loopState.loopedLiveEditingState != LoopedLiveEditingState::none;
-}
-
-local void SDLClearBlocksByMask(SDLState* state, SDLMemoryFlags mask)
+void LoopUtils::SDLClearBlocksByMask(SDLState* state, LoopMemoryFlags::SDLMemoryFlags mask)
 {
     SDLMemoryBlock* sentinel = &state->memoryBlockSentinel;
     // NOTE(marvin): Need to set the next prior to removing the block.
@@ -26,20 +22,20 @@ local void SDLClearBlocksByMask(SDLState* state, SDLMemoryFlags mask)
         SDLMemoryBlock* block = cursor;
         cursor = cursor->next;
         
-        if ((block->loopingFlags & mask) == mask)
+        if ((block->loopingFlags.m_flags & mask) == mask)
         {
             RemoveMemoryBlock(state, block);
         }
         else
         {
-            block->loopingFlags = sdlMem_none;
+            block->loopingFlags.m_flags = LoopMemoryFlags::sdlMem_none;
         }
     }
 }
 
-local void SDLBeginInputPlayback(SDLState* state)
+void LoopUtils::SDLBeginInputPlayback(SDLState* state)
 {
-    SDLClearBlocksByMask(state, sdlMem_allocatedDuringLoop);
+    SDLClearBlocksByMask(state, LoopMemoryFlags::sdlMem_allocatedDuringLoop);
     
     const char* inputFilePath = SDLGetInputFilePath();
     state->loopState.playbackHandle = SDL_IOFromFile(inputFilePath, "r");
@@ -50,20 +46,20 @@ local void SDLBeginInputPlayback(SDLState* state)
     }
     else
     {
-        state->loopState.loopedLiveEditingState = LoopedLiveEditingState::playing;
+        state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::playing;
         RestoreMemoryBlocksFromFile(state->loopState.playbackHandle);
     }
 }
 
-local void SDLEndInputPlayback(SDLState* state)
+void LoopUtils::SDLEndInputPlayback(SDLState* state)
 {
-    SDLClearBlocksByMask(state, sdlMem_freedDuringLoop);
+    SDLClearBlocksByMask(state, LoopMemoryFlags::sdlMem_freedDuringLoop);
     
     TRY(SDL_CloseIO(state->loopState.playbackHandle));
-    state->loopState.loopedLiveEditingState = LoopedLiveEditingState::none;
+    state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::none;
 }
 
-local void SDLBeginRecordingInput(SDLState* state)
+void LoopUtils::SDLBeginRecordingInput(SDLState* state)
 {
     const char* inputFilePath = SDLGetInputFilePath();
     state->loopState.recordingHandle = SDL_IOFromFile(inputFilePath, "w");
@@ -74,26 +70,26 @@ local void SDLBeginRecordingInput(SDLState* state)
     }
     else
     {
-        state->loopState.loopedLiveEditingState = LoopedLiveEditingState::recording;
+        state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::recording;
         WriteMemoryBlocksToFile(state, state->loopState.recordingHandle);
     }
     
 }
 
-local void SDLEndRecordingInput(SDLState* state)
+void LoopUtils::SDLEndRecordingInput(SDLState* state)
 {
     TRY(SDL_CloseIO(state->loopState.recordingHandle));
-    state->loopState.loopedLiveEditingState = LoopedLiveEditingState::none;
+    state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::none;
 }
 
-local void SDLRecordStdString(SDLState* state, const std::string* str)
+void LoopUtils::SDLRecordStdString(SDLState* state, const std::string* str)
 {
     u32 length = static_cast<u32>(str->size());
     TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, &length, sizeof(length)), sizeof(length));
     TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, str->data(), length), length);
 }
 
-local void SDLRecordStdSetOfString(SDLState* state, std::set<std::string>* strings)
+void LoopUtils::SDLRecordStdSetOfString(SDLState* state, const std::set<std::string>* strings)
 {
     u32 count = static_cast<u32>(strings->size());
     TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, &count, sizeof(count)), sizeof(count));
@@ -104,7 +100,7 @@ local void SDLRecordStdSetOfString(SDLState* state, std::set<std::string>* strin
     }
 }
 
-local void SDLRecordInput(SDLState* state, GameInput* gameInput)
+void LoopUtils::SDLRecordInput(SDLState* state, const GameInput* gameInput)
 {
     // NOTE(marvin): The keys down is not going to be used.
     siz bytesWritten = SDL_WriteIO(state->loopState.recordingHandle, gameInput, sizeof(*gameInput));
@@ -115,7 +111,7 @@ local void SDLRecordInput(SDLState* state, GameInput* gameInput)
     SDLRecordStdSetOfString(state, &gameInput->keysDownThisFrame);
 }
 
-local void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
+void LoopUtils::SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
 {
     u32 length;
     TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, &length, sizeof(length)), sizeof(length));
@@ -125,7 +121,7 @@ local void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
     strings->insert(std::move(str));
 }
 
-local void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings)
+void LoopUtils::SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings)
 {
     u32 count;
     TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, &count, sizeof(count)), sizeof(count));
@@ -137,7 +133,7 @@ local void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* str
 }
 
 // Did a reset happen?
-local b32 SDLPlaybackInput(SDLState* state, GameInput* gameInput)
+b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput)
 {
     // NOTE(marvin): Would it be possible for there to be two notion
     // of mouse? One used in the game, and one for interacting with
@@ -169,38 +165,43 @@ local b32 SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     return result;
 }
 
-// >>> Global Interface <<<
-void ToggleLoopedLiveEditingState(SDLState* state)
+// >>> Public Interface <<<
+b8 LoopUtils::GetIsStateInLoop(const SDLState* state)
+{
+    return state->loopState.loopedLiveEditingState != LoopState::LoopedLiveEditingState::none;
+}
+
+void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state)
 {
     switch (state->loopState.loopedLiveEditingState)
     {
-      case LoopedLiveEditingState::none:
+      case LoopState::LoopedLiveEditingState::none:
       {
           SDLBeginRecordingInput(state);
       } break;
-      case LoopedLiveEditingState::recording:
+      case LoopState::LoopedLiveEditingState::recording:
       {
           SDLEndRecordingInput(state);
           SDLBeginInputPlayback(state);
       } break;
-      case LoopedLiveEditingState::playing:
+      case LoopState::LoopedLiveEditingState::playing:
       {
           SDLEndInputPlayback(state);
       } break;
     }
 }
 
-b32 ProcessInputWithLooping(SDLState* state, GameInput* gameInput)
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput)
 {
     b32 result = false;
     switch (state->loopState.loopedLiveEditingState)
     {
-      case LoopedLiveEditingState::none: {} break;
-      case LoopedLiveEditingState::recording:
+      case LoopState::LoopedLiveEditingState::none: {} break;
+      case LoopState::LoopedLiveEditingState::recording:
       {
           SDLRecordInput(state, gameInput);
       } break;
-      case LoopedLiveEditingState::playing:
+      case LoopState::LoopedLiveEditingState::playing:
       {
           result = SDLPlaybackInput(state, gameInput);
       } break;
@@ -208,29 +209,26 @@ b32 ProcessInputWithLooping(SDLState* state, GameInput* gameInput)
     return result;
 }
 
-bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {
-    if (SDLIsInLoop(state)) {
-        *flag = sdlMem_allocatedDuringLoop;
-        return true;
-    }
-    *flag = sdlMem_none;
-    return true;
+void LoopUtils::SetBlockFlagLoopAllocated(SDLMemoryBlock* block) {
+    block->loopingFlags.m_flags = LoopMemoryFlags::sdlMem_allocatedDuringLoop;
 }
-bool SetFlagFreedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {
-    if (SDLIsInLoop(state)) {
-        if (*flag == sdlMem_none)
-        {
-            *flag = sdlMem_freedDuringLoop;
-        }
-        return true;
-    }
-    return true;
+void LoopUtils::SetBlockFlagLoopFreed(SDLMemoryBlock* block) {
+    block->loopingFlags.m_flags = LoopMemoryFlags::sdlMem_freedDuringLoop;
 }
-#else
-bool SDLIsInLoop(SDLState* state) { return false; }
-void ToggleLoopedLiveEditingState(SDLState* state) {}
-void ProcessInputWithLooping(SDLState* state, GameInput* gameInput) {}
-bool SetFlagAllocatedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {return false;}
-bool SetFlagFreedIfInLoop(SDLState* state, SDLMemoryFlags* flag) {return false;}
-#endif
 
+void LoopUtils::SetBlockFlagLoopNone(SDLMemoryBlock* block) {
+    block->loopingFlags.m_flags = LoopMemoryFlags::sdlMem_freedDuringLoop;
+}
+
+b8 LoopUtils::GetBlockFlagLoopAllocated(const SDLMemoryBlock* block)  {
+    return block->loopingFlags.m_flags == LoopMemoryFlags::sdlMem_allocatedDuringLoop;
+}
+#else 
+b8 LoopUtils::GetIsStateInLoop(const SDLState* state) {}
+void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state) {}
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput) { return false; }
+void LoopUtils::SetBlockFlagLoopAllocated(SDLMemoryBlock* block) {}
+void LoopUtils::SetBlockFlagLoopFreed(SDLMemoryBlock* block) {}
+void LoopUtils::SetBlockFlagLoopNone(SDLMemoryBlock* block) {}
+b8 LoopUtils::GetBlockFlagLoopAllocated(const SDLMemoryBlock* block) { return true; }
+#endif

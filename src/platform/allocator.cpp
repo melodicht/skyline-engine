@@ -35,7 +35,12 @@ void AddMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     sentinel->prev = block;
     EndTicketMutex(&state->memoryMutex);
 
-    SetFlagAllocatedIfInLoop(state,&block->loopingFlags);
+    if (LoopUtils::GetIsStateInLoop(state)) {
+        LoopUtils::SetBlockFlagLoopAllocated(block);
+    }
+    else {
+        LoopUtils::SetBlockFlagLoopNone(block);
+    }
 }
 
 void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
@@ -51,7 +56,7 @@ void RemoveMemoryBlock(SDLState *state, SDLMemoryBlock *block)
     block->next = {};
 }
 
-// > Game Module Interface Implementation <
+// >>> Game Module Interface Implementation <<<
 
 void* AlignedAllocate(siz requestedSize, siz alignment)
 {
@@ -85,7 +90,11 @@ void AlignedFree(void* block)
 {
     SDLMemoryBlock *memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
-    if (!SetFlagFreedIfInLoop(&globalSDLState, &memoryBlockBase->loopingFlags))
+    if (LoopUtils::GetIsStateInLoop(&globalSDLState)) 
+    {
+        LoopUtils::SetBlockFlagLoopFreed(memoryBlockBase);
+    }
+    else
     {
         RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
         SDL_aligned_free(toFree);
@@ -124,7 +133,11 @@ void Free(void* block)
     SDLMemoryBlock* memoryBlockBase = static_cast<SDLMemoryBlock*>(block) - 1;
     void* toFree = memoryBlockBase->wholeBase;
 
-    if (!SetFlagFreedIfInLoop(&globalSDLState, &memoryBlockBase->loopingFlags))
+    if (LoopUtils::GetIsStateInLoop(&globalSDLState)) 
+    {
+        LoopUtils::SetBlockFlagLoopFreed(memoryBlockBase);
+    }
+    else 
     {
         RemoveMemoryBlock(&globalSDLState, memoryBlockBase);
         SDL_free(toFree);
@@ -151,7 +164,8 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
     // NOTE(marvin): If in loop and block is allocated prior to the
     // loop, can't just use SDL_realloc as that would purge the memory
     // block, when it is needed when the loop restarts.
-    b32 canRealloc = !SDLIsInLoop(&globalSDLState) || oldMemoryBlockBase->loopingFlags == sdlMem_allocatedDuringLoop;
+    b32 canRealloc = LoopUtils::GetIsStateInLoop(&globalSDLState) || 
+                     LoopUtils::GetBlockFlagLoopAllocated(oldMemoryBlockBase);
 
     void* newBase = canRealloc ? SDL_realloc(oldWholeBase, newTotalSize) : Allocate(newTotalSize);
     void* newMemoryBlockBaseAddr = static_cast<void*>(static_cast<u8*>(newBase) + padding);
@@ -171,7 +185,7 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
     else if (!canRealloc)
     {
         // NOTE(marvin): It is a necessary condition that in loop, so can skip check.
-        oldMemoryBlockBase->loopingFlags = sdlMem_freedDuringLoop;
+        LoopUtils::SetBlockFlagLoopFreed(oldMemoryBlockBase);
     }
     
     return result;

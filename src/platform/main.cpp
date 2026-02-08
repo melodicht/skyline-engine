@@ -107,7 +107,7 @@ void updateLoop(void* appInfo) {
 #if SKL_INTERNAL
                 else if (info->e.key.key == SDLK_L)
                 {
-                    ToggleLoopedLiveEditingState(&globalSDLState);
+                    LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState);
                 }
 #endif
                 else if (info->editor && info->e.key.key == SDLK_R && (SDL_GetModState() & SDL_KMOD_CTRL))
@@ -150,7 +150,7 @@ void updateLoop(void* appInfo) {
     gameInput.mouseY = mouseY;
     gameInput.keysDownThisFrame = keysDown;
 
-    b32 shouldReloadGameCode = ProcessInputWithLooping(&globalSDLState, &gameInput);
+    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput);
     if (shouldReloadGameCode)
     {
         info->gameCode.gameLoad(info->gameMemory, info->editor, true);

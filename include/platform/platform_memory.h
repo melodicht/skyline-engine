@@ -17,7 +17,13 @@ struct SDLMemoryBlock
     void* wholeBase;
     SDLMemoryBlock* prev;
     SDLMemoryBlock* next;
-    SDLMemoryFlags loopingFlags;
+    
+    // Ensures that only loop utils will be able to access looping flags
+#if SKL_INTERNAL
+    friend class LoopUtils;
+private:
+    LoopMemoryFlags loopingFlags;
+#endif
 };
 
 struct SDLSavedMemoryBlock
@@ -40,7 +46,12 @@ struct SDLState
     // NOTE(marvin): nullptr if there is no game process.
     SDL_Process* gameProcess;
 
+    // Ensures that only loop utils will be able to access loop state
+#if SKL_INTERNAL
+    friend class LoopUtils;
+private:
     LoopState loopState;
+#endif
 };
 
 extern SDLState globalSDLState;
