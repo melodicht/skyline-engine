@@ -82,6 +82,8 @@ struct GameMemory
     PlatformAPI platformAPI;
 
     // NOTE(marvin): It is contained in the scene as well, but the SKL physics system's temp allocator need to be reset due to vtable x hot reload conflict. Putting it here for convenience.
+    // TODO: It would be ideal to prevent hot reloading logic of sklPhysicsSystem to spread into game code
+    //       however we will hold off on abstracting dylib logic until another library like Jolt necessitates the same kind of behavior.
     void* sklPhysicsSystem;
 };
 
