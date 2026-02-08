@@ -20,8 +20,8 @@ inline SDLSavedMemoryBlock InitSavedMemoryBlock(SDLMemoryBlock* source)
 
 void WriteSavedMemoryBlockToFile(SDLSavedMemoryBlock* savedMemoryBlock, SDL_IOStream* fileHandle)
 {
-    ASSERT(SDL_WriteIO(fileHandle, savedMemoryBlock, sizeof(*savedMemoryBlock)) == sizeof(*savedMemoryBlock));
-    ASSERT(SDL_WriteIO(fileHandle, savedMemoryBlock->requestedBase, savedMemoryBlock->requestedSize) == savedMemoryBlock->requestedSize);
+    TRY_EXPECT(SDL_WriteIO(fileHandle, savedMemoryBlock, sizeof(*savedMemoryBlock)), sizeof(*savedMemoryBlock));
+    TRY_EXPECT(SDL_WriteIO(fileHandle, savedMemoryBlock->requestedBase, savedMemoryBlock->requestedSize), savedMemoryBlock->requestedSize);
 }
 
 void WriteMemoryBlocksToFile(SDLState* state, SDL_IOStream* fileHandle)
@@ -47,7 +47,7 @@ void RestoreMemoryBlocksFromFile(SDL_IOStream* fileHandle)
     for (;;)
     {
         SDLSavedMemoryBlock savedMemoryBlock = {};
-        ASSERT(SDL_ReadIO(fileHandle, &savedMemoryBlock, sizeof(savedMemoryBlock)) == sizeof(savedMemoryBlock));
+        TRY_EXPECT(SDL_ReadIO(fileHandle, &savedMemoryBlock, sizeof(savedMemoryBlock)), sizeof(savedMemoryBlock));
         if (savedMemoryBlock.requestedBase != 0)
         {
             RestoreSavedMemoryBlock(savedMemoryBlock, fileHandle);

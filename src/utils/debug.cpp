@@ -180,7 +180,7 @@ local void DeleteDebugGeneralAllocation(DebugAllocationsStore* store, DebugGener
 
 local void TruncateAllocation(DebugAllocations* allocations, siz size)
 {
-    ASSERT(!DebugAllocationsEmpty(allocations) &&
+    ASSERT_PRINT(!DebugAllocationsEmpty(allocations),
            "The assertion failure should happen in memory's PopSize first.");
 
     siz remainingSize = size;
@@ -327,7 +327,7 @@ local DebugArena *FindTargetOfSourceArenaFromPool(DebugAllocationsStorePool *poo
         }
     }
 
-    ASSERT(false && "Target not found.");
+    ASSERT_PRINT(false, "Target not found.");
     return 0;
 }
 

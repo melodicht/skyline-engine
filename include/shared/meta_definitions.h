@@ -27,7 +27,10 @@ typedef int64_t  s64;
 typedef float    f32;
 typedef double   f64;
 
-typedef s32      b32;
+typedef bool     b8;
+typedef u32      b32;
+// If this fails this means you have to substitute b8 on a different type on your system
+static_assert(sizeof(b8) == 1);
 
 typedef size_t   siz;
 
@@ -96,21 +99,27 @@ typedef size_t   siz;
 #define DEBUG_BREAK() (*(volatile int*)0 = 0)
 #endif
 
+// Expressions are wrapped with do { }while(0); to prevent  
+// if 
+//  Macro()
+// else
+// From evaluating differently
+
 // Breaks if expression is false, doesn't run at all in release build
-#define ASSERT(Expression) if(!(Expression)) { DEBUG_BREAK(); }
+#define ASSERT(Expression) do { if(!(Expression)) { DEBUG_BREAK(); }}while(0)
 //Breaks if expression is false and prints message, doesn't run at all in release build
-#define ASSERT_PRINT(Expression, Message) if(!(Expression)) { fputs(Message, stderr); DEBUG_BREAK(); }
+#define ASSERT_PRINT(Expression, Message) do{if(!(Expression)) { std::cerr << (Message, stderr) << std::endl; DEBUG_BREAK(); }}while(0)
 
 // Breaks if expression is false, keeps just expression in release build
-#define TRY(Expression) if (!(Expression)) { DEBUG_BREAK(); }
+#define TRY(Expression) do{if (!(Expression)) { DEBUG_BREAK(); }}while(0)
 // Breaks if expression has different value then expected, keeps just expression in release build
-#define TRY_EXPECT(Expression, Expected) if ((Expression) != (Expected)) { DEBUG_BREAK(); }
+#define TRY_EXPECT(Expression, Expected) do{if ((Expression) != (Expected)) { DEBUG_BREAK(); }}while(0)
 
 #else
-#define ASSERT(Expression)
-#define ASSERT_PRINT(...)
-#define TRY(Expression) Expression;
-#define TRY_EXPECT(Expression, Expected) Expression;
+#define ASSERT(Expression) ((void)0)
+#define ASSERT_PRINT(Expression, Message) ((void)0)
+#define TRY(Expression) ((void)(Expression))
+#define TRY_EXPECT(Expression, Expected) ((void)(Expression))
 #endif
 
 
