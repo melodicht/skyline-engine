@@ -162,7 +162,7 @@ void GameCode::UpdateGameCode(GameMemory& memory, b8 hasEditor) {
     if (hasGameCodeChanged())
     {
         if (loadGameCode(m_fileNewLastWritten, hasEditor)) {
-            GameLoad(memory, hasEditor, true);
+            Load(memory, hasEditor, true);
         }
     }
 }
