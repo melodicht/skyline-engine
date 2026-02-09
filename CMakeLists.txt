@@ -267,7 +267,7 @@ add_library(engine STATIC ${ENGINE_SRC})
 target_compile_definitions(engine PUBLIC
         _CRT_SECURE_NO_WARNINGS
         debugRecordArray=debugRecordsGame
-        SKL_ENGINE_PLATFORM)
+        SKL_GAME_MODULE)
 target_link_libraries(engine PUBLIC
         SHARED_DEPENDENCIES
         Jolt)

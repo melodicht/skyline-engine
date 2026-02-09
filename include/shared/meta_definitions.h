@@ -190,7 +190,7 @@ inline void CPUPause() {
 // > Represents shared fields between game module and platform <
 #define SKL_AS_FIELD(r, n, p) r (* n) p;
 
-#if defined(SKL_ENGINE_PLATFORM) || SKL_STATIC_MONOLITHIC
+#if !defined(SKL_GAME_MODULE) || SKL_STATIC_MONOLITHIC
 // > Represents logic needed for platform to pack api functions into class < 
 #define SKL_AS_HEADER_FUNC(r, n, p) r n p;
 #define SKL_AS_CONSTRUCT_INSERT(r, n, p) ret.n = n;
