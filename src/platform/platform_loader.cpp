@@ -74,7 +74,7 @@ b8 GameCode::loadGameCode(SDL_Time newFileLastWritten, b8 editor)
         LOG_ERROR(SDL_GetError());
     }
     tempSharedHandle = SDL_LoadObject(gameCodeUseFilePath.c_str());
-    if (!m_sharedObjectHandle)
+    if (!tempSharedHandle)
     {
         LOG_ERROR("Game code loading failed.");
         LOG_ERROR(SDL_GetError());
