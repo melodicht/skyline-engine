@@ -1,8 +1,9 @@
+#include <game.h>
+
 #include <string>
 #include <array>
 
 #include <meta_definitions.h>
-#include <game.h>
 #include <engine.h>
 #include <city_builder.h>
 #include <scene.h>
@@ -26,8 +27,6 @@ void OnGameStart(GameState* gameState, GameMemory* gameMemory)
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 }
 
-void OnGameLoad(GameMemory* gameMemory)
-{
-}
+void OnGameLoad(GameMemory* gameMemory) {}
 
 void OnEditorStart(GameState* gameState) {}

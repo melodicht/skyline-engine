@@ -19,6 +19,12 @@
 #include <platform_loader.h>
 #include <main.h>
 
+#ifdef PLATFORM_WINDOWS
+#define EXECUTABLE_FILE_NAME "skyline-engine.exe"
+#else
+#define EXECUTABLE_FILE_NAME "./skyline-engine"
+#endif
+
 // TODO(marvin): Turning off memory viewer temporarily.
 #if 0
 DebugState globalDebugState_;
@@ -85,7 +91,7 @@ void updateLoop(void* appInfo) {
 
     f32 frameTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
-    info->gameCode.updateGameCode(info->gameMemory, info->editor);
+    info->gameCode.UpdateGameCode(info->gameMemory, info->editor);
 
     GameInput gameInput;
     gameInput.keysDownPrevFrame = keysDown;
@@ -153,10 +159,10 @@ void updateLoop(void* appInfo) {
     b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput);
     if (shouldReloadGameCode)
     {
-        info->gameCode.gameLoad(info->gameMemory, info->editor, true);
+        info->gameCode.Load(info->gameMemory, info->editor, true);
     }
     
-    info->gameCode.gameUpdateAndRender(info->gameMemory, gameInput, frameTime);
+    info->gameCode.UpdateAndRender(info->gameMemory, gameInput, frameTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
@@ -238,8 +244,8 @@ int main(int argc, char** argv)
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameMemory.platformAPI.allocator = constructPlatformAllocator();
-    gameCode.gameLoad(gameMemory, editor, false);
-    gameCode.gameInitialize(gameMemory, mapName, editor);
+    gameCode.Load(gameMemory, editor, false);
+    gameCode.Initialize(gameMemory, mapName, editor);
 
     SDL_Event e;
     bool playing = true;

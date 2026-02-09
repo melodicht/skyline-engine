@@ -1,7 +1,7 @@
 #pragma once
-
-#ifdef REGISTRY
-
+// This ensures that macros that handle 
+// component registration only to handled in a single place
+#if defined(REGISTRY)
 #include <typeinfo>
 #include <typeindex>
 
@@ -127,7 +127,7 @@ void AddComponent(const char *name, const char *icon)
         return data; \
     }
 
-#define COMPONENT(type, ...) [[maybe_unused]] static int add##type = (AddComponent<type>(#type __VA_OPT__(,) __VA_ARGS__), 0);
+#define COMPONENT(type, ...) RUN_ON_START((AddComponent<type>(#type __VA_OPT__(,) __VA_ARGS__), 0);, add##type);
 
 #else
 

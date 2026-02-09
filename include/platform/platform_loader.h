@@ -1,18 +1,16 @@
 #pragma once
 
-#include <platform_memory.h>
+#include <meta_definitions.h>
 #include <game_platform.h>
+
+#if !SKL_STATIC_MONOLITHIC
+#include <platform_memory.h>
 
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
-#ifdef PLATFORM_WINDOWS
-#define EXECUTABLE_FILE_NAME "skyline-engine.exe"
-#else
-#define EXECUTABLE_FILE_NAME "./skyline-engine"
-#endif
-
 #define JOLT_LIB_SRC_FILE_NAME "Jolt"
+#endif
 
 // NOTE(marvin): Load is for setting up infrastructure, anything that
 // has to be done after the game module is loaded in, including after
@@ -22,18 +20,19 @@
 
 // Represents the logic of loading the game module 
 // from the platform.
-struct GameCode
+class GameCode
 {
 private:
+    #if !SKL_STATIC_MONOLITHIC
     // >>> Game code with hot reloading logic <<<
-    SDL_SharedObject *m_sharedObjectHandle;
+    SDL_SharedObject *m_sharedObjectHandle{ nullptr };
 
-    SDL_Time m_fileLastWritten;
-    SDL_Time m_fileNewLastWritten;
+    SDL_Time m_fileLastWritten{ 0 };
+    SDL_Time m_fileNewLastWritten{ 0 };
 
-    game_initialize_t *m_gameInitializePtr;
-    game_load_t *m_gameLoadPtr;
-    game_update_and_render_t *m_gameUpdateAndRenderPtr;
+    game_initialize_t *m_gameInitializePtr{ nullptr };
+    game_load_t *m_gameLoadPtr{ nullptr };
+    game_update_and_render_t *m_gameUpdateAndRenderPtr{ nullptr };
 
     // The amount of time loadGameCode has been successfully run
     u32 m_loadCount{ 0 };
@@ -47,8 +46,9 @@ private:
     b8 loadGameCode(b8 editor);
     void unloadGameCode();
     b8 hasGameCodeChanged();
+    #endif
 
-    // >>> Game code with static monolithic logic <<< 
+    // >>> No data store needed for static monolithic build <<< 
 
 public:
     // >>> Common public interface <<<
@@ -57,11 +57,12 @@ public:
     // Checks for any changes made to game code and attempts
     // hot reload if any changes are found. 
     // Does not do anything if SKL_STATIC_MONOLITHIC isn't turned on.
-    void updateGameCode(GameMemory& memory, b8 hasEditor);
+    void UpdateGameCode(GameMemory& memory, b8 hasEditor);
 
-    GAME_LOAD(gameLoad);
+    // Basic game loop code
+    GAME_LOAD(Load);
 
-    GAME_INITIALIZE(gameInitialize);
+    GAME_INITIALIZE(Initialize);
 
-    GAME_UPDATE_AND_RENDER(gameUpdateAndRender);
+    GAME_UPDATE_AND_RENDER(UpdateAndRender);
 };

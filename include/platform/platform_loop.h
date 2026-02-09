@@ -22,7 +22,7 @@ private:
         sdlMem_allocatedDuringLoop = 0b1,
         sdlMem_freedDuringLoop = 0b10,
     };
-    SDLMemoryFlags m_flags;
+    SDLMemoryFlags m_flags{ sdlMem_none };
 
 public:
     friend class LoopUtils;
@@ -38,14 +38,14 @@ private:
         recording,
         playing,
     };
-    LoopedLiveEditingState loopedLiveEditingState;
+    LoopedLiveEditingState loopedLiveEditingState{ LoopedLiveEditingState::none };
     union
     {
         // NOTE(marvin): A flat sequence of [GameInput, u32 (for
         // number of elements in keysDown set), a sequence of [u32
         // (for number of elements in string), characters that make
         // the string]]
-        SDL_IOStream* recordingHandle;
+        SDL_IOStream* recordingHandle{ nullptr };
         SDL_IOStream* playbackHandle;
     };
 

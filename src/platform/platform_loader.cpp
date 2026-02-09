@@ -1,5 +1,8 @@
 #include <platform_loader.h>
 
+#if !SKL_STATIC_MONOLITHIC
+// >>> Private helpers <<< 
+
 #include <format>
 
 const char* GameCode::getGameCodeSrcFilePath()
@@ -144,6 +147,7 @@ b8 GameCode::hasGameCodeChanged()
     return m_fileNewLastWritten > m_fileLastWritten;
 }
 
+// >>> Public Interface <<< 
 GameCode::GameCode(bool editor) {
     const char* joltLibSrcFilePath = getJoltLibSrcFilePath();
     SDL_SharedObject* joltSharedObjectHandle = SDL_LoadObject(joltLibSrcFilePath);
@@ -154,26 +158,50 @@ GameCode::GameCode(bool editor) {
     }
    loadGameCode(editor);
 }
-void GameCode::updateGameCode(GameMemory& memory, b8 hasEditor) {
+void GameCode::UpdateGameCode(GameMemory& memory, b8 hasEditor) {
     if (hasGameCodeChanged())
     {
         if (loadGameCode(m_fileNewLastWritten, hasEditor)) {
-            gameLoad(memory, hasEditor, true);
+            GameLoad(memory, hasEditor, true);
         }
     }
 }
 
-GAME_LOAD(GameCode::gameLoad) {
+GAME_LOAD(GameCode::Load) {
     ASSERT(m_gameLoadPtr != nullptr);
     m_gameLoadPtr(memory, editor, gameInitialized);
 }
 
-GAME_INITIALIZE(GameCode::gameInitialize) {
+GAME_INITIALIZE(GameCode::Initialize) {
     ASSERT(m_gameInitializePtr != nullptr);
     m_gameInitializePtr(memory, mapName, editor);
 }
 
-GAME_UPDATE_AND_RENDER(GameCode::gameUpdateAndRender) {
+GAME_UPDATE_AND_RENDER(GameCode::UpdateAndRender) {
     ASSERT(m_gameUpdateAndRenderPtr != nullptr);
     m_gameUpdateAndRenderPtr(memory, input, frameTime);
 }
+#else 
+
+// Pulls in information from game module through header file 
+// rather than dylib location
+// See README on more information on SKL_GAME_HEADER.
+#include <engine.h>
+
+
+GameCode::GameCode(bool editor) {}
+
+void GameCode::UpdateGameCode(GameMemory& memory, b8 hasEditor) {}
+
+GAME_LOAD(GameCode::Load) {
+    GameLoad(memory, editor, gameInitialized);
+}
+
+GAME_INITIALIZE(GameCode::Initialize) {
+    ::GameInitialize(memory, mapName, editor);
+}
+
+GAME_UPDATE_AND_RENDER(GameCode::UpdateAndRender) {
+    ::GameUpdateAndRender(memory, input, frameTime);
+}
+#endif

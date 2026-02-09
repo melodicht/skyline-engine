@@ -7,6 +7,10 @@
 #include <asset_types.h>
 #include <render_game.h>
 
+/**
+ * This file represents platform logic that is exported to the game.
+ */
+
 struct GameInput
 {
     s32 mouseDeltaX;

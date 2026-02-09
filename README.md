@@ -147,16 +147,23 @@ By default this is on.
 ### SKL_ENABLE_LOGGING
 When turned on, allows for console logging code to be run.
 
-It will be default turned on when SKL_Internal is on.
-
-Can only be turned on if SKL_INTERNAL is on.
+It will be default turned on.
 
 ### SKL_SLOW
 When turned on enables slower code that either avoids or breaks on certain issues.
 
-It will be default turned on when SKL_Internal is on.
+It will be default turned on.
 
-Can only be turned on if SKL_INTERNAL is on.
+### SKL_STATIC_MONOLITHIC
+When turned on, it disables hot reloading functionality and forces the game engine and game modules to build
+as a single monolithic library that only uses shared libraries.
+
+It will be default turned off.
+
+### SKL_EXTERNAL_GAME
+When turned on, forgoes building game module and instead links to game module defined by external source.
+
+This cannot be used with SKL_STATIC_MONOLITHIC.
 
 # Building and running the Project
 

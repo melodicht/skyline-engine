@@ -24,6 +24,12 @@ struct GameState
     OverlayMode overlayMode;
 };
 
+extern "C" {
+    GAME_LOAD(GameLoad);
+    GAME_INITIALIZE(GameInitialize);
+    GAME_UPDATE_AND_RENDER(GameUpdateAndRender);
+}
+
 extern PlatformAssetUtils assetUtils;
 extern PlatformRenderer renderer;
 extern PlatformAllocator allocator;

@@ -179,7 +179,7 @@ public:
         .onStart = NameConcat(T, _OnStart),                 \
         .onUpdate = NameConcat(T, _OnUpdate),               \
     };                                                      \
-    [[maybe_unused]] static int ignore_add##T = (RegisterSystem<T>(&NameConcat3(global, T, VTable)), 0);
+    RUN_ON_START((RegisterSystem<T>(&NameConcat3(global, T, VTable)), 0);, ignore_add##T); \
 
 extern std::unordered_map<std::type_index, ComponentID> typeToId;
 
