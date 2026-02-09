@@ -314,7 +314,7 @@ if (NOT DEFINED SKL_EXTERNAL_GAME)
             ${CMAKE_CURRENT_SOURCE_DIR}/include/game)
     else()
         add_library(game-module STATIC ${GAME_SRC})
-        target_link_libraries(game-module PUBLIC
+        target_link_libraries(game-module PRIVATE
                 "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
         target_include_directories(game-module PUBLIC
             ${CMAKE_CURRENT_SOURCE_DIR}/include/game)
@@ -342,7 +342,7 @@ target_link_libraries(platform PRIVATE
 
 if (SKL_STATIC_MONOLITHIC)
     target_link_libraries(platform PRIVATE
-            game-module)
+            "$<LINK_LIBRARY:WHOLE_ARCHIVE,game-module>")
 endif()
 
 add_dependencies(platform game-module)

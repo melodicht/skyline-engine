@@ -186,7 +186,7 @@ GAME_UPDATE_AND_RENDER(GameCode::UpdateAndRender) {
 // Pulls in information from game module through header file 
 // rather than dylib location
 // See README on more information on SKL_GAME_HEADER.
-#include <engine.h>
+#include <game_platform.h>
 
 
 GameCode::GameCode(bool editor) {}
