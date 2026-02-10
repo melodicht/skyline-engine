@@ -228,7 +228,6 @@ class StaticRun {
 public:
     template <typename RunFunc>
     StaticRun(RunFunc&& f) {
-        LOG("actually run");
         f();
     }
 };
