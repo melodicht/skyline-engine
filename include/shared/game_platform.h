@@ -97,6 +97,11 @@ struct GameMemory
 #define GAME_LOAD(name) void name(GameMemory &memory, b32 editor, b32 gameInitialized)
 typedef GAME_LOAD(game_load_t);
 
+// TODO(marvin): Need a different way around this with monolithic build. How is Jolt linked for monolithic build?
+// Produces a list of c-style strings, or nullptr if none.
+#define GAME_GET_PERSISTENT_DLL_PATHS(name) void name(const char** pathBuffer)
+typedef GAME_GET_PERSISTENT_DLL_PATHS(game_get_persistent_dll_paths_t);
+
 #define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, b32 editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
