@@ -69,6 +69,7 @@ file_global f32 mouseY = 0;
 // Kills the previous game process if it exists before creating the new game process.
 local void LaunchGame(SDLState* state, const char* mapName)
 {
+    #if !EMSCRIPTEN
     if (state->gameProcess)
     {
         bool forceful = false;
@@ -82,6 +83,7 @@ local void LaunchGame(SDLState* state, const char* mapName)
     {
         LOG_ERROR("Failed to launch game process! SDL_ERROR: " << SDL_GetError());
     }
+    #endif
 }
 
 void updateLoop(void* appInfo) {
@@ -172,7 +174,6 @@ void updateLoop(void* appInfo) {
     //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     return;
 }
-
 
 int main(int argc, char** argv)
 {

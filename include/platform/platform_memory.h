@@ -44,7 +44,9 @@ struct SDLState
     TicketMutex memoryMutex;
 
     // NOTE(marvin): nullptr if there is no game process.
+#if !EMSCRIPTEN
     SDL_Process* gameProcess;
+#endif
 
     // Ensures that only loop utils will be able to access loop state
 #if SKL_INTERNAL
