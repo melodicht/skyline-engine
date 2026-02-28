@@ -46,13 +46,13 @@ struct DataEntry
         std::string stringVal;
         std::vector<DataEntry*> structVal;
     };
-    DataEntry(std::string name, s64 val) : name(name), intVal(val), type(INT_ENTRY) {}
-    DataEntry(std::string name, f64 val) : name(name), floatVal(val), type(FLOAT_ENTRY) {}
-    DataEntry(std::string name, bool val) : name(name), boolVal(val), type(BOOL_ENTRY) {}
-    DataEntry(std::string name, glm::vec3 val) : name(name), vecVal(val), type(VEC_ENTRY) {}
-    DataEntry(std::string name, std::string val) : name(name), stringVal(val), type(STR_ENTRY) {}
-    DataEntry(std::string name, std::vector<DataEntry*> val) : name(name), structVal(val), type(STRUCT_ENTRY) {}
-    DataEntry(std::string name) : name(name), structVal(), type(STRUCT_ENTRY) {}
+    DataEntry(std::string name, s64 val) : name(name), type(INT_ENTRY), intVal(val) {}
+    DataEntry(std::string name, f64 val) : name(name), type(FLOAT_ENTRY), floatVal(val) {}
+    DataEntry(std::string name, bool val) : name(name), type(BOOL_ENTRY), boolVal(val) {}
+    DataEntry(std::string name, glm::vec3 val) : name(name), type(VEC_ENTRY), vecVal(val) {}
+    DataEntry(std::string name, std::string val) : name(name), type(STR_ENTRY), stringVal(val) {}
+    DataEntry(std::string name, std::vector<DataEntry*> val) : name(name), type(STRUCT_ENTRY), structVal(val) {}
+    DataEntry(std::string name) : name(name), type(STRUCT_ENTRY), structVal() {}
     ~DataEntry()
     {
         if (type == STRUCT_ENTRY)
@@ -61,6 +61,26 @@ struct DataEntry
             {
                 delete entry;
             }
+        }
+    }
+};
+
+struct ActorField
+{
+    std::string name;
+    std::vector<std::string> mapping;
+};
+
+struct ActorAsset
+{
+    std::string name;
+    std::vector<ActorField> fields;
+    std::vector<DataEntry*> components;
+    ~ActorAsset()
+    {
+        for (DataEntry* entry : components)
+        {
+            delete entry;
         }
     }
 };

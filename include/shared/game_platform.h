@@ -40,11 +40,12 @@ inline b32 OnHold(GameInput* input, std::string key)
 }
 
 #define ASSET_UTIL_FUNCS(method)\
-    method(MeshAsset *,LoadMeshAsset,(std::string name))\
+    method(MeshAsset*,LoadMeshAsset,(std::string name))\
     method(TextureAsset*,LoadTextureAsset,(std::string name))\
     method(void,LoadSkyboxAsset,(std::array<std::string,6> names))\
     method(DataEntry*,LoadDataAsset,(std::string name))\
-    method(s32,WriteDataAsset,(std::string name, DataEntry* data))
+    method(s32,WriteDataAsset,(std::string name, DataEntry* data))\
+    method(ActorAsset*,LoadActorAsset,(std::string name))
 DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
 
 // TODO(marvin): The creation of the SKL Jolt Allocator must happen on the platform side so that the virtual table can survive the hot reload. I don't see a better way than this...

@@ -22,6 +22,7 @@ struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec
 
 std::unordered_map<std::string, MeshAsset> meshAssets;
 std::unordered_map<std::string, TextureAsset> texAssets;
+std::unordered_map<std::string, ActorAsset> actorAssets;
 
 
 struct ImageData
@@ -316,4 +317,9 @@ s32 WriteDataAsset(std::string name, DataEntry* data)
     output << file;
 
     return 0;
+}
+
+ActorAsset* LoadActorAsset(std::string name)
+{
+    return nullptr;
 }
