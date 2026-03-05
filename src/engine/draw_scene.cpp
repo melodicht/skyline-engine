@@ -59,19 +59,19 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
     }
 
     std::vector<PointLightRenderInfo> pointLights;
-    for (EntityID ent: SceneView<PointLight, Transform3D>(scene))
-    {
-        PointLight *l = scene.Get<PointLight>(ent);
-        if (l->lightID == -1)
-        {
-            l->lightID = renderer.AddPointLight();
-        }
+    // for (EntityID ent: SceneView<PointLight, Transform3D>(scene))
+    // {
+    //     PointLight *l = scene.Get<PointLight>(ent);
+    //     if (l->lightID == -1)
+    //     {
+    //         l->lightID = renderer.AddPointLight();
+    //     }
 
-        Transform3D *lTransform = scene.Get<Transform3D>(ent);
+    //     Transform3D *lTransform = scene.Get<Transform3D>(ent);
 
-        pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                  l->radius, l->falloff, true});
-    }
+    //     pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
+    //                               l->radius, l->falloff, true});
+    // }
 
     std::vector<IconRenderInfo> icons;
     if (gameState.isEditor)

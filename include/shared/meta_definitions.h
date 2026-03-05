@@ -68,6 +68,8 @@ typedef size_t   siz;
 #define LOG(x) (void)(0)
 #define LOG_ERROR(x) (void)(0)
 
+
+
 #endif
 
 // Misc

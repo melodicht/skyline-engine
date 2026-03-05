@@ -1,7 +1,6 @@
 #include <renderer_wgpu.h>
 #include <utils_wgpu.h>
 #include <sdl3webgpu.h>
-#include <dynamic_light_converter.h>
 
 #include <meta_definitions.h>
 #include <skl_math_utils.h>
@@ -17,11 +16,15 @@
 
 #include <backends/imgui_impl_wgpu.h>
 
+// DEBUG
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
+
 // Much of this was taken from https://eliemichel.github.io/LearnWebGPU
 
 // TODO: Make such constants more configurable
 constexpr u32 DefaultCascadeCount = 4;
-constexpr u32 DefaultDirLightDim = 2048;
+constexpr u32 DefaultDirLightDim = 1000;
 constexpr u32 DefaultPointLightDim = 512;
 constexpr u32 DefaultSkyboxDim = 2048;
 
@@ -1340,10 +1343,22 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   std::vector<glm::mat4x4> pointLightSpaces;
 
   // TODO: Make cascade ratios more adjustable
-  std::vector<float> cascadeRatios = {0.25, 0.50, 0.75, 1.00};
-  const std::vector<WGPUBackendDynamicShadowedDirLightData> shadowedDirLightData = ConvertDirLights(state.dirLights, dirLightSpaces, 4, camSpace, cascadeRatios, 0.05, state.cameraFar);
-  const std::vector<WGPUBackendDynamicShadowedPointLightData> shadowedPointLightData = ConvertPointLights(state.pointLights, pointLightSpaces, DefaultPointLightDim, DefaultPointLightDim);
-  const std::vector<WGPUBackendDynamicShadowedSpotLightData> shadowedSpotLightData = ConvertSpotLights(state.spotLights);
+  std::vector<float> cascadeRatios = {0.10, 0.25, 0.50, 1.00};
+  const std::vector<WGPUBackendDynamicShadowedDirLightData> shadowedDirLightData = 
+    m_lightProcessor.ConvertDirLights(
+      state.dirLights, 
+      dirLightSpaces, 
+      mainCamProj, 
+      mainCamView,
+      cascadeRatios,
+      0.05,
+      DefaultDirLightDim,
+      state.cameraNear,
+      state.cameraFar);
+  const std::vector<WGPUBackendDynamicShadowedPointLightData> shadowedPointLightData = 
+    m_lightProcessor.ConvertPointLights(state.pointLights, pointLightSpaces, DefaultPointLightDim, DefaultPointLightDim);
+  const std::vector<WGPUBackendDynamicShadowedSpotLightData> shadowedSpotLightData = 
+    m_lightProcessor.ConvertSpotLights(state.spotLights);
   // >>> Actually begins sending off information to be rendered <<<
 
   // Sends in the attributes of individual mesh instances

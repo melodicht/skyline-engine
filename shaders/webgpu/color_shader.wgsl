@@ -90,19 +90,19 @@ struct DynamicShadowedSpotLight {
 
 @binding(1) @group(0) var<storage, read> objStore : array<ObjData>; 
 
-@binding(2) @group(0) var<storage, read> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
+@binding(2) @group(0) var<storage, read> shadowedDirLightStore : array<DynamicShadowedDirLight>;
 
-@binding(3) @group(0) var<storage, read> dynamicShadowedPointLightStore : array<DynamicShadowedPointLight>;
+@binding(3) @group(0) var<storage, read> shadowedPointLightStore : array<DynamicShadowedPointLight>;
 
-@binding(4) @group(0) var<storage, read> dynamicShadowedSpotLightStore : array<DynamicShadowedSpotLight>;
+@binding(4) @group(0) var<storage, read> shadowedSpotLightStore : array<DynamicShadowedSpotLight>;
 
-@binding(5) @group(0) var<storage, read> dynamicLightsSpacesStore : array<mat4x4<f32>>;
+@binding(5) @group(0) var<storage, read> lightsSpacesStore : array<mat4x4<f32>>;
 
-@binding(6) @group(0) var dynamicShadowedDirLightMap: texture_depth_2d_array;
+@binding(6) @group(0) var shadowedDirLightMap: texture_depth_2d_array;
 
-@binding(7) @group(0) var dynamicShadowedPointLightMap: texture_depth_cube_array;
+@binding(7) @group(0) var shadowedPointLightMap: texture_depth_cube_array;
 
-@binding(8) @group(0) var<storage, read> dynamicShadowedDirLightCascadeRatios : array<f32>;
+@binding(8) @group(0) var<storage, read> dirLightCascadeViewSpaceCutoffs : array<f32>;
 
 @binding(9) @group(0) var shadowMapSampler : sampler_comparison;
 
@@ -186,7 +186,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         // Checks what cascade it the specific fragment should reference
         var cascadeCheck : u32 = 0;
         while (cascadeCheck < fixedData.dirLightCascadeCount) {
-            if (dynamicShadowedDirLightCascadeRatios[cascadeCheck] > fragDepth) {
+            if (dirLightCascadeViewSpaceCutoffs[cascadeCheck] > fragDepth) {
                 break;
             }
             cascadeCheck++;
@@ -194,11 +194,11 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
         // Checks if location has been covered by light
         var lightSpaceIdx : u32 = dirIter + cascadeCheck * fixedData.dirLightAmount;
-        var lightSpacePosition : vec4<f32> = dynamicLightsSpacesStore[lightSpaceIdx] * (in.worldPos);
+        var lightSpacePosition : vec4<f32> = lightsSpacesStore[lightSpaceIdx] * (in.worldPos);
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
         var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
         var lightsUncovered : f32  = pcsCompare(
-            dynamicShadowedDirLightMap, 
+            shadowedDirLightMap, 
             shadowMapSampler, 
             texturePosition.xy, 
             cascadeCheck, 
@@ -210,12 +210,12 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         var singleLight : vec3<f32> = vec3<f32>(0, 0, 0);
 
         // Adds on diffuse lighting to light
-        var diffuseIntensity : f32 = max(dot(in.normal, -dynamicShadowedDirLightStore[dirIter].direction), 0.0);
-        singleLight += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
+        var diffuseIntensity : f32 = max(dot(in.normal, -shadowedDirLightStore[dirIter].direction), 0.0);
+        singleLight += diffuseIntensity * shadowedDirLightStore[dirIter].diffuse;
 
         // Adds on specular lighting to light
-        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
-        singleLight += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular;
+        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(shadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
+        singleLight += specularIntensity * shadowedDirLightStore[dirIter].specular;
 
         // Checks to make sure that singleLight actually applies with shadow
         singleLight = singleLight * lightsUncovered;
@@ -224,7 +224,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
     for (var pointIter : u32 = 0 ; pointIter < fixedData.pointLightAmount ; pointIter++) {
         //Creates copy
-        let pointLight = dynamicShadowedPointLightStore[pointIter];
+        let pointLight = shadowedPointLightStore[pointIter];
 
         // Handles Phong Lighting
         var lightToFragDir: vec3<f32> = (in.worldPos/in.worldPos.w).xyz - pointLight.position;
@@ -248,7 +248,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
             for (var yIter : u32 = 0 ; yIter < fixedData.pcsRange ; yIter++) {
                 var newPos: vec3<f32> = baseDir + basis.up * f32(yIter) + basis.left * f32(xIter);
                 pointLightUncovered += textureSampleCompare(
-                    dynamicShadowedPointLightMap, 
+                    shadowedPointLightMap, 
                     shadowMapSampler, 
                     newPos, 
                     pointIter, 

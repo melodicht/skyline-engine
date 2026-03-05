@@ -1,6 +1,6 @@
 ## Catch Up Goals
-- Update to stable version of WebGPU API (https://developer.chrome.com/blog/new-in-webgpu-141)
 - Stabilize cascaded shadow mapping to reduce jittering 
+- Implement Gamma Correction
 - Implement on off functionality
 - Implement spotlights
 - Implement universal constant lighting

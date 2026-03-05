@@ -81,23 +81,22 @@ glm::mat4 Transform3D::GetWorldTransform()
 
 glm::vec3 Transform3D::GetWorldPosition()
 {
-    glm::mat4 transform = this->GetWorldTransform();
-    return transform * glm::vec4(0.0, 0.0, 0.0, 1.0);
+    return GetWorldTransform()[3];
 }
 
 glm::vec3 Transform3D::GetForwardVector()
 {
-    return GetWorldTransform() * glm::vec4(1.0, 0.0, 0.0, 0.0);
+    return GetWorldTransform()[0];
 }
 
 glm::vec3 Transform3D::GetRightVector()
 {
-    return GetWorldTransform() * glm::vec4(0.0, 1.0, 0.0, 0.0);
+    return GetWorldTransform()[1];
 }
 
 glm::vec3 Transform3D::GetUpVector()
 {
-    return GetWorldTransform() * glm::vec4(0.0, 0.0, 1.0, 0.0);
+    return GetWorldTransform()[2];
 }
 
 glm::mat4 MakeViewMatrix(glm::vec3 forward, glm::vec3 right, glm::vec3 up, glm::vec3 position)
@@ -206,6 +205,43 @@ glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const 
     glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
   );
 }
+
+void ScaleMatrix(glm::mat4x4& mat, const glm::vec3& scaleVec) {
+    mat[0] *= scaleVec[0];
+    mat[1] *= scaleVec[1];
+    mat[2] *= scaleVec[2];
+}
+
+glm::vec3 GetScaleFromView(const glm::mat4x4& viewMat) {
+    return {
+        glm::length(glm::vec3(viewMat[0].x,viewMat[1].x,viewMat[2].x)),
+        glm::length(glm::vec3(viewMat[0].y,viewMat[1].y,viewMat[2].y)),
+        glm::length(glm::vec3(viewMat[0].z,viewMat[1].z,viewMat[2].z))
+    };
+}
+
+glm::vec3 GetForwardVecFromView(const glm::mat4x4& viewMat) {
+    return glm::normalize(glm::vec3(
+        viewMat[0].z,
+        viewMat[1].z,
+        viewMat[2].z
+    ));
+}
+
+glm::vec3 GetWorldTranslateFromView(const glm::mat4x4& viewMat) {
+    return -glm::transpose(glm::mat3x3(GetRotMat(viewMat))) * glm::vec3(viewMat[3]);
+};
+
+glm::mat4x4 GetRotMat(const glm::mat4x4& mat) {
+    glm::mat4x4 cpy = mat;
+    cpy[0] = glm::vec4(glm::normalize(glm::vec3(cpy[0])), 0.0f);
+    cpy[1] = glm::vec4(glm::normalize(glm::vec3(cpy[1])), 0.0f);
+    cpy[2] = glm::vec4(glm::normalize(glm::vec3(cpy[2])), 0.0f);
+    cpy[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    return cpy;
+}
+
 
 std::vector<glm::vec4> GetFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
 {

@@ -7,6 +7,7 @@
 #include <render_types_wgpu.h>
 #include <dynamic_shadow_array.h>
 #include <single_textures_wgpu.h>
+#include <dynamic_light_converter.h>
 
 #include <skl_math_types.h>
 
@@ -109,6 +110,9 @@ private:
 
     // The id of the next obj that will be created
     MeshID m_nextMeshID{ 0 }; 
+
+    // Utility objects
+    DynamicLightConverter m_lightProcessor{ };
 
     void printDeviceSpecs();
 
