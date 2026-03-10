@@ -26,8 +26,8 @@ void OnGameStart(GameState* gameState, GameMemory* gameMemory)
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 }
 
-void OnGameLoad(GameMemory* gameMemory)
-{
-}
+void OnGameLoad(GameMemory* gameMemory) {}
+
+void OnGameGetPersistentDLLPaths(const char** pathBuffer) {}
 
 void OnEditorStart(GameState* gameState) {}

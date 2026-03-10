@@ -63,6 +63,11 @@ if(NOT DEFINED SKL_SLOW)
         option(SKL_SLOW "Whether asserts should be enabled or not" 1)
 endif()
 
+# TODO(marvin): A temporary hack just to be able to turn memory viewer on/off.
+if(NOT DEFINED SKL_DEBUG_MEMORY_VIEWER)
+        option(SKL_DEBUG_MEMORY_VIEWER "Whether debug memory viewer is on" 0)
+endif()
+
 # SKL_STATIC_MONOLITHIC prevents hot reloading but
 # is supported by more platforms and likely faster
 if (NOT DEFINED SKL_STATIC_MONOLITHIC)
@@ -93,6 +98,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_NO_DEFAULT_PHYSICS_SYSTEM=${SKL_NO_DEFAULT_PHYSICS_SYSTEM}
         SKL_SLOW=${SKL_SLOW}
+        SKL_DEBUG_MEMORY_VIEWER=${SKL_DEBUG_MEMORY_VIEWER}
         SKL_STATIC_MONOLITHIC=${SKL_STATIC_MONOLITHIC}
         SKL_BASE_PATH="${SKL_BASE_PATH}"
         GLM_FORCE_DEPTH_ZERO_TO_ONE

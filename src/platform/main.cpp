@@ -19,8 +19,7 @@
 #include <platform_loader.h>
 #include <main.h>
 
-// TODO(marvin): Turning off memory viewer temporarily.
-#if 0
+#if SKL_DEBUG_MEMORY_VIEWER
 DebugState globalDebugState_;
 DebugState* globalDebugState = &globalDebugState_;
 #endif
@@ -230,8 +229,7 @@ int main(int argc, char** argv)
     GameCode gameCode{ editor };
 
     GameMemory gameMemory = {};
-    // TODO(marvin): Temporarily turning off memory viewer.
-#if 0
+#if SKL_DEBUG_MEMORY_VIEWER
     gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
