@@ -195,6 +195,7 @@ int main(int argc, char** argv)
 
     std::string mapName = "start";
     bool editor = false;
+    bool recordOnStart = false;
 
     for (int i = 0; i < argc; i++)
     {
@@ -202,9 +203,13 @@ int main(int argc, char** argv)
         {
             editor = true;
         }
-        if ((!strcmp(argv[i], "-map")) && ((++i) < argc))
+        else if ((!strcmp(argv[i], "-map")) && ((++i) < argc))
         {
             mapName = argv[i];
+        }
+        else if (!strcmp(argv[i], "-record-on-start"))
+        {
+            recordOnStart = true;
         }
     }
 
@@ -241,6 +246,11 @@ int main(int argc, char** argv)
 
     SDL_Event e;
     bool playing = true;
+
+    if (recordOnStart)
+    {
+        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState);
+    }
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
