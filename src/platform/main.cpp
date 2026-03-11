@@ -89,6 +89,8 @@ void updateLoop(void* appInfo) {
     GameInput gameInput;
     gameInput.keysDownPrevFrame = keysDown;
 
+    b8 forceReloadGameCode = false;
+
     while (SDL_PollEvent(&info->e))
     {
         ImGui_ImplSDL3_ProcessEvent(&info->e);
@@ -107,6 +109,13 @@ void updateLoop(void* appInfo) {
                 else if (info->e.key.key == SDLK_L)
                 {
                     LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState);
+                }
+                else if (info->e.key.key == SDLK_R)
+                {
+                    if (LoopUtils::GetIsStateInPlayback(&globalSDLState))
+                    {
+                        forceReloadGameCode = true;
+                    }
                 }
 #endif
                 else if (info->editor && info->e.key.key == SDLK_R && (SDL_GetModState() & SDL_KMOD_CTRL))
@@ -149,7 +158,7 @@ void updateLoop(void* appInfo) {
     gameInput.mouseY = mouseY;
     gameInput.keysDownThisFrame = keysDown;
 
-    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput);
+    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, forceReloadGameCode);
     if (shouldReloadGameCode)
     {
         info->gameCode.gameLoad(info->gameMemory, info->editor, true);

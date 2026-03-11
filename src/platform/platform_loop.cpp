@@ -133,7 +133,7 @@ void LoopUtils::SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>
 }
 
 // Did a reset happen?
-b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput)
+b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode)
 {
     // NOTE(marvin): Would it be possible for there to be two notion
     // of mouse? One used in the game, and one for interacting with
@@ -147,7 +147,7 @@ b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput)
     gameInput->keysDownThisFrame.~set();
     siz bytesRead = SDL_ReadIO(state->loopState.playbackHandle, gameInput, sizeof(*gameInput));
 
-    if (bytesRead == 0)
+    if (bytesRead == 0 || forceReloadGameCode)
     {
         // NOTE(marvin): Could also rewind the stream, but going
         // through end and start again is safer.
@@ -171,6 +171,11 @@ b8 LoopUtils::GetIsStateInLoop(const SDLState* state)
     return state->loopState.loopedLiveEditingState != LoopState::LoopedLiveEditingState::none;
 }
 
+b8 LoopUtils::GetIsStateInPlayback(const SDLState* state)
+{
+    return state->loopState.loopedLiveEditingState == LoopState::LoopedLiveEditingState::playing;
+}
+
 void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state)
 {
     switch (state->loopState.loopedLiveEditingState)
@@ -191,7 +196,7 @@ void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state)
     }
 }
 
-b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput)
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode)
 {
     b32 result = false;
     switch (state->loopState.loopedLiveEditingState)
@@ -203,7 +208,7 @@ b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput)
       } break;
       case LoopState::LoopedLiveEditingState::playing:
       {
-          result = SDLPlaybackInput(state, gameInput);
+          result = SDLPlaybackInput(state, gameInput, forceReloadGameCode);
       } break;
     }
     return result;
@@ -226,7 +231,7 @@ b8 LoopUtils::GetBlockFlagLoopAllocated(const SDLMemoryBlock* block)  {
 #else 
 b8 LoopUtils::GetIsStateInLoop(const SDLState* state) {}
 void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state) {}
-b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput) { return false; }
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode) { return false; }
 void LoopUtils::SetBlockFlagLoopAllocated(SDLMemoryBlock* block) {}
 void LoopUtils::SetBlockFlagLoopFreed(SDLMemoryBlock* block) {}
 void LoopUtils::SetBlockFlagLoopNone(SDLMemoryBlock* block) {}
