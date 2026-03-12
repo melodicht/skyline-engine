@@ -168,6 +168,7 @@ endif()
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.92.5")
+CPMAddPackage("gh:kcat/openal-soft#1.25.1")
 
 CPMAddPackage("gh:marzer/tomlplusplus#v3.4.0")
 
@@ -201,8 +202,10 @@ target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 #==============================================================================
 
 add_library(SHARED_DEPENDENCIES INTERFACE)
+# TODO(marvin): The OpenAL Soft dependency should be confined to platform.
 target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
+        OpenAL::OpenAL
         imgui
         skl-utils
         SKL_COMPILE_DEFINITIONS
