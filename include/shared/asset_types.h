@@ -68,17 +68,19 @@ struct DataEntry
 struct ActorField
 {
     std::string name;
-    std::vector<std::string> mapping;
+    std::string linkEntity;
+    std::string linkComponent;
+    std::string linkField;
 };
 
 struct ActorAsset
 {
     std::string name;
     std::vector<ActorField> fields;
-    std::vector<DataEntry*> components;
+    std::vector<DataEntry*> entities;
     ~ActorAsset()
     {
-        for (DataEntry* entry : components)
+        for (DataEntry* entry : entities)
         {
             delete entry;
         }

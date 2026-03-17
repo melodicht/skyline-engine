@@ -321,5 +321,42 @@ s32 WriteDataAsset(std::string name, DataEntry* data)
 
 ActorAsset* LoadActorAsset(std::string name)
 {
-    return nullptr;
+    if (actorAssets.contains(name))
+    {
+        return &actorAssets[name];
+    }
+
+    actorAssets[name] = {};
+    ActorAsset& actor = actorAssets[name];
+
+    toml::table file;
+    try
+    {
+        file = toml::parse_file(SKL_BASE_PATH "/actors/" + name + ".toml");
+        toml::table* fields = file["fields"].as_table();
+        for (auto elem : *fields)
+        {
+            toml::array* field = elem.second.as_array();
+            actor.fields.push_back(
+            {
+                field[0].as_string()->get(),
+                field[1].as_string()->get(),
+                field[2].as_string()->get(),
+                field[3].as_string()->get()
+            });
+        }
+
+        toml::table* entities = file["entities"].as_table();
+        for (auto elem : *entities)
+        {
+            actor.entities.push_back(LoadNodeToData(elem.first.data(), elem.second));
+        }
+
+        return nullptr;
+    }
+    catch (const toml::parse_error& error)
+    {
+        std::cout << error << '\n';
+        return nullptr;
+    }
 }
