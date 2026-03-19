@@ -56,6 +56,9 @@ VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
 AllocatedImage depthImage;
 VkImageView depthImageView;
 
+AllocatedImage colorImage;
+VkImageView colorImageView;
+
 AllocatedImage idImage;
 VkImageView idImageView;
 
@@ -567,6 +570,31 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImageView));
 
+    colorImage = CreateImage(deviceAllocator,
+                             VK_FORMAT_R16G16B16A16_SFLOAT, 0,
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                             imageExtent, 1,
+                             VMA_MEMORY_USAGE_GPU_ONLY,
+                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    VkImageViewCreateInfo colorViewInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = colorImage.image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+        .subresourceRange
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    VK_CHECK(vkCreateImageView(device, &colorViewInfo, nullptr, &colorImageView));
+
     if (editor)
     {
         idImage = CreateImage(deviceAllocator,
@@ -603,6 +631,9 @@ void DestroySwapResources()
         vkDestroyImageView(device, idImageView, nullptr);
         DestroyImage(deviceAllocator, idImage);
     }
+
+    vkDestroyImageView(device, colorImageView, nullptr);
+    DestroyImage(deviceAllocator, colorImage);
 
     vkDestroyImageView(device, depthImageView, nullptr);
     DestroyImage(deviceAllocator, depthImage);
