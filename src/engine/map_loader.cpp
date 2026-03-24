@@ -7,6 +7,8 @@
 #include <scene_view.h>
 #include <entity_view.h>
 
+#include "game_platform.h"
+
 file_global std::string currentMapName = "";
 
 std::unordered_map<std::string, EntityID> entityIds;
@@ -65,7 +67,7 @@ s32 LoadMap(Scene& scene, std::string name)
     {
         if (entity->type != STRUCT_ENTRY)
         {
-            printf("entry must be struct but instead is %d\n", data->type);
+            printf("entry must be struct but instead is %d\n", entity->type);
             return -1;
         }
         EntityID id = scene.NewEntity();
@@ -99,6 +101,65 @@ s32 LoadMap(Scene& scene, std::string name)
     }
     delete data;
     currentMapName = name;
+    return rv;
+}
+
+s32 InstantiateActor(Scene& scene, std::string name, std::vector<DataEntry*>& fieldVals)
+{
+    std::string filepath = "actors/" + name;
+    ActorAsset* actor = assetUtils.LoadActorAsset(filepath);
+
+    std::unordered_map<std::string, EntityID> localIds;
+    for (DataEntry* entity : actor->entities)
+    {
+        if (entity->type != STRUCT_ENTRY)
+        {
+            printf("entry must be struct but instead is %d\n", entity->type);
+            return -1;
+        }
+        EntityID id = scene.NewEntity();
+        entityIds[entity->name] = id;
+
+        for (DataEntry* comp : entity->structVal)
+        {
+            if (!stringToId.contains(comp->name))
+            {
+                printf("invalid component name: %s", comp->name.c_str());
+                return -1;
+            }
+            ComponentID compIndex = stringToId[comp->name];
+            ComponentInfo& compInfo = CompInfos()[compIndex];
+            compInfo.assignFunc(scene, id);
+        }
+    }
+    s32 rv = 0;
+    for (DataEntry* entity : actor->entities)
+    {
+        EntityID id = entityIds[entity->name];
+        for (DataEntry* comp : entity->structVal)
+        {
+            ComponentID compIndex = stringToId[comp->name];
+            ComponentInfo& compInfo = CompInfos()[compIndex];
+            rv |= compInfo.writeFunc(scene, id, comp);
+        }
+    }
+    for (DataEntry* fieldVal : fieldVals)
+    {
+        for (ActorField& field : actor->fields)
+        {
+            if (field.name == fieldVal->name)
+            {
+                EntityID id = entityIds[field.linkEntity];
+                ComponentID compIndex = stringToId[field.linkComponent];
+                ComponentInfo& compInfo = CompInfos()[compIndex];
+                DataEntry fieldWrite = *fieldVal;
+                fieldWrite.name = field.linkField;
+                DataEntry compWrite{field.linkComponent, {&fieldWrite}};
+                compWrite.name = field.linkComponent;
+                rv |= compInfo.writeFunc(scene, id, &compWrite);
+            }
+        }
+    }
     return rv;
 }
 

@@ -53,14 +53,42 @@ struct DataEntry
     DataEntry(std::string name, std::string val) : name(name), type(STR_ENTRY), stringVal(val) {}
     DataEntry(std::string name, std::vector<DataEntry*> val) : name(name), type(STRUCT_ENTRY), structVal(val) {}
     DataEntry(std::string name) : name(name), type(STRUCT_ENTRY), structVal() {}
+    DataEntry(DataEntry& other) : name(other.name), type(other.type)
+    {
+        switch (other.type)
+        {
+        case INT_ENTRY:
+            intVal = other.intVal;
+            break;
+        case FLOAT_ENTRY:
+            floatVal = other.floatVal;
+            break;
+        case BOOL_ENTRY:
+            boolVal = other.boolVal;
+            break;
+        case VEC_ENTRY:
+            vecVal = other.vecVal;
+            break;
+        case STR_ENTRY:
+            stringVal = other.stringVal;
+        case STRUCT_ENTRY:
+            structVal = other.structVal;
+            break;
+        }
+    }
     ~DataEntry()
     {
+        if (type == STR_ENTRY)
+        {
+            stringVal.~basic_string();
+        }
         if (type == STRUCT_ENTRY)
         {
             for (DataEntry* entry : structVal)
             {
                 delete entry;
             }
+            structVal.~vector();
         }
     }
 };
