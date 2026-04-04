@@ -79,6 +79,7 @@ FrameData frames[NUM_FRAMES];
 VkPipelineLayout depthPipelineLayout;
 VkPipelineLayout shadowPipelineLayout;
 VkPipelineLayout colorPipelineLayout;
+VkPipelineLayout postPipelineLayout;
 VkPipeline shadowPipeline;
 VkPipeline cascadedPipeline;
 VkPipeline cubemapPipeline;
@@ -90,7 +91,9 @@ VkFormat shadowFormat = VK_FORMAT_D16_UNORM;
 
 VkDescriptorPool descriptorPool;
 VkDescriptorSetLayout texDescriptorLayout;
+VkDescriptorSetLayout postDescriptorLayout;
 VkDescriptorSet texDescriptorSet;
+VkDescriptorSet postDescriptorSet;
 
 u32 frameNum;
 
@@ -572,7 +575,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 
     colorImage = CreateImage(deviceAllocator,
                              VK_FORMAT_R16G16B16A16_SFLOAT, 0,
-                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
                              imageExtent, 1,
                              VMA_MEMORY_USAGE_GPU_ONLY,
                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -664,6 +667,20 @@ void RecreateSwapchain()
     VkSwapchainKHR old = swapchain;
     CreateSwapchain(width, height, old);
     vkDestroySwapchainKHR(device, old, nullptr);
+
+    VkDescriptorImageInfo colorImageDescInfo{.imageView = colorImageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+
+    VkWriteDescriptorSet colorImageWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = postDescriptorSet,
+        .dstBinding = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .pImageInfo = &colorImageDescInfo
+    };
+
+    vkUpdateDescriptorSets(device, 1, &colorImageWrite, 0, nullptr);
 }
 
 SDL_WindowFlags GetRenderWindowFlags()
@@ -909,15 +926,15 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkPipelineShaderStageCreateInfo iconShaderStages[] = {iconVertStageInfo, iconFragStageInfo};
 
     // Set up descriptor pool and set for textures
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}, {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
             | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-        .maxSets = 1,
-        .poolSizeCount = 2,
+        .maxSets = 2,
+        .poolSizeCount = 3,
         .pPoolSizes = poolSizes
     };
 
@@ -966,6 +983,24 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorLayoutInfo, nullptr, &texDescriptorLayout));
 
+    VkDescriptorSetLayoutBinding colorImageBinding
+    {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutCreateInfo postDescLayoutInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &colorImageBinding
+    };
+
+    VK_CHECK(vkCreateDescriptorSetLayout(device, &postDescLayoutInfo, nullptr, &postDescriptorLayout));
+
     VkDescriptorSetAllocateInfo descriptorAllocInfo
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -975,6 +1010,16 @@ void InitPipelines(RenderPipelineInitInfo& info)
     };
 
     VK_CHECK(vkAllocateDescriptorSets(device, &descriptorAllocInfo, &texDescriptorSet));
+
+    VkDescriptorSetAllocateInfo postDescAllocInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &postDescriptorLayout
+    };
+
+    VK_CHECK(vkAllocateDescriptorSets(device, &postDescAllocInfo, &postDescriptorSet));
 
     VkSamplerCreateInfo shadowSamplerInfo
     {
@@ -1015,9 +1060,21 @@ void InitPipelines(RenderPipelineInitInfo& info)
     textureSamplerWrite.dstBinding = 2;
     textureSamplerWrite.pImageInfo = &textureSamplerDescInfo;
 
-    VkWriteDescriptorSet samplerWrites[2] = {shadowSamplerWrite, textureSamplerWrite};
+    VkDescriptorImageInfo colorImageDescInfo{.imageView = colorImageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
 
-    vkUpdateDescriptorSets(device, 2, samplerWrites, 0, nullptr);
+    VkWriteDescriptorSet colorImageWrite
+    {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = postDescriptorSet,
+        .dstBinding = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .pImageInfo = &colorImageDescInfo
+    };
+
+    VkWriteDescriptorSet descriptorWrites[3] = {shadowSamplerWrite, textureSamplerWrite, colorImageWrite};
+
+    vkUpdateDescriptorSets(device, 3, descriptorWrites, 0, nullptr);
 
     // Create render pipeline layouts
 
@@ -1074,6 +1131,16 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VK_CHECK(vkCreatePipelineLayout(device, &colorLayoutInfo, nullptr, &colorPipelineLayout));
 
+    VkPipelineLayoutCreateInfo postLayoutInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &postDescriptorLayout,
+        .pushConstantRangeCount = 0,
+        .pPushConstantRanges = nullptr
+    };
+
+    VK_CHECK(vkCreatePipelineLayout(device, &postLayoutInfo, nullptr, &postPipelineLayout));
 
     // Create render pipelines (AKA fill in 20000 info structs)
     VkDynamicState dynamicStates[] =
