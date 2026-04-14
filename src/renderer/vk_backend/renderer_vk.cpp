@@ -1,16 +1,3 @@
-#define VK_CHECK(x)                                                 \
-	do                                                              \
-	{                                                               \
-		VkResult err = (x);                                         \
-		if (err)                                                    \
-		{                                                           \
-			std::cout << "Detected Vulkan error: " << err <<        \
-            " at line " <<  __LINE__ << " in file " << __FILE__;    \
-			abort();                                                \
-		}                                                           \
-	} while (0)
-
-
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
 #if defined(__APPLE__)
@@ -19,7 +6,7 @@
 #define VOLK_IMPLEMENTATION
 #include <volk.h>
 
-#include <vma_no_warnings.h>
+#include <vk_mem_alloc.h>
 #include <iostream>
 
 #include <imgui_impl_vulkan.h>
@@ -27,7 +14,7 @@
 #include <asset_types.h>
 #include <render_backend.h>
 #include "vk_render_types.h"
-#include "vk_render_utils.cpp"
+#include "vk_render_utils.h"
 
 #include <VkBootstrap.h>
 #include <glm/glm.hpp>
@@ -1349,7 +1336,7 @@ bool InitFrame()
 
     if (editor)
     {
-        void* idData = frames[frameNum].idTransferBuffer.allocation->GetMappedData();
+        void* idData = frames[frameNum].idTransferBuffer.info.pMappedData;
         memcpy(&cursorEntityIndex, idData, sizeof(u32));
     }
 
@@ -1698,7 +1685,7 @@ void SetCamera(u32 index)
 
 void UpdateCamera(u32 viewCount, CameraData* views)
 {
-    void* cameraData = frames[frameNum].cameraBuffers[currentCamIndex].allocation->GetMappedData();
+    void* cameraData = frames[frameNum].cameraBuffers[currentCamIndex].info.pMappedData;
     memcpy(cameraData, views, sizeof(CameraData) * viewCount);
 }
 
@@ -1720,21 +1707,21 @@ void SetLights(glm::vec3 ambientLight,
 
     if (dirCount > 0)
     {
-        void* dirLightData = frames[frameNum].dirLightBuffer.allocation->GetMappedData();
+        void* dirLightData = frames[frameNum].dirLightBuffer.info.pMappedData;
         memcpy(dirLightData, dirData, sizeof(VkDirLightData) * dirCount);
-        void* dirCascadeData = frames[frameNum].dirCascadeBuffer.allocation->GetMappedData();
+        void* dirCascadeData = frames[frameNum].dirCascadeBuffer.info.pMappedData;
         memcpy(dirCascadeData, dirCascades, sizeof(LightCascade) * NUM_CASCADES);
     }
 
     if (spotCount > 0)
     {
-        void* spotLightData = frames[frameNum].spotLightBuffer.allocation->GetMappedData();
+        void* spotLightData = frames[frameNum].spotLightBuffer.info.pMappedData;
         memcpy(spotLightData, spotData, sizeof(VkSpotLightData) * spotCount);
     }
 
     if (pointCount > 0)
     {
-        void* pointLightData = frames[frameNum].pointLightBuffer.allocation->GetMappedData();
+        void* pointLightData = frames[frameNum].pointLightBuffer.info.pMappedData;
         memcpy(pointLightData, pointData, sizeof(VkPointLightData) * pointCount);
     }
 
@@ -1755,13 +1742,13 @@ void SetLights(glm::vec3 ambientLight,
 void SetObjectData(std::vector<ObjectData>& objects, std::vector<u32>& ids)
 {
     AllocatedBuffer& objectBuffer = frames[frameNum].objectBuffer;
-    void* objectData = objectBuffer.allocation->GetMappedData();
+    void* objectData = objectBuffer.info.pMappedData;
     memcpy(objectData, objects.data(), sizeof(ObjectData) * objects.size());
 
     if (editor)
     {
         AllocatedBuffer& idBuffer = frames[frameNum].idBuffer;
-        void* idData = idBuffer.allocation->GetMappedData();
+        void* idData = idBuffer.info.pMappedData;
         memcpy(idData, ids.data(), sizeof(u32) * ids.size());
     }
 }
@@ -1887,7 +1874,7 @@ void DrawIcons(std::vector<IconRenderInfo>& icons)
     vkCmdBindIndexBuffer(cmd, iconIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 
     AllocatedBuffer& objectBuffer = frames[frameNum].iconBuffer;
-    void* objectData = objectBuffer.allocation->GetMappedData();
+    void* objectData = objectBuffer.info.pMappedData;
     memcpy(objectData, icons.data(), sizeof(IconData) * icons.size());
 
     f32 aspect = (f32)swapExtent.height / swapExtent.width;
@@ -1990,9 +1977,9 @@ void RenderUpdate(RenderFrameInfo& info)
 
             std::vector<glm::vec4> corners = GetFrustumCorners(subProj, view);
 
-            for (const glm::vec3& v : corners)
+            for (const glm::vec4& v : corners)
             {
-                const glm::vec4 trf = dirView * glm::vec4(v, 1.0);
+                const glm::vec4 trf = dirView * v;
                 minX = std::min(minX, trf.x);
                 maxX = std::max(maxX, trf.x);
                 minY = std::min(minY, trf.y);
@@ -2016,8 +2003,6 @@ void RenderUpdate(RenderFrameInfo& info)
 
             cascades.push_back({dirProj * dirView, currentNear});
         }
-
-        glm::vec3 lightDir = dirTransform->GetForwardVector();
 
         LightEntry lightEntry = lights[dirInfo.lightID];
 

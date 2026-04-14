@@ -1,5 +1,15 @@
+#include <volk.h>
+#include <vk_mem_alloc.h>
+#include <glm/glm.hpp>
+#include <cstring>
+
+#include "meta_definitions.h"
+#include "render_types.h"
+#include "vk_render_utils.h"
+
 //Create a buffer using VMA
-AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags)
+AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage,
+    VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags)
 {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -15,7 +25,7 @@ AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t all
 
     AllocatedBuffer newBuffer;
 
-    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &newBuffer.buffer, &newBuffer.allocation, nullptr));
+    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
 
     if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
     {
@@ -156,7 +166,7 @@ void StagedCopyToBuffer(VkDevice device, VmaAllocator allocator, VkCommandPool c
         | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-    void* stagingData = stagingBuffer.allocation->GetMappedData();
+    void* stagingData = stagingBuffer.info.pMappedData;
     memcpy(stagingData, src, size);
 
     VkCommandBuffer cmd = BeginImmediateCommands(device, commandPool);
@@ -178,41 +188,11 @@ VkCullModeFlags GetCullModeFlags(CullMode cullMode)
 {
     switch (cullMode)
     {
-        case NONE:
-            return VK_CULL_MODE_NONE;
-        case FRONT:
-            return VK_CULL_MODE_FRONT_BIT;
-        case BACK:
-            return VK_CULL_MODE_BACK_BIT;
+    case FRONT:
+        return VK_CULL_MODE_FRONT_BIT;
+    case BACK:
+        return VK_CULL_MODE_BACK_BIT;
+    default:
+        return VK_CULL_MODE_NONE;
     }
 };
-
-f32 sRGBToLinear(f32 sRGB)
-{
-    return sRGB > 0.04045f ? std::powf((sRGB + 0.055f) / 1.055, 2.4f) : sRGB / 12.92f;
-}
-
-f32 linearToSRGB(f32 linear)
-{
-    return linear > 0.0031308f ? 1.055f * std::powf(linear, 1.0f / 2.4f) - 0.055f : linear * 12.92f;
-}
-
-glm::vec3 sRGBToLinear(glm::vec3 sRGB)
-{
-    return {sRGBToLinear(sRGB.x), sRGBToLinear(sRGB.y), sRGBToLinear(sRGB.z)};
-}
-
-glm::vec3 linearToSRGB(glm::vec3 linear)
-{
-    return {linearToSRGB(linear.x), linearToSRGB(linear.y), linearToSRGB(linear.z)};
-}
-
-glm::vec4 sRGBToLinear(glm::vec4 sRGB)
-{
-    return {sRGBToLinear(sRGB.x), sRGBToLinear(sRGB.y), sRGBToLinear(sRGB.z), sRGB.a};
-}
-
-glm::vec4 linearToSRGB(glm::vec4 linear)
-{
-    return {linearToSRGB(linear.x), linearToSRGB(linear.y), linearToSRGB(linear.z), linear.a};
-}
