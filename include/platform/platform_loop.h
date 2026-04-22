@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 
 #include <set>
+#include <string>
 
 #include <meta_definitions.h>
 
