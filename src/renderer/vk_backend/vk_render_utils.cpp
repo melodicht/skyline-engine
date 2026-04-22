@@ -2,6 +2,7 @@
 #include <vk_mem_alloc.h>
 #include <glm/glm.hpp>
 #include <cstring>
+#include <iostream>
 
 #include "meta_definitions.h"
 #include "render_types.h"
