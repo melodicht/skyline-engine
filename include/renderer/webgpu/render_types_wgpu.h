@@ -89,7 +89,6 @@ struct WGPUBackendColorPassFixedUniforms {
 struct WGPUBackendPointUniforms
 {
     glm::mat4x4 m_camSpaceMat{ 0 };
-    u32 m_pointLightIndex{ 0 };
 };
 
 // Represents a instance of a mesh

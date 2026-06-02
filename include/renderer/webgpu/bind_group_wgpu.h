@@ -144,7 +144,7 @@ public:
         for (int i = 0 ; i < DynamicEntryCount ; i++) {
             dynamicIndex[i] *= m_dynamicUniformEntries[i].m_dynamicStride;
         }
-        wgpuRenderPassEncoderSetBindGroup(renderPass, groupIdx, m_bindGroupDat, 0, dynamicIndex.data());
+        wgpuRenderPassEncoderSetBindGroup(renderPass, groupIdx, m_bindGroupDat, DynamicEntryCount, dynamicIndex.data());
     }
 
 };
@@ -421,7 +421,7 @@ protected:
 
 public:
     WGPUBackendSingleStorageArrayBuffer() = default;
-
+    ~WGPUBackendSingleStorageArrayBuffer() = default;
     // For now begin size and size limits describe amount of given struct that can be, not the byte size
     void Init(const WGPUDevice& device, const char* bufferLabel, u32 sizeLimit) {
         WGPUBackendArrayBuffer<StorageStruct>::Init(device, WGPUBufferUsage_Storage, bufferLabel, sizeLimit);
@@ -490,7 +490,23 @@ public:
  */
 template <typename UniformStruct>
 class WGPUBackendDynamicUniformBuffer : public WGPUBackendSingleStorageArrayBuffer<UniformStruct>, public WGPUBackendDynamicUniformStore {
-public:
+
+protected:
+    // Resizing destroys and recreates the underlying buffer. The base class refreshes
+    // m_currentBindGroupEntry (the storage-style descriptor), but the dynamic uniform entry
+    // caches its own buffer handle and must be re-pointed too, otherwise a rebuilt dynamic
+    // bind group references the destroyed buffer.
+    void ResizeTo(const WGPUDevice& device, const WGPUQueue& queue, u32 newStructDataSize) override {
+        WGPUBackendSingleStorageArrayBuffer<UniformStruct>::ResizeTo(device, queue, newStructDataSize);
+        m_currentDynamicUniformEntry.buffer = WGPUBackendArrayBuffer<UniformStruct>::m_bufferDat;
+    }
+
+    void ResizeToTransient(const WGPUDevice& device, u32 newStructDataSize) override {
+        WGPUBackendSingleStorageArrayBuffer<UniformStruct>::ResizeToTransient(device, newStructDataSize);
+        m_currentDynamicUniformEntry.buffer = WGPUBackendArrayBuffer<UniformStruct>::m_bufferDat;
+    }
+
+    public:
     // Uninitialized uniform buffer
     WGPUBackendDynamicUniformBuffer() = default;
 

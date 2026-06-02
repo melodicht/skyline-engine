@@ -850,6 +850,7 @@ void WGPURenderBackend::InitPipelines()
     WGPUBindGroupLayoutEntry pointDepthUniformsBind = CreateBufferEntry(
       WGPUShaderStage_Fragment | WGPUShaderStage_Vertex,
       WGPUBufferBindingType_Uniform, sizeof(WGPUBackendPointUniforms));
+    pointDepthUniformsBind.buffer.hasDynamicOffset = true;
 
     WGPUBindGroupLayoutEntry dynamicShadowedDirLightBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
@@ -863,6 +864,7 @@ void WGPURenderBackend::InitPipelines()
     WGPUBindGroupLayoutEntry dynamicShadowedPointLightUniformBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
       WGPUBufferBindingType_Uniform, sizeof(WGPUBackendDynamicShadowedPointLightData));
+    dynamicShadowedPointLightUniformBind.buffer.hasDynamicOffset = true;
 
     WGPUBindGroupLayoutEntry dynamicShadowedSpotLightBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
@@ -880,6 +882,7 @@ void WGPURenderBackend::InitPipelines()
     WGPUBindGroupLayoutEntry shadowMapUniformsBind = CreateBufferEntry(
       WGPUShaderStage_Vertex,
       WGPUBufferBindingType_Uniform,sizeof(u32));
+    shadowMapUniformsBind.buffer.hasDynamicOffset = true;
 
     WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
     dynamicDirLightShadowMapBind.visibility = WGPUShaderStage_Fragment;
@@ -1198,6 +1201,13 @@ void WGPURenderBackend::InitPipelines()
       .fragment = nullptr,
     };
 
+    // Ideally ensures that depth clamping logic still goes through
+    // even when not supported by hardware
+    WGPUConstantEntry enableManualClampingEntry {
+      .key = WGPUBackendUtils::wgpuStr("manualClamping"),
+      .value = static_cast<double>(!m_hardwareDepthClampingSupported)
+    };
+
     WGPURenderPipelineDescriptor shadowmapPipelineDesc {
       .nextInChain = nullptr,
       .label = WGPUBackendUtils::wgpuStr("Shadow Mapping Pipeline"),
@@ -1205,8 +1215,8 @@ void WGPURenderBackend::InitPipelines()
       .vertex {
         .module = shadowMapShaderModule.get(),
         .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
-        .constantCount = 0,
-        .constants = nullptr,
+        .constantCount = 1,
+        .constants = &enableManualClampingEntry,
         .bufferCount = 1,
         .buffers = &depthBufferLayout
       },
@@ -1214,22 +1224,16 @@ void WGPURenderBackend::InitPipelines()
         .topology = WGPUPrimitiveTopology_TriangleList,
         .stripIndexFormat = WGPUIndexFormat_Undefined,
         .frontFace = WGPUFrontFace_CCW,
-        .cullMode = WGPUCullMode_Back
+        .cullMode = WGPUCullMode_Back,
+        .unclippedDepth = m_hardwareDepthClampingSupported
       },
-      .depthStencil = &depthStencilState,
+      .depthStencil = &depthStencilSetSlopeBiased,
       .multisample {
         .count = 1,
         .mask = ~0u,
         .alphaToCoverageEnabled = false,
       },
       .fragment = nullptr,
-    };
-
-    // Ideally ensures that depth clamping logic still goes through
-    // even when not supported by hardware
-    WGPUConstantEntry enableManualClampingEntry {
-      .key = WGPUBackendUtils::wgpuStr("manualClamping"),
-      .value = static_cast<double>(!m_hardwareDepthClampingSupported)
     };
 
     WGPURenderPipelineDescriptor pointDepthPipelineDesc {
@@ -1565,7 +1569,18 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     m_wgpuQueue,
     camSpace); 
 
-  // Writes in shadowed data pass
+  // Writes in data for shadow mapping
+  m_pointDepthPassUniformBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, pointLightSpaces);
+
+  // One index per (light, cascade) light-space matrix. The shadow pass selects a slot via
+  // dynamic offset and the shader uses its value to index cameraSpaces, so slot j must hold j
+  // across the full cascadeCount * dirLightCount range (matches dirLightSpaces).
+  std::vector<u32> dirIndices;
+  dirIndices.reserve(dirLightSpaces.size());
+  for (u32 i = 0 ; i < dirLightSpaces.size() ; i++) {
+    dirIndices.push_back(i);
+  }
+  m_dirDepthPassUniformBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirIndices);
 
   // >>> Updates Dirty Binding Groups <<<
 

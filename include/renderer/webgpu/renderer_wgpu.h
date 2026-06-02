@@ -86,7 +86,7 @@ private:
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
 
-    WGPUBackendDynamicUniformBuffer<WGPUBackendPointUniforms> m_pointDepthPassUniformBuffer{ };
+    WGPUBackendDynamicUniformBuffer<glm::mat4x4> m_pointDepthPassUniformBuffer{ };
     WGPUBackendDynamicUniformBuffer<u32> m_dirDepthPassUniformBuffer{ };
 
     WGPUBackendSingleUniformBuffer<WGPUBackendColorPassUniforms> m_colorPassUniformBuffer{ };
