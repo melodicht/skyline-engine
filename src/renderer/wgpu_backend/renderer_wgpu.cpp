@@ -1016,8 +1016,8 @@ void WGPURenderBackend::InitPipelines()
 
   WGPUPipelineLayoutDescriptor pointDepthPipelineLayoutConstructor {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Depth Pipeline Layout"),
-    .bindGroupLayoutCount = 2,
+    .label = WGPUBackendUtils::wgpuStr("Point Depth Pipeline Layout"),
+    .bindGroupLayoutCount = 1,
     .bindGroupLayouts = pointDepthBindLayout.data(),
   };
 
