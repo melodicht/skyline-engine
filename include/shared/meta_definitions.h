@@ -241,3 +241,10 @@ public:
 #define RUN_ON_START(code, uniqueIdentifier) \
     [[maybe_unused]] static StaticRun uniqueIdentifier([]{ code })
 
+
+// This shouldn't actually run but its meant to allow the IDE not trip up on compile definitions set by cmake
+#ifndef SKL_BASE_PATH
+// Just a dummy value, check cmake for real
+#define SKL_BASE_PATH ".."
+#warning "?????, cmake was supposed to handle this"
+#endif

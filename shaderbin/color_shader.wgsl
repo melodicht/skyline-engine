@@ -27,24 +27,30 @@ fn getOrthonormalBasis(normalForward: vec3<f32>) -> orthonormalBasis {
 
 
 
-// Represents fixed length color pass data
-struct ColorPassFixedData {
+// Uniform variables in the color pass that update semi frequently
+struct ColorUniforms {
     // Camera Data
-    combinedMat : mat4x4<f32>,
-    viewMat : mat4x4<f32>,
-    projMat : mat4x4<f32>,
-    pos: vec3<f32>,
+    camViewMat : mat4x4<f32>,
+    camPos: vec3<f32>,
+
     // Light Data
     dirLightAmount: u32,
     pointLightAmount: u32,
     spotLightAmount: u32,
+    padding: u32,
+    padding2: u32
+}
+
+// Uniform variables in color pass completely controlled by renderer 
+// that almost never update
+struct ColorFixedUniforms {
+    // Light information
     dirLightCascadeCount: u32,
-    // Pass Data
+
+    // PCF Data
     dirLightMapDimension: u32,
     pointLightMapDimension: u32,
-    padding1: u32,
-    padding2: u32,
-    pcsRange: u32
+    pcfRange: u32
 }
 
 // Represents the data that differentiates each instance of the same mesh
@@ -75,6 +81,13 @@ struct DynamicShadowedPointLight {
     padding : f32
 }
 
+const dynamicShadowedPointLightIntegerOffset = [<int><POINT_LIGHT_PADDING><52>];
+
+struct DynamicShadowedPointLightPadded {
+    data : DynamicShadowedPointLight,
+    padding : array<u32, dynamicShadowedPointLightIntegerOffset>
+}
+
 struct DynamicShadowedSpotLight {
     diffuse : vec3<f32>,
     penumbraCutoff : f32,
@@ -86,26 +99,19 @@ struct DynamicShadowedSpotLight {
     padding2 : f32
 }
 
-@binding(0) @group(0) var<uniform> fixedData : ColorPassFixedData;
-
+@binding(0) @group(0) var<uniform> combinedCamSpace : mat4x4<f32>;
 @binding(1) @group(0) var<storage, read> objStore : array<ObjData>; 
 
-@binding(2) @group(0) var<storage, read> shadowedDirLightStore : array<DynamicShadowedDirLight>;
-
-@binding(3) @group(0) var<storage, read> shadowedPointLightStore : array<DynamicShadowedPointLight>;
-
-@binding(4) @group(0) var<storage, read> shadowedSpotLightStore : array<DynamicShadowedSpotLight>;
-
-@binding(5) @group(0) var<storage, read> lightsSpacesStore : array<mat4x4<f32>>;
-
-@binding(6) @group(0) var shadowedDirLightMap: texture_depth_2d_array;
-
-@binding(7) @group(0) var shadowedPointLightMap: texture_depth_cube_array;
-
-@binding(8) @group(0) var<storage, read> dirLightCascadeViewSpaceCutoffs : array<f32>;
-
-@binding(9) @group(0) var shadowMapSampler : sampler_comparison;
-
+@binding(0) @group(1) var<uniform> colorUniforms : ColorUniforms;
+@binding(1) @group(1) var<uniform> colorFixedUniforms : ColorFixedUniforms;
+@binding(2) @group(1) var<storage, read> shadowedDirLightStore : array<DynamicShadowedDirLight>;
+@binding(3) @group(1) var<storage, read> shadowedPointLightStore : array<DynamicShadowedPointLightPadded>;
+@binding(4) @group(1) var<storage, read> shadowedSpotLightStore : array<DynamicShadowedSpotLight>;
+@binding(5) @group(1) var<storage, read> lightsSpacesStore : array<mat4x4<f32>>;
+@binding(6) @group(1) var shadowedDirLightMap: texture_depth_2d_array;
+@binding(7) @group(1) var shadowedPointLightMap: texture_depth_cube_array;
+@binding(8) @group(1) var<storage, read> dirLightCascadeViewSpaceCutoffs : array<f32>;
+@binding(9) @group(1) var shadowMapSampler : sampler_comparison;
 
 struct VertexIn {
     @location(0) position: vec3<f32>,
@@ -136,37 +142,37 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
   var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
 
   out.worldPos = worldPos;
-  out.position = fixedData.combinedMat * worldPos;
+  out.position = combinedCamSpace * worldPos;
   out.color = objStore[in.instance].color.xyz;
-  out.fragToCamPos = fixedData.pos - worldPos.xyz;
+  out.fragToCamPos = colorUniforms.camPos - worldPos.xyz;
   var nMat = objStore[in.instance].normMat;
   out.normal = normalize(mat3x3(nMat[0].xyz, nMat[1].xyz, nMat[2].xyz) * in.normal);
 
   return out;
 }
 
-fn pcsCompare(
+fn pcfCompare(
     texture: texture_depth_2d_array, 
     sampler: sampler_comparison, 
     texturePos : vec2<f32>, 
     index: u32, 
     depth: f32, 
-    pcsRange : u32,
+    pcfRange : u32,
     mapDimension: u32) -> f32 {
     // Sets up sample location
     var unit: f32 = 1.0/f32(mapDimension);
-    var trueRangeHalf: f32 = unit * (f32(pcsRange - 1) /2.0);
+    var trueRangeHalf: f32 = unit * (f32(pcfRange - 1) /2.0);
     var base: vec2<f32> = texturePos - vec2<f32>(trueRangeHalf,trueRangeHalf);
 
-    // Finds PCS percentage
+    // Finds PCF percentage
     var sum: f32 = 0;
-    for (var xIter : u32 = 0 ; xIter < pcsRange ; xIter++) {
-        for (var yIter : u32 = 0 ; yIter < pcsRange ; yIter++) {
+    for (var xIter : u32 = 0 ; xIter < pcfRange ; xIter++) {
+        for (var yIter : u32 = 0 ; yIter < pcfRange ; yIter++) {
             var newPos: vec2<f32> = base + vec2<f32>(f32(xIter)*unit, f32(yIter)*unit);
             sum += textureSampleCompare(texture, sampler, newPos, index, depth);
         }
     }
-    return sum/f32(pcsRange*pcsRange);
+    return sum/f32(pcfRange*pcfRange);
 }
 
 // TODO: Implement blinn-phong instead of just phong
@@ -179,13 +185,13 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     var ambient : vec3<f32> = in.color * ambientIntensity;
 
     var viewDir : vec3<f32> = normalize(in.fragToCamPos);
-    var fragDepth = (fixedData.viewMat * in.worldPos).z;
+    var fragDepth = (colorUniforms.camViewMat * in.worldPos).z;
     var overallLight : vec3<f32> = vec3<f32>(0, 0, 0);
 
-    for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
+    for (var dirIter : u32 = 0 ; dirIter < colorUniforms.dirLightAmount ; dirIter++) {
         // Checks what cascade it the specific fragment should reference
         var cascadeCheck : u32 = 0;
-        while (cascadeCheck < fixedData.dirLightCascadeCount) {
+        while (cascadeCheck < colorFixedUniforms.dirLightCascadeCount) {
             if (dirLightCascadeViewSpaceCutoffs[cascadeCheck] > fragDepth) {
                 break;
             }
@@ -193,18 +199,18 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         }
 
         // Checks if location has been covered by light
-        var lightSpaceIdx : u32 = dirIter + cascadeCheck * fixedData.dirLightAmount;
+        var lightSpaceIdx : u32 = dirIter + cascadeCheck * colorUniforms.dirLightAmount;
         var lightSpacePosition : vec4<f32> = lightsSpacesStore[lightSpaceIdx] * (in.worldPos);
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
         var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
-        var lightsUncovered : f32  = pcsCompare(
+        var lightsUncovered : f32  = pcfCompare(
             shadowedDirLightMap, 
             shadowMapSampler, 
             texturePosition.xy, 
             cascadeCheck, 
             texturePosition.z,
-            fixedData.pcsRange,
-            fixedData.dirLightMapDimension);
+            colorFixedUniforms.pcfRange,
+            colorFixedUniforms.dirLightMapDimension);
 
         // Handles Phong lighting
         var singleLight : vec3<f32> = vec3<f32>(0, 0, 0);
@@ -222,9 +228,9 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         overallLight += singleLight;
     }
 
-    for (var pointIter : u32 = 0 ; pointIter < fixedData.pointLightAmount ; pointIter++) {
+    for (var pointIter : u32 = 0 ; pointIter < colorUniforms.pointLightAmount ; pointIter++) {
         //Creates copy
-        let pointLight = shadowedPointLightStore[pointIter];
+        let pointLight = shadowedPointLightStore[pointIter].data;
 
         // Handles Phong Lighting
         var lightToFragDir: vec3<f32> = (in.worldPos/in.worldPos.w).xyz - pointLight.position;
@@ -236,16 +242,16 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         // Creates grid at the end of normalized light dir to sample off of
         var normalizedLightDir: vec3<f32> = normalize(lightToFragDir);
         var basis: orthonormalBasis = getOrthonormalBasis(normalizedLightDir);
-        var unitLength: f32 = (1.0/f32(fixedData.pointLightMapDimension));
+        var unitLength: f32 = (1.0/f32(colorFixedUniforms.pointLightMapDimension));
         basis.up *= unitLength;
         basis.left *= unitLength;
-        var baseDir: vec3<f32> = normalizedLightDir - (basis.up + basis.left) * f32(fixedData.pcsRange - 1)/2.0;
+        var baseDir: vec3<f32> = normalizedLightDir - (basis.up + basis.left) * f32(colorFixedUniforms.pcfRange - 1)/2.0;
         var normalizedLightToFragDistance: f32 = lightToFragDistance/pointLight.radius;
 
         // Actually samples pcs 
         var pointLightUncovered: f32 = 0;
-        for (var xIter : u32 = 0 ; xIter < fixedData.pcsRange ; xIter++) {
-            for (var yIter : u32 = 0 ; yIter < fixedData.pcsRange ; yIter++) {
+        for (var xIter : u32 = 0 ; xIter < colorFixedUniforms.pcfRange ; xIter++) {
+            for (var yIter : u32 = 0 ; yIter < colorFixedUniforms.pcfRange ; yIter++) {
                 var newPos: vec3<f32> = baseDir + basis.up * f32(yIter) + basis.left * f32(xIter);
                 pointLightUncovered += textureSampleCompare(
                     shadowedPointLightMap, 
@@ -255,7 +261,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
                     normalizedLightToFragDistance);
             }
         }
-        pointLightUncovered /= f32(fixedData.pcsRange * fixedData.pcsRange);
+        pointLightUncovered /= f32(colorFixedUniforms.pcfRange * colorFixedUniforms.pcfRange);
 
         // TODO: Create a softer way to enforce cutoff
         if (lightToFragDistance < pointLight.radius) {
@@ -278,7 +284,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         }
     }
 
-    for (var spotIter : u32 = 0 ; spotIter < fixedData.spotLightAmount ; spotIter++) {
+    for (var spotIter : u32 = 0 ; spotIter < colorUniforms.spotLightAmount ; spotIter++) {
 
     }
     return vec4<f32>(((overallLight) * in.color) + ambient,1);

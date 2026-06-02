@@ -2,12 +2,6 @@
 
 #include <algorithm>
 
-void WGPUBackendBaseDynamicShadowMapArray::UpdateAttachedBindGroups(const WGPUDevice& device) {
-    for (WGPUBackendBindGroup* group : m_bindGroups) {
-        group->UpdateBindGroup(device);
-    }
-}
-
 u16 WGPUBackendBaseDynamicShadowMapArray::GenerateNewAllocatedSize (u16 newArraySize) {
     ASSERT(newArraySize <= m_arrayMaxAllocatedSize);
 
@@ -86,7 +80,6 @@ void WGPUBackendBaseDynamicShadowMapArray::Clear() {
     wgpuTextureDestroy(m_textureData);
 
     // Resets to pre-init state
-    m_bindGroups = {};
     m_textureData = {};
     m_label = "un-inited";
     m_wholeViewLabel = "un-inited";
@@ -102,12 +95,10 @@ void WGPUBackendBaseDynamicShadowMapArray::Clear() {
 }
 
 WGPUBackendBaseDynamicShadowMapArray::WGPUBackendBaseDynamicShadowMapArray() : 
-m_bindGroups(),
 m_textureData(),
 m_label("un-inited"),
 m_wholeViewLabel("un-inited"),
 m_layerViewLabel("un-inited"),
-m_currentBindGroupEntry(),
 m_wholeTextureViewDimension(),
 m_arrayLayerWidth(0),
 m_arrayLayerHeight(0),
@@ -219,21 +210,13 @@ void WGPUBackendBaseDynamicShadowMapArray::RegisterShadow(const WGPUDevice& devi
     // If it seems that all options have been exhausted, the shadow array needs to expand allocated memory
     else {
         ResizeTexture(device, queue, m_arraySize + m_depthPerShadow);
-        UpdateAttachedBindGroups(device);
+        WGPUBackendBindGroup::DirtyMarkingBindGroupEntry::DirtyBindingGroups();
         m_arraySize += m_depthPerShadow;
     }
 }
 
 void WGPUBackendBaseDynamicShadowMapArray::UnregisterShadow() {
     m_arraySize -= m_depthPerShadow;
-}
-
-WGPUBindGroupEntry WGPUBackendBaseDynamicShadowMapArray::GetEntry(u32 binding) {
-    m_currentBindGroupEntry.binding = binding;
-    return m_currentBindGroupEntry;
-}
-void WGPUBackendBaseDynamicShadowMapArray::RegisterBindGroup(WGPUBackendBindGroup* bindGroup) {
-    m_bindGroups.push_back(bindGroup);
 }
 
 WGPUTextureView WGPUBackendBaseDynamicShadowMapArray::GetView(u16 shadowIndex) {

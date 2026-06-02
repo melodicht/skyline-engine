@@ -9,12 +9,6 @@ void WebGPUBackendCubemapTextureBuffer::ClearBuffers() {
     wgpuTextureDestroy(m_textureData);
 }
 
-void WebGPUBackendCubemapTextureBuffer::UpdateBindGroups(const WGPUDevice& device) {
-    for (WGPUBackendBindGroup* bindGroup : m_bindGroups) {
-        bindGroup->UpdateBindGroup(device);
-    }
-}
-
 // >>> Public Interface <<<
 
 WebGPUBackendCubemapTextureBuffer::WebGPUBackendCubemapTextureBuffer() {
@@ -86,7 +80,8 @@ void WebGPUBackendCubemapTextureBuffer::Init(
     .sampler = nullptr,
     .textureView = m_textureCubemapView
    };
-   UpdateBindGroups(device);
+
+   WGPUBackendBindGroup::DirtyMarkingBindGroupEntry::DirtyBindingGroups();
 }
 
 void WebGPUBackendCubemapTextureBuffer::Reinit(
@@ -148,15 +143,6 @@ void WebGPUBackendCubemapTextureBuffer::Insert(
 
 WGPUTextureView WebGPUBackendCubemapTextureBuffer::getView() {
     return m_textureCubemapView;
-}
-
-// Used to update bind group on underlying texture change
-WGPUBindGroupEntry WebGPUBackendCubemapTextureBuffer::GetEntry(u32 binding) {
-    m_currentBindGroupEntry.binding = binding;
-    return m_currentBindGroupEntry;
-}
-void WebGPUBackendCubemapTextureBuffer::RegisterBindGroup(WGPUBackendBindGroup* bindGroup) {
-    m_bindGroups.push_back(bindGroup);
 }
 
 

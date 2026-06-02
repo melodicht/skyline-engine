@@ -35,15 +35,9 @@ private:
     WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth32Float };
 
     // Represents limits of gpu
-    u32 m_maxObjArraySize{ 4096 }; // TODO: Fill the following with number informed by limits
-    u32 m_maxLightSpaces{ 4096 };
-    u32 m_maxDynamicShadowedDirLights{ 4096 };
-    u32 m_maxDynamicShadowedPointLights{ 4096 };
-    u32 m_maxDynamicShadowedSpotLights{ 4096 };
-    u32 m_maxDynamicShadowLightSpaces{ 4096 };
-    u32 m_maxMeshVertSize{ 4096 };
-    u32 m_maxMeshIndexSize{ 4096 };
-    bool m_hardwareDepthClampingSupported = false;
+    u32 m_defaultArrayMax{ 4096 };
+    u32 m_dynamicUniformStrideSize{ 0 };
+    b8 m_hardwareDepthClampingSupported = false;
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUSurfaceTexture m_surfaceTexture{ };
@@ -53,29 +47,31 @@ private:
     // Represents the current pass being drawn with
     WGPUCommandEncoder m_passCommandEncoder{ };
     WGPURenderPassEncoder m_renderPassEncoder{ };
-    bool m_renderPassActive{ false };
+    b8 m_renderPassActive{ false };
+    b8 m_commandBufferActive{ false };
 
-    // Defines final color pass pipeline
-    WGPURenderPipeline m_defaultPipeline{ };
-    WGPUBackendBindGroup m_colorPassBindGroup{ };
+    // Currently used between color and depth pass
+    WGPUBackendBindGroup m_sharedMainViewBindGroup{ };
 
-    // Defines depth pipeline
+    // Defines default color pass pipeline
+    WGPURenderPipeline m_defaultColorPassPipeline{ };
+    WGPUBackendBindGroup m_defaultColorPassBindGroup{ };
+
+    // Defines depth pre pass pipeline
     WGPURenderPipeline m_depthPipeline{ };
-    WGPUBackendBindGroup m_depthBindGroup{ };
-    // Defines dir light depth pipeline (Derived from same shader as depth pipeline)
-    WGPURenderPipeline m_directionDepthPipeline{ };
+
+    // Defines non-pointlight shadow map
+    WGPURenderPipeline m_shadowMapPipeline{ };
+    
+    WGPUBackendDynamicBindGroup<1> m_dirDepthBindGroup{ };
 
     // Defines point depth pipeline
     WGPURenderPipeline m_pointDepthPipeline{ };
-    WGPUBackendBindGroup m_pointDepthBindGroup{ };
+    WGPUBackendDynamicBindGroup<2> m_pointDepthBindGroup{ };
 
     // Defines skybox pipeline
     WGPURenderPipeline m_skyboxPipeline{ };
     WGPUBackendBindGroup m_skyboxBindGroup{ };
-
-    // Defines general light vars
-    u32 m_nextLightSpace = 0;
-    WGPUTexture m_shadowAtlas{ }; // Stores depth textures to prevent constant recreation of such textures
 
     // Allocates texture space for shadowmapping based on the amount of shadowed lights registered
     WGPUBackendBaseDynamicShadowMapArray m_dynamicDirLightShadowMapTexture;
@@ -85,14 +81,21 @@ private:
     LightID m_dynamicShadowedPointLightNextID = 0;
     LightID m_dynamicShadowedSpotLightNextID = 0;
     
-    // Stores actual GPU buffers
-    WGPUBackendSingleUniformBuffer<WGPUBackendPointDepthPassFixedData> m_fixedPointDepthPassDatBuffer{ };
-    WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedData> m_fixedColorPassDatBuffer{ };
+    // Stores GPU buffers
+
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
+
+    WGPUBackendDynamicUniformBuffer<WGPUBackendPointUniforms> m_pointDepthPassUniformBuffer{ };
+    WGPUBackendDynamicUniformBuffer<u32> m_dirDepthPassUniformBuffer{ };
+
+    WGPUBackendSingleUniformBuffer<WGPUBackendColorPassUniforms> m_colorPassUniformBuffer{ };
+    WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedUniforms> m_colorPassFixedUniformBuffer{ };
+
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLightBuffer{ };
-    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedPointLightData> m_dynamicShadowedPointLightBuffer{ };
+    WGPUBackendDynamicUniformBuffer<WGPUBackendDynamicShadowedPointLightData> m_dynamicShadowedPointLightBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedSpotLightData> m_dynamicShadowedSpotLightBuffer{ };
+
     WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_dynamicShadowLightSpaces{ };
     WGPUBackendSingleStorageArrayBuffer<float> m_dynamicShadowedDirLightCascadeRatiosBuffer{ };
     WGPUBackendSampler m_shadowMapSampler{ };
@@ -100,8 +103,8 @@ private:
     WGPUBackendSampler m_skyboxSampler{ };
 
     // Vertex buffers
-    WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
-    WGPUBackendArrayBuffer<u32> m_meshIndexBuffer{ };
+    WGPUBackendVertexArrayBuffer<Vertex> m_meshVertexBuffer{ };
+    WGPUBackendIndexArrayBuffer<u32> m_meshIndexBuffer{ };
 
     u32 m_meshTotalVertices{ 0 };
     u32 m_meshTotalIndices{ 0 };
@@ -114,7 +117,7 @@ private:
     // Utility objects
     DynamicLightConverter m_lightProcessor{ };
 
-    void printDeviceSpecs();
+    void ProcessDeviceSpecs();
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
@@ -131,7 +134,7 @@ private:
     static void ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
 
     // Establishes that the following commands apply to a new frame
-    bool InitFrame();
+    b8 InitFrame();
 
     // Begins the final color pass that renders frame to color pass
     void BeginColorPass();
@@ -143,23 +146,27 @@ private:
     void BeginDepthPass(WGPUTextureView depthTexture);
 
     // Populates depth texture from view of orthogonal camera buffer with added biases for dir light
-    void BeginDirectionalDepthPass(WGPUTextureView depthTexture);
+    void BeginDirectionalDepthPass(WGPUTextureView depthTexture, u32 nonPointLightIndex);
 
     // Populates depth buffer from the view of camera buffer
-    void BeginPointDepthPass(WGPUTextureView depthTexture);
+    void BeginPointDepthPass(WGPUTextureView depthTexture, u32 pointLightIndex, u32 depthPassIndex);
 
     // Handles some shared code between render passes
+    // Currently assumes one pipeline per pass, may need to un-abstract later
     void BeginPass(
         const WGPURenderPassColorAttachment* colorPassAttachment,
         const WGPURenderPassDepthStencilAttachment* depthStencilAttachment,
-        std::string&& encoderLabel,
         std::string&& passLabel,
-        const WGPUBackendBindGroup& bindGroup,
         const WGPURenderPipeline& pipeline);
     void SetupVandIBO();
-    
-    // Stops the current pass
     void EndPass();
+
+    // All intermediate passes gets pushed into following command buffers
+    void BeginCommandBuffer(
+            std::string&& encoderLabel
+        );
+    void EndCommandBuffer();
+    
     
     // Draws engine interface for game if allowed
     void DrawImGui();
@@ -171,11 +178,7 @@ private:
     // Ends the current pass and present it to the screen
     void EndFrame();
 
-    // Inserts copy of bind group entry at specific binding
-    inline void InsertEntry(std::vector<WGPUBindGroupLayoutEntry>& bindGroupList, WGPUBindGroupLayoutEntry entry, u32 binding) {
-        entry.binding = binding;
-        bindGroupList.push_back(std::move(entry)); 
-    }
+
 public:
     // No logic needed
     WGPURenderBackend() { }
@@ -196,7 +199,7 @@ public:
 
     // Moves mesh to the GPU, 
     // Returns a uint that represents the mesh's ID
-    MeshID UploadMesh(u32 vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices);
+    MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices);
 
     // Removes mesh from GPU and render's mesh ID invalid
     void DestroyMesh(MeshID meshID);

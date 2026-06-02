@@ -10,10 +10,8 @@
 #include <vector>
 
 // Represents a singular texture within the program. 
-class WebGPUBackendCubemapTextureBuffer : public WGPUBackendBindGroup::IWGPUBackendUniformEntry {
+class WebGPUBackendCubemapTextureBuffer : public WGPUBackendBindGroup::DirtyMarkingBindGroupEntry {
 private:
-    WGPUBindGroupEntry m_currentBindGroupEntry;
-    std::vector<WGPUBackendBindGroup*> m_bindGroups;
     std::string m_label;
     std::string m_viewLabel;
     WGPUTexture m_textureData;
@@ -23,9 +21,6 @@ private:
     bool m_inited;
 
     void ClearBuffers();
-    
-    void UpdateBindGroups(const WGPUDevice& device);
-
 public:
     WebGPUBackendCubemapTextureBuffer();
     virtual ~WebGPUBackendCubemapTextureBuffer();
@@ -56,10 +51,6 @@ public:
         std::array<u32*,6> faceData);
 
     WGPUTextureView getView();
-    
-    // Used to update bind group on underlying texture change
-    WGPUBindGroupEntry GetEntry(u32 binding) override;
-    void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) override;
 
     // Ensures no copy is made to avoid wgpu object reference conflicts
     WebGPUBackendCubemapTextureBuffer(const WebGPUBackendCubemapTextureBuffer&) = delete;

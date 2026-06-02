@@ -57,32 +57,39 @@ struct WGPUBackendMeshIdx {
 // TODO: better represent vec3 that are upgraded to vec4 solely for alignment
 
 // Slots all fixed length data into one struct for efficiency
-struct WGPUBackendColorPassFixedData
+struct WGPUBackendColorPassUniforms
 {
     // Represents camera data
-    glm::mat4 m_combined{ 0 };
     glm::mat4 m_view{ 0 };
-    glm::mat4 m_proj{ 0 };
     glm::vec3 m_pos{ 0 };
 
-    // Represents light 
+    // Light Data
     u32 m_dirLightCount{ 0 };
     u32 m_pointLightCount{ 0 };
     u32 m_spotLightCount{ 0 };
     u32 m_dirLightCascadeCount{ 0 };
 
-    // Represents PCS information
+    // Represents PCF information
     u32 m_dirLightMapPixelDimension{ 0 };
     u32 m_pointLightMapPixelDimension{ 0 };
     u32 m_padding1{ 0 };
     u32 m_padding2{ 0 };
-    u32 m_pcsRange{ 0 };
 };
 
-struct WGPUBackendPointDepthPassFixedData
+struct WGPUBackendColorPassFixedUniforms {
+    // Light Data
+    u32 m_dirLightCascadeCount{ 0 };
+
+    // PCF Data
+    u32 m_dirLightMapPixelDimension{ 0 };
+    u32 m_pointLightMapPixelDimension{ 0 };
+    u32 m_pcfRange{ 0 };
+};
+
+struct WGPUBackendPointUniforms
 {
-    glm::vec3 m_lightPos{ 0 };
-    f32 m_farPlane{ 0 };
+    glm::mat4x4 m_camSpaceMat{ 0 };
+    u32 m_pointLightIndex{ 0 };
 };
 
 // Represents a instance of a mesh

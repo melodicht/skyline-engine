@@ -7,8 +7,9 @@ struct ObjData {
 
 override manualClamping: bool = false;
 
-@binding(0) @group(0) var<uniform> cameraSpace : mat4x4<f32>;
-@binding(1) @group(0) var<storage, read> objStore : array<ObjData>; 
+@binding(0) @group(0) var<uniform> shadowMapUniforms: u32;
+@binding(1) @group(0) var<storage, read> cameraSpaces : array<mat4x4<f32>>;
+@binding(2) @group(0) var<storage, read> objStore : array<ObjData>; 
 
 
 struct VertexIn {
@@ -20,7 +21,7 @@ struct VertexIn {
 // Depth pass pipeline
 @vertex
 fn vtxMain(in : VertexIn) -> @builtin(position) vec4<f32> {
-  var cameraPos = cameraSpace * (objStore[in.instance].transform * vec4<f32>(in.position,1));
+  var cameraPos = cameraSpaces[shadowMapUniforms] * (objStore[in.instance].transform * vec4<f32>(in.position,1));
   if (manualClamping) {
     cameraPos.z = max(cameraPos.z, 0.0);
   }

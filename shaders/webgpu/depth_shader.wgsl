@@ -8,8 +8,7 @@ struct ObjData {
 override manualClamping: bool = false;
 
 @binding(0) @group(0) var<uniform> cameraSpace : mat4x4<f32>;
-
-@binding(1) @group(0) var<storage> objStore : array<ObjData>; 
+@binding(1) @group(0) var<storage, read> objStore : array<ObjData>; 
 
 
 struct VertexIn {

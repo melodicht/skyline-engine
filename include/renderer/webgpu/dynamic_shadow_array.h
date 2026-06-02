@@ -12,10 +12,8 @@
 #include <vector>
 
 // Encapsulates a single Shadow map texture array
-class WGPUBackendBaseDynamicShadowMapArray : public WGPUBackendBindGroup::IWGPUBackendUniformEntry {
+class WGPUBackendBaseDynamicShadowMapArray : public WGPUBackendBindGroup::DirtyMarkingBindGroupEntry {
 private:
-    WGPUBindGroupEntry m_currentBindGroupEntry;
-    std::vector<WGPUBackendBindGroup*> m_bindGroups;
     std::vector<WGPUTextureView> m_arrayLayerViews;
     WGPUTextureView m_wholeTextureDataView;
     WGPUTexture m_textureData;
@@ -32,8 +30,6 @@ private:
     bool m_inited;
 
 protected:
-    void UpdateAttachedBindGroups(const WGPUDevice& device);
-
     u16 GenerateNewAllocatedSize (u16 newArraySize);
 
     // Continually doubles allocated size until allocation can fit given new arraySize.
@@ -82,9 +78,6 @@ public:
     // Removes selected shadow from array
     void UnregisterShadow();
 
-    // Used to update bind group on shadow texture resizing
-    WGPUBindGroupEntry GetEntry(u32 binding) override;
-    void RegisterBindGroup(WGPUBackendBindGroup* bindGroup) override;
 
     WGPUTextureView GetView(u16 shadowIndex);
 };

@@ -49,6 +49,7 @@ set(SKL_WGPU_SOURCES
         render_backend_wgpuimpl.cpp
         utils_wgpu.cpp
         bind_group_wgpu.cpp
+        wgsl_macro_processor.cpp
         dynamic_shadow_array.cpp
         dynamic_light_converter.cpp
         single_textures_wgpu.cpp
