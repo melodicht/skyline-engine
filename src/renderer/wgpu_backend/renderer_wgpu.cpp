@@ -1592,16 +1592,16 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     
   // >>> Begins making draw calls <<<
 
-  BeginCommandBuffer("Depth Pass");
   for (u32 pointLightIdx = 0 ; pointLightIdx < shadowedPointLightData.size() ; pointLightIdx++) {
     const WGPUBackendDynamicShadowedPointLightData& pointLight = shadowedPointLightData[pointLightIdx];
+    BeginCommandBuffer("Point Light Pass");
     for (u32 pointShadowIdx = pointLightIdx * 6 ; pointShadowIdx < (pointLightIdx + 1) * 6 ; pointShadowIdx++) {
       BeginPointDepthPass(m_dynamicPointLightShadowMapTexture.GetView(pointShadowIdx), pointLightIdx, pointShadowIdx);
       DrawObjects(meshCounts);
       EndPass();
-    }
   }
   EndCommandBuffer();
+  }
 
   BeginCommandBuffer("Pre-Color Command Encoder");
   // Begins writing in shadow mapping passes and inserting data for shadowed lights
