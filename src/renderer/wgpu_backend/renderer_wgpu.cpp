@@ -950,6 +950,7 @@ void WGPURenderBackend::InitPipelines()
 
     InsertEntry(skyboxBindEntities, skyboxTextureBind, 0);
     InsertEntry(skyboxBindEntities, skyboxSamplerBind, 1);
+    InsertEntry(skyboxBindEntities, cameraSpaceBind, 2);
   }
   
   WGPUBindGroupLayoutDescriptor sharedBindLayoutDescriptor {
@@ -1001,7 +1002,7 @@ void WGPURenderBackend::InitPipelines()
   WGPUGuardedBindGroupLayout shadowMapBindLayout{wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &shadowMapBindLayoutDescriptor)};
 
   WGPUGuardedBindGroupLayout skyboxBindLayout{wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &skyboxBindLayoutDescriptor)};
-  std::array<WGPUBindGroupLayout,2> skyboxLayouts = {sharedLayout.get(), skyboxBindLayout.get()};
+  std::array<WGPUBindGroupLayout,2> skyboxLayouts = {skyboxBindLayout.get()};
 
 
   /** 
@@ -1303,6 +1304,7 @@ void WGPURenderBackend::InitPipelines()
    * >>> Initializes all gpu buffers <<<
    */
   {
+    m_invertedCameraSpaceBuffer.Init(m_wgpuCore.m_device, "Inverted Camera Space Buffer");
     m_cameraSpaceBuffer.Init(m_wgpuCore.m_device, "Camera Space Buffer");
     m_instanceDatBuffer.Init(m_wgpuCore.m_device, "Instance Buffer", m_defaultArrayMax);
 
@@ -1413,6 +1415,7 @@ void WGPURenderBackend::InitPipelines()
     
     m_skyboxTexture.RegisterBindGroup(&m_skyboxBindGroup, 0);
     m_skyboxSampler.RegisterBindGroup(&m_skyboxBindGroup, 1);
+    m_invertedCameraSpaceBuffer.RegisterBindGroup(&m_skyboxBindGroup, 2);
     
     m_defaultColorPassBindGroup.UpdateBindGroup(m_wgpuCore.m_device);
     m_sharedMainViewBindGroup.UpdateBindGroup(m_wgpuCore.m_device);
@@ -1564,6 +1567,11 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   };
   m_colorPassUniformBuffer.WriteBuffer(m_wgpuQueue, colorPassState);
 
+  // Writes inverted camera space
+  glm::mat4x4 rotAndProjInverse = glm::inverse(mainCamProj * glm::mat4x4(glm::mat3x3(mainCamView)));
+  m_invertedCameraSpaceBuffer.WriteBuffer(
+    m_wgpuQueue,
+    rotAndProjInverse);
   // Writes to main view of into cam space
   m_cameraSpaceBuffer.WriteBuffer(
     m_wgpuQueue,
@@ -1571,6 +1579,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
 
   // Writes in data for shadow mapping
   m_pointDepthPassUniformBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, pointLightSpaces);
+  
 
   // One index per (light, cascade) light-space matrix. The shadow pass selects a slot via
   // dynamic offset and the shader uses its value to index cameraSpaces, so slot j must hold j
@@ -1599,8 +1608,8 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
       BeginPointDepthPass(m_dynamicPointLightShadowMapTexture.GetView(pointShadowIdx), pointLightIdx, pointShadowIdx);
       DrawObjects(meshCounts);
       EndPass();
-  }
-  EndCommandBuffer();
+    }
+    EndCommandBuffer();
   }
 
   BeginCommandBuffer("Pre-Color Command Encoder");
@@ -1628,20 +1637,11 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   m_defaultColorPassBindGroup.BindToRenderPass(1, m_renderPassEncoder);
   DrawObjects(meshCounts);
 
-  EndPass();  
-  EndCommandBuffer();
-
-  // Updates camera buffer (no need to update as uniform buffer can't mark dirty)
-  glm::mat4x4 rotAndProjInverse = glm::inverse(mainCamProj * glm::mat4x4(glm::mat3x3(mainCamView)));
-  m_cameraSpaceBuffer.WriteBuffer(
-    m_wgpuQueue,
-    rotAndProjInverse);
-
-  // TODO: Merge with main color command encoder
-  BeginCommandBuffer("Skybox Command Encoder");
-  BeginSkyboxPass();
+  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_skyboxPipeline);
+  m_skyboxBindGroup.BindToRenderPass(0, m_renderPassEncoder);
   wgpuRenderPassEncoderDraw(m_renderPassEncoder, 3, 1, 0, 0);
-  EndPass();
+
+  EndPass();  
   EndCommandBuffer();
 
   DrawImGui();

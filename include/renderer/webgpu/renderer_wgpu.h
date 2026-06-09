@@ -82,7 +82,7 @@ private:
     LightID m_dynamicShadowedSpotLightNextID = 0;
     
     // Stores GPU buffers
-
+    WGPUBackendSingleUniformBuffer<glm::mat4x4> m_invertedCameraSpaceBuffer{ };
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
 

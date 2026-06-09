@@ -3,11 +3,11 @@ struct VertexOut {
     @location(0) clipPos: vec4<f32>
 }
 
-@binding(0) @group(0) var<uniform> cameraSpaceInverse : mat4x4<f32>;
+@binding(0) @group(0) var skyboxTexture: texture_cube<f32>;
 
-@binding(0) @group(1) var skyboxTexture: texture_cube<f32>;
+@binding(1) @group(0) var skyboxSampler: sampler;
 
-@binding(1) @group(1) var skyboxSampler: sampler;
+@binding(2) @group(0) var<uniform> cameraSpaceInverse : mat4x4<f32>;
 
 // Much adapted from https://webgpufundamentals.org/webgpu/lessons/webgpu-skybox.html
 @vertex
