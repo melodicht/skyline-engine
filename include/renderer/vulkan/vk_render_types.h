@@ -1,3 +1,5 @@
+#pragma once
+
 // Represents a data buffer stored on the GPU
 struct AllocatedBuffer
 {

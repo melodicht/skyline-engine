@@ -161,11 +161,10 @@ void* Realloc(void* block, siz oldRequestedSize, siz newRequestedSize)
     void* oldWholeBase = oldMemoryBlockBase->wholeBase;
     siz padding = static_cast<u8*>(oldMemoryBlockBaseAddr) - static_cast<u8*>(oldWholeBase);
     
-    // NOTE(marvin): If in loop and block is allocated prior to the
-    // loop, can't just use SDL_realloc as that would purge the memory
-    // block, when it is needed when the loop restarts.
-    b32 canRealloc = LoopUtils::GetIsStateInLoop(&globalSDLState) || 
-                     LoopUtils::GetBlockFlagLoopAllocated(oldMemoryBlockBase);
+    // NOTE(marvin): If in loop, can't just use SDL_realloc as that
+    // would purge the memory block, when it is needed when the loop
+    // restarts.
+    b32 canRealloc = !LoopUtils::GetIsStateInLoop(&globalSDLState);
 
     void* newBase = canRealloc ? SDL_realloc(oldWholeBase, newTotalSize) : Allocate(newTotalSize);
     void* newMemoryBlockBaseAddr = static_cast<void*>(static_cast<u8*>(newBase) + padding);

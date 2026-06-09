@@ -63,6 +63,11 @@ if(NOT DEFINED SKL_SLOW)
         option(SKL_SLOW "Whether asserts should be enabled or not" 1)
 endif()
 
+# TODO(marvin): A temporary hack just to be able to turn memory viewer on/off.
+if(NOT DEFINED SKL_DEBUG_MEMORY_VIEWER)
+        option(SKL_DEBUG_MEMORY_VIEWER "Whether debug memory viewer is on" 0)
+endif()
+
 # SKL_STATIC_MONOLITHIC prevents hot reloading but
 # is supported by more platforms and likely faster
 if (NOT DEFINED SKL_STATIC_MONOLITHIC)
@@ -93,6 +98,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_NO_DEFAULT_PHYSICS_SYSTEM=${SKL_NO_DEFAULT_PHYSICS_SYSTEM}
         SKL_SLOW=${SKL_SLOW}
+        SKL_DEBUG_MEMORY_VIEWER=${SKL_DEBUG_MEMORY_VIEWER}
         SKL_STATIC_MONOLITHIC=${SKL_STATIC_MONOLITHIC}
         SKL_BASE_PATH="${SKL_BASE_PATH}"
         GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -135,6 +141,7 @@ endif()
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.92.5")
+CPMAddPackage("gh:kcat/openal-soft#1.25.1")
 
 CPMAddPackage("gh:marzer/tomlplusplus#v3.4.0")
 
@@ -172,8 +179,10 @@ target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 #==============================================================================
 
 add_library(SHARED_DEPENDENCIES INTERFACE)
+# TODO(marvin): The OpenAL Soft dependency should be confined to platform.
 target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         glm::glm
+        OpenAL::OpenAL
         imgui
         skl-utils
         SKL_COMPILE_DEFINITIONS
@@ -232,7 +241,9 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
         add_library(vulkan-backend STATIC
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
+                ${VULKAN_SRC_DIR}/vk_render_utils.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
+                ${VULKAN_SRC_DIR}/vma_impl.cpp
                 ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES

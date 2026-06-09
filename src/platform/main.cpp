@@ -25,8 +25,7 @@
 #define EXECUTABLE_FILE_NAME "./skyline-engine"
 #endif
 
-// TODO(marvin): Turning off memory viewer temporarily.
-#if 0
+#if SKL_DEBUG_MEMORY_VIEWER
 DebugState globalDebugState_;
 DebugState* globalDebugState = &globalDebugState_;
 #endif
@@ -98,6 +97,8 @@ void updateLoop(void* appInfo) {
     GameInput gameInput;
     gameInput.keysDownPrevFrame = keysDown;
 
+    b8 forceReloadGameCode = false;
+
     while (SDL_PollEvent(&info->e))
     {
         ImGui_ImplSDL3_ProcessEvent(&info->e);
@@ -116,6 +117,13 @@ void updateLoop(void* appInfo) {
                 else if (info->e.key.key == SDLK_L)
                 {
                     LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState);
+                }
+                else if (info->e.key.key == SDLK_R)
+                {
+                    if (LoopUtils::GetIsStateInPlayback(&globalSDLState))
+                    {
+                        forceReloadGameCode = true;
+                    }
                 }
 #endif
                 else if (info->editor && info->e.key.key == SDLK_R && (SDL_GetModState() & SDL_KMOD_CTRL))
@@ -158,7 +166,7 @@ void updateLoop(void* appInfo) {
     gameInput.mouseY = mouseY;
     gameInput.keysDownThisFrame = keysDown;
 
-    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput);
+    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, forceReloadGameCode);
     if (shouldReloadGameCode)
     {
         info->gameCode.Load(info->gameMemory, info->editor, true);
@@ -203,6 +211,7 @@ int main(int argc, char** argv)
 
     std::string mapName = "start";
     bool editor = false;
+    bool recordOnStart = false;
 
     for (int i = 0; i < argc; i++)
     {
@@ -210,9 +219,13 @@ int main(int argc, char** argv)
         {
             editor = true;
         }
-        if ((!strcmp(argv[i], "-map")) && ((++i) < argc))
+        else if ((!strcmp(argv[i], "-map")) && ((++i) < argc))
         {
             mapName = argv[i];
+        }
+        else if (!strcmp(argv[i], "-record-on-start"))
+        {
+            recordOnStart = true;
         }
     }
 
@@ -237,8 +250,7 @@ int main(int argc, char** argv)
     GameCode gameCode{ editor };
 
     GameMemory gameMemory = {};
-    // TODO(marvin): Temporarily turning off memory viewer.
-#if 0
+#if SKL_DEBUG_MEMORY_VIEWER
     gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
@@ -250,6 +262,11 @@ int main(int argc, char** argv)
 
     SDL_Event e;
     bool playing = true;
+
+    if (recordOnStart)
+    {
+        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState);
+    }
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;

@@ -5,6 +5,8 @@
 
 #include <format>
 
+#define PATH_BUFFER_COUNT 8
+
 const char* GameCode::getGameCodeSrcFilePath()
 {
     const char* result;
@@ -51,6 +53,7 @@ b8 GameCode::loadGameCode(SDL_Time newFileLastWritten, b8 editor)
     SDL_SharedObject* tempSharedHandle;
     game_initialize_t* tempGameInitializePtr;
     game_load_t* tempGameLoadPtr;
+    game_get_persistent_dll_paths_t* tempGameGetPersistentDLLPathsPtr;
     game_update_and_render_t* tempGameUpdateAndRenderPtr;
 
     std::string tag = "game";
@@ -86,8 +89,9 @@ b8 GameCode::loadGameCode(SDL_Time newFileLastWritten, b8 editor)
 
     tempGameInitializePtr = (game_initialize_t *)SDL_LoadFunction(tempSharedHandle, "GameInitialize");
     tempGameLoadPtr = (game_load_t *)SDL_LoadFunction(tempSharedHandle, "GameLoad");
+    tempGameGetPersistentDLLPathsPtr = (game_get_persistent_dll_paths_t *)SDL_LoadFunction(tempSharedHandle, "GameGetPersistentDLLPaths");
     tempGameUpdateAndRenderPtr = (game_update_and_render_t *)SDL_LoadFunction(tempSharedHandle, "GameUpdateAndRender");
-    if (tempGameInitializePtr && tempGameLoadPtr && tempGameUpdateAndRenderPtr)
+    if (tempGameInitializePtr && tempGameLoadPtr && tempGameGetPersistentDLLPathsPtr && tempGameUpdateAndRenderPtr)
     {
         m_fileLastWritten = newFileLastWritten;
         if (m_sharedObjectHandle) {
@@ -96,6 +100,7 @@ b8 GameCode::loadGameCode(SDL_Time newFileLastWritten, b8 editor)
         m_sharedObjectHandle = tempSharedHandle;
         m_gameInitializePtr =  tempGameInitializePtr;
         m_gameLoadPtr = tempGameLoadPtr;
+        m_gameGetPersistentDLLPathsPtr = tempGameGetPersistentDLLPathsPtr;
         m_gameUpdateAndRenderPtr = tempGameUpdateAndRenderPtr;
         m_loadCount++;
         return true;
@@ -126,6 +131,7 @@ void GameCode::unloadGameCode()
     }
     m_gameInitializePtr = 0;
     m_gameLoadPtr = 0;
+    m_gameGetPersistentDLLPathsPtr = 0;
     m_gameUpdateAndRenderPtr = 0;
 }
 
@@ -147,16 +153,37 @@ b8 GameCode::hasGameCodeChanged()
     return m_fileNewLastWritten > m_fileLastWritten;
 }
 
+// NOTE(marvin): Have the platform hold onto the shared object so that
+// it persists between hot reloads.
+local void LoadSharedObject(const char* path)
+{
+    SDL_SharedObject* sharedObjectHandle = SDL_LoadObject(path);
+    if (!sharedObjectHandle)
+    {
+        LOG_ERROR(path << " loading failed.");
+        LOG_ERROR(SDL_GetError());
+    }
+}
+
 // >>> Public Interface <<< 
 GameCode::GameCode(bool editor) {
     const char* joltLibSrcFilePath = getJoltLibSrcFilePath();
-    SDL_SharedObject* joltSharedObjectHandle = SDL_LoadObject(joltLibSrcFilePath);
-    if (!joltSharedObjectHandle)
+    LoadSharedObject(joltLibSrcFilePath);
+
+    loadGameCode(editor);
+
+    const char* pathBuffer[PATH_BUFFER_COUNT] = {0};
+    m_gameGetPersistentDLLPathsPtr(pathBuffer);
+
+    for (u32 pathBufferIndex = 0; pathBufferIndex < PATH_BUFFER_COUNT; ++pathBufferIndex)
     {
-        LOG_ERROR("Jolt loading failed.");
-        LOG_ERROR(SDL_GetError());
+        const char* path = pathBuffer[pathBufferIndex];
+        if (path)
+        {
+            LoadSharedObject(path);
+        }
     }
-   loadGameCode(editor);
+    
 }
 void GameCode::UpdateGameCode(GameMemory& memory, b8 hasEditor) {
     if (hasGameCodeChanged())

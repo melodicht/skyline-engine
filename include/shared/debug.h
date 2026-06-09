@@ -16,8 +16,7 @@
 // time and space. The timed blocks have a bug that if they exist but
 // the code path does not cross them, there will be a crash.
 
-// TODO(marvin): Turning off debug temporarily because it's messing with looped-live playback.
-#if 0
+#if SKL_DEBUG_MEMORY_VIEWER
 
 /**
  * SPACE

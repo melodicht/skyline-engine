@@ -32,6 +32,7 @@ private:
 
     game_initialize_t *m_gameInitializePtr{ nullptr };
     game_load_t *m_gameLoadPtr{ nullptr };
+    game_get_persistent_dll_paths_t *m_gameGetPersistentDLLPathsPtr {nullptr};
     game_update_and_render_t *m_gameUpdateAndRenderPtr{ nullptr };
 
     // The amount of time loadGameCode has been successfully run

@@ -141,6 +141,15 @@ GAME_LOAD(GameLoad)
     #endif
 }
 
+extern "C"
+#if defined(_WIN32) || defined(_WIN64)
+__declspec(dllexport)
+#endif
+GAME_GET_PERSISTENT_DLL_PATHS(GameGetPersistentDLLPaths)
+{
+    OnGameGetPersistentDLLPaths(pathBuffer);
+}
+
 local void LogDebugRecords();
 
 extern "C"
