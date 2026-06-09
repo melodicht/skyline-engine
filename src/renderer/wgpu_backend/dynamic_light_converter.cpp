@@ -145,7 +145,7 @@ local glm::mat4x4 lookAtHelper(glm::vec3 location, glm::vec3 forward, glm::vec3 
 // Converts cpu point lights to gpu side point lights.
 std::vector<WGPUBackendDynamicShadowedPointLightData> DynamicLightConverter::ConvertPointLights(
     std::vector<PointLightRenderInfo>& cpuType,
-    std::vector<glm::mat4x4>& lightSpacesOutput,
+    std::vector<std::array<glm::mat4x4, 6>>& lightSpacesOutput,
     s32 shadowHeight,
     s32 shadowWidth) {
 
@@ -156,15 +156,19 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> DynamicLightConverter::Con
 
         // Calculates cube map 
         glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (f32)shadowWidth/(f32)shadowHeight, 0.1f, cpuDat.radius);
+        std::array<glm::mat4x4, 6> pointLightFaceSpaces;
         // X faces
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0, 1, 0}));
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, {-1, 0, 0}, { 0, 1, 0}));
+        pointLightFaceSpaces[0] = (proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0, 1, 0}));
+        pointLightFaceSpaces[1] = (proj * lookAtHelper(lightPos, {-1, 0, 0}, { 0, 1, 0}));
         // Y faces
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 1, 0}, { 0, 0,-1}));
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0,-1, 0}, { 0, 0, 1}));
+        pointLightFaceSpaces[2] = (proj * lookAtHelper(lightPos, { 0, 1, 0}, { 0, 0,-1}));
+        pointLightFaceSpaces[3] = (proj * lookAtHelper(lightPos, { 0,-1, 0}, { 0, 0, 1}));
         // Z faces
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0, 1}, { 0, 1, 0}));
-        lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 0, 0,-1}, { 0, 1, 0}));
+        pointLightFaceSpaces[4] = (proj * lookAtHelper(lightPos, { 0, 0, 1}, { 0, 1, 0}));
+        pointLightFaceSpaces[5] = (proj * lookAtHelper(lightPos, { 0, 0,-1}, { 0, 1, 0}));
+
+        lightSpacesOutput.push_back(pointLightFaceSpaces);
+
         // Populates gpu type information 
         WGPUBackendDynamicShadowedPointLightData gpuDat{ };
 

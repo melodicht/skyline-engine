@@ -34,7 +34,8 @@ private:
     WGPUTextureFormat m_wgpuTextureFormat{ };
     WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth32Float };
 
-    // Represents limits of gpu
+    // Represents limits of renderer
+    u32 m_instanceMiscStoreBits{ 12 };
     u32 m_defaultArrayMax{ 4096 };
     u32 m_dynamicUniformStrideSize{ 0 };
     b8 m_hardwareDepthClampingSupported = false;
@@ -63,11 +64,11 @@ private:
     // Defines non-pointlight shadow map
     WGPURenderPipeline m_shadowMapPipeline{ };
     
-    WGPUBackendDynamicBindGroup<1> m_dirDepthBindGroup{ };
+    WGPUBackendBindGroup m_dirDepthBindGroup{ };
 
     // Defines point depth pipeline
     WGPURenderPipeline m_pointDepthPipeline{ };
-    WGPUBackendDynamicBindGroup<2> m_pointDepthBindGroup{ };
+    WGPUBackendBindGroup m_pointDepthBindGroup{ };
 
     // Defines skybox pipeline
     WGPURenderPipeline m_skyboxPipeline{ };
@@ -86,14 +87,13 @@ private:
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
 
-    WGPUBackendDynamicUniformBuffer<glm::mat4x4> m_pointDepthPassUniformBuffer{ };
-    WGPUBackendDynamicUniformBuffer<u32> m_dirDepthPassUniformBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<std::array<glm::mat4x4, 6>> m_pointDepthLightSpaces{ };
 
     WGPUBackendSingleUniformBuffer<WGPUBackendColorPassUniforms> m_colorPassUniformBuffer{ };
     WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedUniforms> m_colorPassFixedUniformBuffer{ };
 
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLightBuffer{ };
-    WGPUBackendDynamicUniformBuffer<WGPUBackendDynamicShadowedPointLightData> m_dynamicShadowedPointLightBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedPointLightData> m_dynamicShadowedPointLightBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedSpotLightData> m_dynamicShadowedSpotLightBuffer{ };
 
     WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_dynamicShadowLightSpaces{ };
@@ -146,10 +146,10 @@ private:
     void BeginDepthPass(WGPUTextureView depthTexture);
 
     // Populates depth texture from view of orthogonal camera buffer with added biases for dir light
-    void BeginDirectionalDepthPass(WGPUTextureView depthTexture, u32 nonPointLightIndex);
+    void BeginDirectionalDepthPass(WGPUTextureView depthTexture);
 
     // Populates depth buffer from the view of camera buffer
-    void BeginPointDepthPass(WGPUTextureView depthTexture, u32 pointLightIndex, u32 depthPassIndex);
+    void BeginPointDepthPass(WGPUTextureView depthTexture);
 
     // Handles some shared code between render passes
     // Currently assumes one pipeline per pass, may need to un-abstract later
@@ -174,6 +174,7 @@ private:
     // Takes in mesh counts and renders to current command encoder using previously
     // inserted object data in buffer.
     void DrawObjects(std::map<MeshID, u32>& meshCounts);
+    void DrawObjects(std::map<MeshID, u32>& meshCounts, u32 upperBits);
 
     // Ends the current pass and present it to the screen
     void EndFrame();

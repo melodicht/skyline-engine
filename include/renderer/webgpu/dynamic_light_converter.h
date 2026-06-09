@@ -41,7 +41,7 @@ public:
     // Converts cpu point lights to gpu side point lights.
     std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
         std::vector<PointLightRenderInfo>& cpuType,
-        std::vector<glm::mat4x4>& lightSpacesOutput,
+        std::vector<std::array<glm::mat4x4, 6>>& lightSpacesOutput,
         s32 shadowHeight,
         s32 shadowWidth);
 

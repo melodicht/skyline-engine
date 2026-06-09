@@ -245,6 +245,20 @@ void WGPURenderBackend::DrawObjects(std::map<MeshID, u32>& meshCounts) {
     startIndex += pair.second;
   }
 }
+void WGPURenderBackend::DrawObjects(std::map<MeshID, u32>& meshCounts, u32 upperBits) {
+  ASSERT_PRINT((upperBits) < (1 << m_instanceMiscStoreBits), "Instance index will cause instance buffer overflow");
+  u32 startIndex = 0;
+  u32 lowerBitCount = sizeof(upperBits) * 8 - m_instanceMiscStoreBits;
+  u32 instanceStoreMask = upperBits << lowerBitCount;
+
+  for (std::pair<MeshID, u32> pair : meshCounts)
+  {
+    WGPUBackendMeshIdx& gotMesh = m_meshStore[pair.first];
+    ASSERT_PRINT((gotMesh.m_indexCount + startIndex) < (1 << lowerBitCount), "Instance index will cause instance buffer overflow");
+    wgpuRenderPassEncoderDrawIndexed(m_renderPassEncoder, gotMesh.m_indexCount, pair.second, gotMesh.m_baseIndex, gotMesh.m_baseVertex, instanceStoreMask | startIndex);
+    startIndex += pair.second;
+  }
+}
 
 // Relies on caller to set bind groups and pipeline since multiple bind groups happen in passes
 void WGPURenderBackend::BeginColorPass() {
@@ -321,7 +335,7 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
   m_sharedMainViewBindGroup.BindToRenderPass(0, m_renderPassEncoder);
 }
 
-void WGPURenderBackend::BeginDirectionalDepthPass(WGPUTextureView depthTexture, u32 nonPointLightIndex) {
+void WGPURenderBackend::BeginDirectionalDepthPass(WGPUTextureView depthTexture) {
   WGPURenderPassDepthStencilAttachment depthStencilAttachment {
     .nextInChain = nullptr,
     .view = depthTexture,
@@ -337,10 +351,10 @@ void WGPURenderBackend::BeginDirectionalDepthPass(WGPUTextureView depthTexture, 
     "Directional Depth Pass",
     m_shadowMapPipeline);
   SetupVandIBO();
-  m_dirDepthBindGroup.BindToRenderPass(0, m_renderPassEncoder, {nonPointLightIndex});
+  m_dirDepthBindGroup.BindToRenderPass(0, m_renderPassEncoder);
 }
 
-void WGPURenderBackend::BeginPointDepthPass(WGPUTextureView depthTexture, u32 pointLightIndex, u32 depthPassIndex) {
+void WGPURenderBackend::BeginPointDepthPass(WGPUTextureView depthTexture) {
   WGPURenderPassDepthStencilAttachment depthStencilAttachment {
     .nextInChain = nullptr,
     .view = depthTexture,
@@ -357,7 +371,7 @@ void WGPURenderBackend::BeginPointDepthPass(WGPUTextureView depthTexture, u32 po
     "Point Depth Pass",
     m_pointDepthPipeline);
   SetupVandIBO();
-  m_pointDepthBindGroup.BindToRenderPass(0, m_renderPassEncoder, {depthPassIndex, pointLightIndex});
+  m_pointDepthBindGroup.BindToRenderPass(0, m_renderPassEncoder);
 }
 
 void WGPURenderBackend::BeginPass(
@@ -847,10 +861,9 @@ void WGPURenderBackend::InitPipelines()
       WGPUShaderStage_Vertex | WGPUShaderStage_Fragment,
       WGPUBufferBindingType_Uniform, sizeof(WGPUBackendColorPassFixedUniforms));
 
-    WGPUBindGroupLayoutEntry pointDepthUniformsBind = CreateBufferEntry(
-      WGPUShaderStage_Fragment | WGPUShaderStage_Vertex,
-      WGPUBufferBindingType_Uniform, sizeof(WGPUBackendPointUniforms));
-    pointDepthUniformsBind.buffer.hasDynamicOffset = true;
+    WGPUBindGroupLayoutEntry pointDepthLightSpacesBind = CreateBufferEntry(
+      WGPUShaderStage_Vertex,
+      WGPUBufferBindingType_ReadOnlyStorage, sizeof(glm::mat4x4) * 6);
 
     WGPUBindGroupLayoutEntry dynamicShadowedDirLightBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
@@ -859,12 +872,7 @@ void WGPURenderBackend::InitPipelines()
 
     WGPUBindGroupLayoutEntry dynamicShadowedPointLightBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
-      WGPUBufferBindingType_ReadOnlyStorage, m_dynamicUniformStrideSize);
-
-    WGPUBindGroupLayoutEntry dynamicShadowedPointLightUniformBind = CreateBufferEntry(
-      WGPUShaderStage_Fragment,
-      WGPUBufferBindingType_Uniform, sizeof(WGPUBackendDynamicShadowedPointLightData));
-    dynamicShadowedPointLightUniformBind.buffer.hasDynamicOffset = true;
+      WGPUBufferBindingType_ReadOnlyStorage, sizeof(WGPUBackendDynamicShadowedPointLightData));
 
     WGPUBindGroupLayoutEntry dynamicShadowedSpotLightBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
@@ -878,11 +886,6 @@ void WGPURenderBackend::InitPipelines()
     WGPUBindGroupLayoutEntry dynamicDirLightCascadeRatiosBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
       WGPUBufferBindingType_ReadOnlyStorage,sizeof(f32));
-
-    WGPUBindGroupLayoutEntry shadowMapUniformsBind = CreateBufferEntry(
-      WGPUShaderStage_Vertex,
-      WGPUBufferBindingType_Uniform,sizeof(u32));
-    shadowMapUniformsBind.buffer.hasDynamicOffset = true;
 
     WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
     dynamicDirLightShadowMapBind.visibility = WGPUShaderStage_Fragment;
@@ -940,12 +943,11 @@ void WGPURenderBackend::InitPipelines()
     InsertEntry(colorBindEntries, dynamicDirLightCascadeRatiosBind, 8);   
     InsertEntry(colorBindEntries, shadowMapSamplerMapBind, 9);
 
-    InsertEntry(shadowMapBindEntries, shadowMapUniformsBind, 0);
-    InsertEntry(shadowMapBindEntries, dynamicShadowLightSpacesBind, 1);
-    InsertEntry(shadowMapBindEntries, objDatBind, 2);
+    InsertEntry(shadowMapBindEntries, dynamicShadowLightSpacesBind, 0);
+    InsertEntry(shadowMapBindEntries, objDatBind, 1);
 
-    InsertEntry(pointDepthBindEntities, pointDepthUniformsBind, 0);
-    InsertEntry(pointDepthBindEntities, dynamicShadowedPointLightUniformBind, 1);
+    InsertEntry(pointDepthBindEntities, pointDepthLightSpacesBind, 0);
+    InsertEntry(pointDepthBindEntities, dynamicShadowedPointLightBind, 1);
     InsertEntry(pointDepthBindEntities, objDatBind, 2);
 
     InsertEntry(skyboxBindEntities, skyboxTextureBind, 0);
@@ -1146,6 +1148,50 @@ void WGPURenderBackend::InitPipelines()
       .targets = &colorTarget,
     };
     
+    // Groups together constant entries
+    std::vector<WGPUConstantEntry> pointDepthConstantEntries;
+    std::vector<WGPUConstantEntry> shadowMapConstantEntries;
+
+    {
+      // Ensures that depth clamping logic still goes through
+      // even when not supported by hardware
+      WGPUConstantEntry enableManualClampingEntry {
+        .key = WGPUBackendUtils::wgpuStr("manualClamping"),
+        .value = static_cast<double>(!m_hardwareDepthClampingSupported)
+      };
+      shadowMapConstantEntries.push_back(enableManualClampingEntry);
+
+      ASSERT_PRINT(m_instanceMiscStoreBits < 32, "m_instanceMiscStoreBits is too high, can't be stored in instance buffer");
+      ASSERT_PRINT(m_instanceMiscStoreBits > 3, "m_instanceMiscStoreBits, doesn't hold enough data for faces in point light pass");
+
+      u32 instanceBits = (sizeof(u32) * 8) - m_instanceMiscStoreBits;
+      WGPUConstantEntry instanceBitMaskEntry {
+        .key = WGPUBackendUtils::wgpuStr("instanceBitMask"),
+        .value = static_cast<double>((1u << instanceBits) - 1)
+      };
+      pointDepthConstantEntries.push_back(instanceBitMaskEntry);
+      shadowMapConstantEntries.push_back(instanceBitMaskEntry);
+
+      WGPUConstantEntry instanceStoreShiftEntry {
+        .key = WGPUBackendUtils::wgpuStr("instanceStoreShift"),
+        .value = static_cast<double>(instanceBits)
+      };
+      pointDepthConstantEntries.push_back(instanceStoreShiftEntry);
+      shadowMapConstantEntries.push_back(instanceStoreShiftEntry);
+
+      WGPUConstantEntry faceBitMaskEntry {
+        .key = WGPUBackendUtils::wgpuStr("faceBitMask"),
+        .value = static_cast<double>((1u << 3) - 1)
+      };
+      pointDepthConstantEntries.push_back(faceBitMaskEntry);
+
+      WGPUConstantEntry faceStoreShiftEntry {
+        .key = WGPUBackendUtils::wgpuStr("faceStoreShift"),
+        .value = static_cast<double>(3)
+      };
+      pointDepthConstantEntries.push_back(faceStoreShiftEntry);
+    }
+
     // Gathers previous information into descriptors and establish 
     WGPURenderPipelineDescriptor skyboxPipelineDesc {
       .nextInChain = nullptr,
@@ -1201,13 +1247,6 @@ void WGPURenderBackend::InitPipelines()
       .fragment = nullptr,
     };
 
-    // Ideally ensures that depth clamping logic still goes through
-    // even when not supported by hardware
-    WGPUConstantEntry enableManualClampingEntry {
-      .key = WGPUBackendUtils::wgpuStr("manualClamping"),
-      .value = static_cast<double>(!m_hardwareDepthClampingSupported)
-    };
-
     WGPURenderPipelineDescriptor shadowmapPipelineDesc {
       .nextInChain = nullptr,
       .label = WGPUBackendUtils::wgpuStr("Shadow Mapping Pipeline"),
@@ -1215,8 +1254,8 @@ void WGPURenderBackend::InitPipelines()
       .vertex {
         .module = shadowMapShaderModule.get(),
         .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
-        .constantCount = 1,
-        .constants = &enableManualClampingEntry,
+        .constantCount = shadowMapConstantEntries.size(),
+        .constants = shadowMapConstantEntries.data(),
         .bufferCount = 1,
         .buffers = &depthBufferLayout
       },
@@ -1243,8 +1282,8 @@ void WGPURenderBackend::InitPipelines()
       .vertex {
         .module = pointDepthShaderModule.get(),
         .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
-        .constantCount = 0,
-        .constants = nullptr,
+        .constantCount = pointDepthConstantEntries.size(),
+        .constants = pointDepthConstantEntries.data(),
         .bufferCount = 1,
         .buffers = &pointDepthBufferLayout
       },
@@ -1309,14 +1348,12 @@ void WGPURenderBackend::InitPipelines()
     m_colorPassUniformBuffer.Init(m_wgpuCore.m_device, "Color Pass Uniforms Buffer");
     m_colorPassFixedUniformBuffer.Init(m_wgpuCore.m_device, "Color Pass Fixed Uniforms Buffer");
     m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", m_defaultArrayMax);
-    m_dynamicShadowedPointLightBuffer.Init(m_wgpuCore.m_device, m_dynamicUniformStrideSize, "Dynamic Shadowed Point Light Buffer", m_defaultArrayMax);
+    m_dynamicShadowedPointLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Point Light Buffer", m_defaultArrayMax);
     m_dynamicShadowedSpotLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Dir Light Buffer", m_defaultArrayMax);
     m_dynamicShadowLightSpaces.Init(m_wgpuCore.m_device, "Dynamic Shadow Light Spaces", m_defaultArrayMax);
     m_dynamicShadowedDirLightCascadeRatiosBuffer.Init(m_wgpuCore.m_device, "Shadowed Dynamic Directional Light Cascade Ratios", DefaultCascadeCount);
 
-    m_pointDepthPassUniformBuffer.Init(m_wgpuCore.m_device, m_dynamicUniformStrideSize, "Point Depth Pass Uniform Data Buffer", m_defaultArrayMax);
-
-    m_dirDepthPassUniformBuffer.Init(m_wgpuCore.m_device, m_dynamicUniformStrideSize, "Directional Depth Pass Uniform Data Buffer", m_defaultArrayMax);
+    m_pointDepthLightSpaces.Init(m_wgpuCore.m_device, "Point Depth Pass Uniform Data Buffer", m_defaultArrayMax);
     
     m_dynamicDirLightShadowMapTexture.Init(
       m_wgpuCore.m_device, 
@@ -1403,13 +1440,12 @@ void WGPURenderBackend::InitPipelines()
     m_dynamicShadowedDirLightCascadeRatiosBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 8);
     m_shadowMapSampler.RegisterBindGroup(&m_defaultColorPassBindGroup, 9);
 
-    m_pointDepthPassUniformBuffer.RegisterBindGroupAsDynamicUniform(&m_pointDepthBindGroup, 0);
-    m_dynamicShadowedPointLightBuffer.RegisterBindGroupAsDynamicUniform(&m_pointDepthBindGroup, 1);
+    m_pointDepthLightSpaces.RegisterBindGroup(&m_pointDepthBindGroup, 0);
+    m_dynamicShadowedPointLightBuffer.RegisterBindGroup(&m_pointDepthBindGroup, 1);
     m_instanceDatBuffer.RegisterBindGroup(&m_pointDepthBindGroup, 2);
 
-    m_dirDepthPassUniformBuffer.RegisterBindGroupAsDynamicUniform(&m_dirDepthBindGroup, 0);
-    m_dynamicShadowLightSpaces.RegisterBindGroup(&m_dirDepthBindGroup, 1);
-    m_instanceDatBuffer.RegisterBindGroup(&m_dirDepthBindGroup, 2);
+    m_dynamicShadowLightSpaces.RegisterBindGroup(&m_dirDepthBindGroup, 0);
+    m_instanceDatBuffer.RegisterBindGroup(&m_dirDepthBindGroup, 1);
     
     m_skyboxTexture.RegisterBindGroup(&m_skyboxBindGroup, 0);
     m_skyboxSampler.RegisterBindGroup(&m_skyboxBindGroup, 1);
@@ -1511,7 +1547,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     
   // Prepares dynamic shadowed lights to be rendered
   std::vector<glm::mat4x4> dirLightSpaces;
-  std::vector<glm::mat4x4> pointLightSpaces;
+  std::vector<std::array<glm::mat4x4,6>> pointLightSpaces;
 
   // TODO: Make cascade ratios more adjustable
   std::vector<f32> cascadeRatios = {0.10, 0.25, 0.50, 1.00};
@@ -1570,17 +1606,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     camSpace); 
 
   // Writes in data for shadow mapping
-  m_pointDepthPassUniformBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, pointLightSpaces);
-
-  // One index per (light, cascade) light-space matrix. The shadow pass selects a slot via
-  // dynamic offset and the shader uses its value to index cameraSpaces, so slot j must hold j
-  // across the full cascadeCount * dirLightCount range (matches dirLightSpaces).
-  std::vector<u32> dirIndices;
-  dirIndices.reserve(dirLightSpaces.size());
-  for (u32 i = 0 ; i < dirLightSpaces.size() ; i++) {
-    dirIndices.push_back(i);
-  }
-  m_dirDepthPassUniformBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirIndices);
+  m_pointDepthLightSpaces.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, pointLightSpaces);
 
   // >>> Updates Dirty Binding Groups <<<
 
@@ -1597,17 +1623,18 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   for (u8 cascadeIter = 0 ; cascadeIter < DefaultCascadeCount ; cascadeIter++) {
     for (u32 dirShadowIdx = 0 ; dirShadowIdx < shadowedDirLightData.size() ; dirShadowIdx++) {
       u32 dirLightSpaceIndex = dirShadowIdx + cascadeIter * shadowedDirLightData.size();
-      BeginDirectionalDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * DefaultCascadeCount + cascadeIter), dirLightSpaceIndex);
-      DrawObjects(meshCounts);
+      BeginDirectionalDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * DefaultCascadeCount + cascadeIter));
+      DrawObjects(meshCounts, dirLightSpaceIndex);
       EndPass();
     }
   }
 
   for (u32 pointLightIdx = 0 ; pointLightIdx < shadowedPointLightData.size() ; pointLightIdx++) {
     const WGPUBackendDynamicShadowedPointLightData& pointLight = shadowedPointLightData[pointLightIdx];
-    for (u32 pointShadowIdx = pointLightIdx * 6 ; pointShadowIdx < (pointLightIdx + 1) * 6 ; pointShadowIdx++) {
-      BeginPointDepthPass(m_dynamicPointLightShadowMapTexture.GetView(pointShadowIdx), pointLightIdx, pointShadowIdx);
-      DrawObjects(meshCounts);
+    u32 basePointShadowIdx = pointLightIdx * 6 ;
+    for (u32 faceIdx = 0 ; faceIdx < 6 ; faceIdx++) {
+      BeginPointDepthPass(m_dynamicPointLightShadowMapTexture.GetView(basePointShadowIdx + faceIdx));
+      DrawObjects(meshCounts, faceIdx | (basePointShadowIdx << 3));
       EndPass();
     }
   }

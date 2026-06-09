@@ -1,3 +1,7 @@
+// Split index into dir light index | instance
+override instanceBitMask: u32 = 0x000FFFFF;
+override instanceStoreShift: u32 = 20;
+
 // Represents the data that differentiates each instance of the same mesh
 struct ObjData {
     transform : mat4x4<f32>,
@@ -7,21 +11,23 @@ struct ObjData {
 
 override manualClamping: bool = false;
 
-@binding(0) @group(0) var<uniform> shadowMapUniforms: u32;
-@binding(1) @group(0) var<storage, read> cameraSpaces : array<mat4x4<f32>>;
-@binding(2) @group(0) var<storage, read> objStore : array<ObjData>; 
+@binding(0) @group(0) var<storage, read> cameraSpaces : array<mat4x4<f32>>;
+@binding(1) @group(0) var<storage, read> objStore : array<ObjData>; 
 
 
 struct VertexIn {
     @location(0) position: vec3<f32>,
     @location(2) normal : vec3<f32>,
-    @builtin(instance_index) instance: u32, // Represents which instance within objStore to pull data from
+    @builtin(instance_index) instance_buffer: u32, // Represents which instance within objStore to pull data from
 }
 
 // Depth pass pipeline
 @vertex
 fn vtxMain(in : VertexIn) -> @builtin(position) vec4<f32> {
-  var cameraPos = cameraSpaces[shadowMapUniforms] * (objStore[in.instance].transform * vec4<f32>(in.position,1));
+  var lightIdx : u32 =  in.instance_buffer >> instanceStoreShift;
+  var instance : u32 = in.instance_buffer & instanceBitMask;
+
+  var cameraPos = cameraSpaces[lightIdx] * (objStore[instance].transform * vec4<f32>(in.position,1));
   if (manualClamping) {
     cameraPos.z = max(cameraPos.z, 0.0);
   }

@@ -81,13 +81,6 @@ struct DynamicShadowedPointLight {
     padding : f32
 }
 
-const dynamicShadowedPointLightIntegerOffset = [<int><POINT_LIGHT_PADDING><52>];
-
-struct DynamicShadowedPointLightPadded {
-    data : DynamicShadowedPointLight,
-    padding : array<u32, dynamicShadowedPointLightIntegerOffset>
-}
-
 struct DynamicShadowedSpotLight {
     diffuse : vec3<f32>,
     penumbraCutoff : f32,
@@ -105,7 +98,7 @@ struct DynamicShadowedSpotLight {
 @binding(0) @group(1) var<uniform> colorUniforms : ColorUniforms;
 @binding(1) @group(1) var<uniform> colorFixedUniforms : ColorFixedUniforms;
 @binding(2) @group(1) var<storage, read> shadowedDirLightStore : array<DynamicShadowedDirLight>;
-@binding(3) @group(1) var<storage, read> shadowedPointLightStore : array<DynamicShadowedPointLightPadded>;
+@binding(3) @group(1) var<storage, read> shadowedPointLightStore : array<DynamicShadowedPointLight>;
 @binding(4) @group(1) var<storage, read> shadowedSpotLightStore : array<DynamicShadowedSpotLight>;
 @binding(5) @group(1) var<storage, read> lightsSpacesStore : array<mat4x4<f32>>;
 @binding(6) @group(1) var shadowedDirLightMap: texture_depth_2d_array;
@@ -230,7 +223,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
     for (var pointIter : u32 = 0 ; pointIter < colorUniforms.pointLightAmount ; pointIter++) {
         //Creates copy
-        let pointLight = shadowedPointLightStore[pointIter].data;
+        let pointLight = shadowedPointLightStore[pointIter];
 
         // Handles Phong Lighting
         var lightToFragDir: vec3<f32> = (in.worldPos/in.worldPos.w).xyz - pointLight.position;
