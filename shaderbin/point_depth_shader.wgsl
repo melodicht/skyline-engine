@@ -3,14 +3,11 @@ struct DepthPassUniform {
 }
 
 struct DynamicShadowedPointLight {
-    diffuse : vec3<f32>,
+    color : vec3<f32>,
     radius : f32,
-    specular : vec3<f32>,
-    falloff : f32,
     position : vec3<f32>,
-    padding : f32
+    falloff : f32
 }
-
 
 struct ObjData {
     transform: mat4x4<f32>,
@@ -55,8 +52,8 @@ struct FragOut {
 @fragment
 fn fsMain(in : PointDepthPassVertexOut) -> FragOut {
     var out : FragOut;
-    var relativeLightToFrag : vec3<f32> = (in.worldPos.xyz/in.worldPos.w) - pointLightUniforms.position;
-    var pixDepth : f32 = length(relativeLightToFrag) / pointLightUniforms.radius;
+    let relativeLightToFrag : vec3<f32> = (in.worldPos.xyz/in.worldPos.w) - pointLightUniforms.position;
+    let pixDepth : f32 = length(relativeLightToFrag) / pointLightUniforms.radius;
     out.depth = pixDepth + fwidth(pixDepth) * 3.0; // For now multiplying slope by 3 is standard across lights, TODO: make less arbitrary
     return out;
 }

@@ -76,6 +76,7 @@ private:
     // Allocates texture space for shadowmapping based on the amount of shadowed lights registered
     WGPUBackendBaseDynamicShadowMapArray m_dynamicDirLightShadowMapTexture;
     WGPUBackendBaseDynamicShadowMapArray m_dynamicPointLightShadowMapTexture;
+    WGPUBackendBaseDynamicShadowMapArray m_dynamicSpotLightShadowMapTexture;
 
     LightID m_dynamicShadowedDirLightNextID = 0;
     LightID m_dynamicShadowedPointLightNextID = 0;

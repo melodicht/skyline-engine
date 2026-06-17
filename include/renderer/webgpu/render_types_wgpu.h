@@ -100,34 +100,28 @@ struct WGPUBackendObjectData {
 
 // Represents a single shadowed directional light
 struct WGPUBackendDynamicShadowedDirLightData {
-    glm::vec3 m_diffuse{ 0 };
+    glm::vec3 m_color{ 0 };
     f32 m_padding{ 0 }; // Fill with useful stuff later
-    glm::vec3 m_specular{ 0 };
-    f32 m_padding2{ 0 }; // Fill with useful stuff later
     glm::vec3 m_direction{ 0 };
-    f32 m_intensity{ 0 };
-};
-
-// Represents a single shadowed point light
-struct WGPUBackendDynamicShadowedPointLightData {
-    glm::vec3 m_diffuse{ 0 };
-    f32 m_radius{ 0 };
-    glm::vec3 m_specular{ 0 };
-    f32 m_falloff{ 0 };
-    glm::vec3 m_position{ 0 };
-    f32 m_padding{ 0 };
+    f32 m_padding2{ 0 };
 };
 
 // Represents a single shadowed spot light
 struct WGPUBackendDynamicShadowedSpotLightData {
-    glm::vec3 m_diffuse{ 0 };
+    glm::vec3 m_color{ 0 };
     f32 m_penumbraCutoff{ 0 };
-    glm::vec3 m_specular{ 0 };
-    f32 m_outerCutoff{ 0 };
     glm::vec3 m_position{ 0 };
-    f32 m_padding{ 0 }; // Fill with useful stuff later
+    f32 m_outerCutoff{ 0 };
     glm::vec3 m_direction{ 0 };
-    f32 m_padding2{ 0 }; // Fill with useful stuff later
+    f32 m_padding{ 0 }; // Fill with useful stuff later
+};
+
+// Represents a single shadowed point light
+struct WGPUBackendDynamicShadowedPointLightData {
+    glm::vec3 m_color{ 0 };
+    f32 m_radius{ 0 };
+    glm::vec3 m_position{ 0 };
+    f32 m_falloff{ 0 };
 };
 
 #pragma endregion

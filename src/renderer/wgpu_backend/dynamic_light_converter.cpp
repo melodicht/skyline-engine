@@ -87,9 +87,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> DynamicLightConverter::Conve
     // Inserts non light space data into GPU data
     for (DirLightRenderInfo& cpuDat : cpuType) {
         WGPUBackendDynamicShadowedDirLightData gpuDat{ };
-        gpuDat.m_diffuse = cpuDat.diffuse;
-        gpuDat.m_intensity = 1; // TODO: Implement intensity scaling
-        gpuDat.m_specular = cpuDat.specular;
+        gpuDat.m_color = cpuDat.diffuse; // TODO currently the color is a bit of an approximation
         gpuDat.m_direction = cpuDat.transform->GetForwardVector();
 
         ret.push_back(std::move(gpuDat));
@@ -168,8 +166,7 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> DynamicLightConverter::Con
         // Populates gpu type information 
         WGPUBackendDynamicShadowedPointLightData gpuDat{ };
 
-        gpuDat.m_diffuse = cpuDat.diffuse;
-        gpuDat.m_specular = cpuDat.specular;
+        gpuDat.m_color = cpuDat.diffuse;
         gpuDat.m_position = lightPos;
         gpuDat.m_falloff = cpuDat.falloff;
         gpuDat.m_radius = cpuDat.radius;
@@ -186,11 +183,10 @@ std::vector<WGPUBackendDynamicShadowedSpotLightData> DynamicLightConverter::Conv
     for (SpotLightRenderInfo& cpuDat : cpuType) {
         WGPUBackendDynamicShadowedSpotLightData gpuDat{ };
 
-        gpuDat.m_diffuse = cpuDat.diffuse;
+        gpuDat.m_color = cpuDat.diffuse;
         gpuDat.m_penumbraCutoff = cpuDat.innerCone;
-        gpuDat.m_specular = cpuDat.specular;
-        gpuDat.m_outerCutoff = cpuDat.outerCone;
         gpuDat.m_direction = cpuDat.transform->GetForwardVector();
+        gpuDat.m_outerCutoff = cpuDat.outerCone;
         gpuDat.m_position = cpuDat.transform->GetWorldPosition();
 
         ret.push_back(gpuDat);
