@@ -155,30 +155,6 @@ fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
     return vec3<f32>(in[3][0], in[3][1], in[3][2]);
 }
 
-fn pcfCompare(
-    texture: texture_depth_2d_array, 
-    sampler: sampler_comparison, 
-    texturePos : vec2<f32>, 
-    index: u32, 
-    depth: f32, 
-    pcfRange : u32,
-    mapDimension: u32) -> f32 {
-    // Sets up sample location
-    var unit: f32 = 1.0/f32(mapDimension);
-    var trueRangeHalf: f32 = unit * (f32(pcfRange - 1) /2.0);
-    var base: vec2<f32> = texturePos - vec2<f32>(trueRangeHalf,trueRangeHalf);
-
-    // Finds PCF percentage
-    var sum: f32 = 0;
-    for (var xIter : u32 = 0 ; xIter < pcfRange ; xIter++) {
-        for (var yIter : u32 = 0 ; yIter < pcfRange ; yIter++) {
-            var newPos: vec2<f32> = base + vec2<f32>(f32(xIter)*unit, f32(yIter)*unit);
-            sum += textureSampleCompare(texture, sampler, newPos, index, depth);
-        }
-    }
-    return sum/f32(pcfRange*pcfRange);
-}
-
 // Uses normal vector and find two arbitrary normal vectors perpidicular to eachother and the base normal
 // Taken from https://graphics.pixar.com/library/OrthonormalB/paper.pdf
 fn getOrthonormalBasis(normalForward: vec3<f32>) -> orthonormalBasis {
@@ -248,16 +224,21 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         var lightSpacePosition : vec4<f32> = lightsSpacesStore[lightSpaceDirIdx] * (normalWorldPos);
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
         let texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
-        let lightIntensity : f32  = pcfCompare(
-            shadowedDirLightMap, 
-            shadowMapSampler, 
-            texturePosition.xy, 
-            cascadeCheck, 
-            texturePosition.z,
-            colorFixedUniforms.pcfRange,
-            colorFixedUniforms.dirLightMapDimension);
-        
-        let adjustedLightColor : vec3<f32> = shadowedDirLightStore[dirIter].color * lightIntensity;
+        // Sets up sample location
+        let unit: f32 = 1.0/f32(colorFixedUniforms.dirLightMapDimension);
+        var trueRangeHalf: f32 = unit * (f32(colorFixedUniforms.pcfRange - 1) /2.0);
+        var base: vec2<f32> = texturePosition.xy - vec2<f32>(trueRangeHalf,trueRangeHalf);
+
+        // Finds PCF percentage
+        var sum: f32 = 0;
+        for (var xIter : u32 = 0 ; xIter < colorFixedUniforms.pcfRange ; xIter++) {
+            for (var yIter : u32 = 0 ; yIter < colorFixedUniforms.pcfRange ; yIter++) {
+                var newPos: vec2<f32> = base + vec2<f32>(f32(xIter)*unit, f32(yIter)*unit);
+                sum += textureSampleCompare(shadowedDirLightMap, shadowMapSampler, newPos, cascadeCheck, texturePosition.z);
+            }
+        }
+        let shadowedIntensity = sum/f32(colorFixedUniforms.pcfRange*colorFixedUniforms.pcfRange);
+        let adjustedLightColor : vec3<f32> = shadowedDirLightStore[dirIter].color * shadowedIntensity;
 
         addBrdf(
             adjustedLightColor, 
@@ -294,6 +275,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     //     if (theta < shadowedPointLightStore[spotIter].outerCutoff) {
     //         var epsilon : f32 = spotLight.penumbraCutoff - spotLight.outerCutoff;
     //         intensity = clamp((theta - spotLight.outerCutOff) / epsilon, 0.0, 1.0);
+            
     //     }
 
     //     // In this model diffuse and specular both have the same intensity 
