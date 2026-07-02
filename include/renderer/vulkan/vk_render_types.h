@@ -1,5 +1,12 @@
 #pragma once
 
+#include <vector>
+
+#include <glm/glm.hpp>
+
+#include "vk_mem_alloc.h"
+#include "render_types.h"
+
 // Represents a data buffer stored on the GPU
 struct AllocatedBuffer
 {

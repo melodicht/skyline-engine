@@ -25,6 +25,7 @@
 #include <skl_math_types.h>
 #include <skl_math_utils.h>
 #include <meta_definitions.h>
+#include <pipeline_builder.h>
 
 // Vulkan structures
 VkInstance instance;
@@ -782,34 +783,6 @@ void InitRenderer(RenderInitInfo& info)
     }
 }
 
-// Also checks that the creation of the shader module is good.
-VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
-{
-    VkShaderModuleCreateInfo shaderInfo{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
-    void *shaderFile = SDL_LoadFile(FilePath, &shaderInfo.codeSize);
-    if (!shaderFile)
-    {
-        std::cerr << "Failed to load shader file: " << SDL_GetError() << std::endl;
-        return VK_NULL_HANDLE;
-    }
-    shaderInfo.pCode = reinterpret_cast<const u32*>(shaderFile);
-    VkShaderModule shaderModule;
-    VK_CHECK(vkCreateShaderModule(device, &shaderInfo, nullptr, &shaderModule));
-    return shaderModule;
-}
-
-VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule)
-{
-    VkPipelineShaderStageCreateInfo stageInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = shaderStage,
-        .module = shaderModule,
-        .pName = "main"
-    };
-    return stageInfo;
-}
-
 void InitPipelines(RenderPipelineInitInfo& info)
 {
     // Create object and light buffers
@@ -833,36 +806,6 @@ void InitPipelines(RenderPipelineInitInfo& info)
     }
 
     mainCamIndex = CreateCameraBuffer(1);
-
-    // Create shader stages
-    VkShaderModule depthShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/depth.vert.spv");
-    
-    VkShaderModule shadowVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/shadow.vert.spv");
-    VkShaderModule shadowFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/shadow.frag.spv");
-
-    const char* colorFragPath = editor ? SKL_BASE_PATH "/shaderbin/editor.frag.spv" : SKL_BASE_PATH "/shaderbin/color.frag.spv";
-    
-    VkShaderModule colorVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/color.vert.spv");
-    VkShaderModule colorFragShader = CreateShaderModuleFromFile(colorFragPath);
-
-    VkShaderModule dirShadowFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/dirshadow.frag.spv");
-
-    VkShaderModule iconVertShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/icon.vert.spv");
-    VkShaderModule iconFragShader = CreateShaderModuleFromFile(SKL_BASE_PATH "/shaderbin/icon.frag.spv");
-    
-    VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader);
-    VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader);
-    VkPipelineShaderStageCreateInfo shadowVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, shadowVertShader);
-    VkPipelineShaderStageCreateInfo shadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, shadowFragShader);
-    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader);
-    VkPipelineShaderStageCreateInfo dirShadowFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, dirShadowFragShader);
-    VkPipelineShaderStageCreateInfo iconVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, iconVertShader);
-    VkPipelineShaderStageCreateInfo iconFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, iconFragShader);
-    
-    VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
-    VkPipelineShaderStageCreateInfo shadowShaderStages[] = {shadowVertStageInfo, shadowFragStageInfo};
-    VkPipelineShaderStageCreateInfo dirShadowShaderStages[] = {depthVertStageInfo, dirShadowFragStageInfo};
-    VkPipelineShaderStageCreateInfo iconShaderStages[] = {iconVertStageInfo, iconFragStageInfo};
 
     // Set up descriptor pool and set for textures
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
@@ -1030,246 +973,59 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VK_CHECK(vkCreatePipelineLayout(device, &colorLayoutInfo, nullptr, &colorPipelineLayout));
 
+    PipelineBuilder builder = {device};
+    depthPipeline = builder
+        .Shader("depth.vert", VK_SHADER_STAGE_VERTEX_BIT)
+        .DepthTarget(depthFormat, VK_TRUE, VK_COMPARE_OP_LESS)
+        .Build(depthPipelineLayout);
 
-    // Create render pipelines (AKA fill in 20000 info structs)
-    VkDynamicState dynamicStates[] =
-    {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR,
-        VK_DYNAMIC_STATE_CULL_MODE
-    };
+    builder = {device};
+    shadowPipeline = builder
+        .Shader("shadow.vert", VK_SHADER_STAGE_VERTEX_BIT)
+        .Shader("shadow.frag", VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Rasterizer(VK_FRONT_FACE_CLOCKWISE, VK_FALSE)
+        .DepthTarget(shadowFormat, VK_TRUE, VK_COMPARE_OP_LESS)
+        .Build(shadowPipelineLayout);
 
-    VkPipelineDynamicStateCreateInfo dynamicState
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-        .dynamicStateCount = 3,
-        .pDynamicStates = dynamicStates
-    };
+    builder = {device};
+    cascadedPipeline = builder
+        .Shader("depth.vert", VK_SHADER_STAGE_VERTEX_BIT)
+        .Shader("dirshadow.frag", VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Multiview(NUM_CASCADES)
+        .Rasterizer(VK_FRONT_FACE_CLOCKWISE, VK_TRUE)
+        .DepthTarget(shadowFormat, VK_TRUE, VK_COMPARE_OP_LESS)
+        .Build(shadowPipelineLayout);
 
-    // We are using vertex pulling so no need for vertex input description
-    VkPipelineVertexInputStateCreateInfo vertexInfo{.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+    builder = {device};
+    cubemapPipeline = builder
+        .Shader("shadow.vert", VK_SHADER_STAGE_VERTEX_BIT)
+        .Shader("shadow.frag", VK_SHADER_STAGE_FRAGMENT_BIT)
+        .Multiview(6)
+        .Rasterizer(VK_FRONT_FACE_COUNTER_CLOCKWISE, VK_TRUE)
+        .DepthTarget(shadowFormat, VK_TRUE, VK_COMPARE_OP_LESS)
+        .Build(shadowPipelineLayout);
 
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        .primitiveRestartEnable = VK_FALSE
-    };
-
-    VkPipelineViewportStateCreateInfo viewportState
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        .viewportCount = 1,
-        .pViewports = nullptr,
-        .scissorCount = 1,
-        .pScissors = nullptr
-    };
-
-    VkPipelineRasterizationStateCreateInfo rasterizer
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .depthClampEnable = VK_FALSE,
-        .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode = VK_POLYGON_MODE_FILL,
-        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        .depthBiasEnable = VK_FALSE,
-        .lineWidth = 1.0f
-    };
-
-    VkPipelineRasterizationStateCreateInfo cubemapRasterizer = rasterizer;
-    cubemapRasterizer.depthClampEnable = VK_TRUE;
-
-    VkPipelineRasterizationStateCreateInfo shadowRasterizer = cubemapRasterizer;
-    shadowRasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-
-    VkPipelineMultisampleStateCreateInfo multisampling
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-        .sampleShadingEnable = VK_FALSE,
-        .minSampleShading = 1.0f,
-        .pSampleMask = nullptr,
-        .alphaToCoverageEnable = VK_FALSE,
-        .alphaToOneEnable = VK_FALSE
-    };
-
-    VkPipelineColorBlendAttachmentState colorBlendAttachment
-    {
-        .blendEnable = VK_FALSE,
-        .srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .colorBlendOp = VK_BLEND_OP_ADD,
-        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-        .alphaBlendOp = VK_BLEND_OP_ADD,
-        .colorWriteMask =
+    builder = {device};
+    builder
+        .Shader("color.vert", VK_SHADER_STAGE_VERTEX_BIT)
+        .DepthTarget(depthFormat, VK_FALSE, VK_COMPARE_OP_EQUAL)
+        .ColorTarget(swapchainFormat,
             VK_COLOR_COMPONENT_R_BIT
             | VK_COLOR_COMPONENT_G_BIT
             | VK_COLOR_COMPONENT_B_BIT
-            | VK_COLOR_COMPONENT_A_BIT
-    };
-
-    VkPipelineColorBlendStateCreateInfo colorBlending
-    {
-        .logicOpEnable = VK_FALSE,
-        .logicOp = VK_LOGIC_OP_COPY,
-        .attachmentCount = 1,
-        .pAttachments = &colorBlendAttachment,
-        .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}
-    };
-
-    VkPipelineColorBlendStateCreateInfo depthBlending
-    {
-        .logicOpEnable = VK_FALSE,
-        .logicOp = VK_LOGIC_OP_COPY,
-        .attachmentCount = 0,
-        .pAttachments = nullptr,
-        .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}
-    };
-
-    // For pre-depth pass
-    VkPipelineDepthStencilStateCreateInfo preDepthStencil
-    {
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = VK_COMPARE_OP_LESS,
-        .depthBoundsTestEnable = VK_FALSE,
-        .stencilTestEnable = VK_FALSE,
-        .front = {},
-        .back = {},
-        .minDepthBounds = 0.0f,
-        .maxDepthBounds = 1.0f
-    };
-
-    // For color pass
-    VkPipelineDepthStencilStateCreateInfo colorDepthStencil
-    {
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_FALSE,
-        .depthCompareOp = VK_COMPARE_OP_EQUAL,
-        .depthBoundsTestEnable = VK_FALSE,
-        .stencilTestEnable = VK_FALSE,
-        .front = {},
-        .back = {},
-        .minDepthBounds = 0.0f,
-        .maxDepthBounds = 1.0f
-    };
-
-    // For pre-depth pass
-    VkPipelineRenderingCreateInfo depthRenderInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-        .colorAttachmentCount = 0,
-        .depthAttachmentFormat = depthFormat
-    };
-
-    VkPipelineRenderingCreateInfo shadowRenderInfo = depthRenderInfo;
-    shadowRenderInfo.depthAttachmentFormat = shadowFormat;
-
-    VkPipelineRenderingCreateInfo cascadedRenderInfo = shadowRenderInfo;
-    cascadedRenderInfo.viewMask = (1 << NUM_CASCADES) - 1;
-
-    VkPipelineRenderingCreateInfo cubemapRenderInfo = shadowRenderInfo;
-    cubemapRenderInfo.viewMask = 0x3F;
-
-    // For color pass
-    VkPipelineRenderingCreateInfo colorRenderInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &swapchainFormat,
-        .depthAttachmentFormat = depthFormat
-    };
-
-    VkPipelineColorBlendAttachmentState idBlendAttachment
-    {
-        .blendEnable = VK_FALSE,
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT
-    };
-
-    VkPipelineColorBlendAttachmentState blendAttachments[2] = {colorBlendAttachment, idBlendAttachment};
-    VkFormat colorFormats[2] = {swapchainFormat, VK_FORMAT_R32_UINT};
+            | VK_COLOR_COMPONENT_A_BIT);
 
     if (editor)
     {
-        colorBlending.attachmentCount = 2;
-        colorBlending.pAttachments = blendAttachments;
-
-        colorRenderInfo.colorAttachmentCount = 2;
-
-        colorRenderInfo.pColorAttachmentFormats = colorFormats;
+        builder.ColorTarget(VK_FORMAT_R32_UINT, VK_COLOR_COMPONENT_R_BIT);
+        builder.Shader("editor.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
+    else
+    {
+        builder.Shader("color.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
     }
 
-    VkGraphicsPipelineCreateInfo depthPipelineInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .pNext = &depthRenderInfo,
-        .stageCount = 1,
-        .pStages = &depthVertStageInfo,
-        .pVertexInputState = &vertexInfo,
-        .pInputAssemblyState = &inputAssembly,
-        .pViewportState = &viewportState,
-        .pRasterizationState = &rasterizer,
-        .pMultisampleState = &multisampling,
-        .pDepthStencilState = &preDepthStencil,
-        .pColorBlendState = &depthBlending,
-        .pDynamicState = &dynamicState,
-        .layout = depthPipelineLayout,
-        .renderPass = VK_NULL_HANDLE, // No renderpass necessary because we are using dynamic rendering
-        .subpass = 0
-    };
-
-    VkGraphicsPipelineCreateInfo shadowPipelineInfo = depthPipelineInfo;
-    shadowPipelineInfo.stageCount = 2;
-    shadowPipelineInfo.pStages = shadowShaderStages;
-    shadowPipelineInfo.pRasterizationState = &shadowRasterizer;
-    shadowPipelineInfo.layout = shadowPipelineLayout;
-    shadowPipelineInfo.pNext = &shadowRenderInfo;
-
-    VkGraphicsPipelineCreateInfo cascadedPipelineInfo = shadowPipelineInfo;
-    cascadedPipelineInfo.pNext = &cascadedRenderInfo;
-    cascadedPipelineInfo.pStages = dirShadowShaderStages;
-
-    VkGraphicsPipelineCreateInfo cubemapPipelineInfo = shadowPipelineInfo;
-    cubemapPipelineInfo.pRasterizationState = &cubemapRasterizer;
-    cubemapPipelineInfo.layout = shadowPipelineLayout;
-    cubemapPipelineInfo.pNext = &cubemapRenderInfo;
-
-    VkGraphicsPipelineCreateInfo colorPipelineInfo = depthPipelineInfo;
-    colorPipelineInfo.pNext = &colorRenderInfo;
-    colorPipelineInfo.stageCount = 2;
-    colorPipelineInfo.pStages = colorShaderStages;
-    colorPipelineInfo.pDepthStencilState = &colorDepthStencil;
-    colorPipelineInfo.pColorBlendState = &colorBlending;
-    colorPipelineInfo.layout = colorPipelineLayout;
-
-    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &cascadedPipelineInfo, nullptr, &cascadedPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &cubemapPipelineInfo, nullptr, &cubemapPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &depthPipelineInfo, nullptr, &depthPipeline));
-    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &colorPipelineInfo, nullptr, &colorPipeline));
-
-    if (editor)
-    {
-        VkGraphicsPipelineCreateInfo iconPipelineInfo = colorPipelineInfo;
-        iconPipelineInfo.pStages = iconShaderStages;
-        iconPipelineInfo.pDepthStencilState = &preDepthStencil;
-        VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &iconPipelineInfo, nullptr, &iconPipeline));
-    }
-
-    vkDestroyShaderModule(device, depthShader, nullptr);
-    vkDestroyShaderModule(device, dirShadowFragShader, nullptr);
-#if DEFAULT_SLANG
-    vkDestroyShaderModule(device, colorShader, nullptr);
-    vkDestroyShaderModule(device, cubemapShader, nullptr);
-#else
-    vkDestroyShaderModule(device, colorVertShader, nullptr);
-    vkDestroyShaderModule(device, colorFragShader, nullptr);
-    vkDestroyShaderModule(device, shadowVertShader, nullptr);
-    vkDestroyShaderModule(device, shadowFragShader, nullptr);
-    vkDestroyShaderModule(device, iconVertShader, nullptr);
-    vkDestroyShaderModule(device, iconFragShader, nullptr);
-#endif
+    colorPipeline = builder.Build(colorPipelineLayout);
 
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo
@@ -1286,11 +1042,27 @@ void InitPipelines(RenderPipelineInitInfo& info)
         .Editor = editor,
         .DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 1,
         .UseDynamicRendering = true,
-        .PipelineRenderingCreateInfo = colorRenderInfo
+        .PipelineRenderingCreateInfo = builder.renderInfo
     };
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
+
+    if (editor)
+    {
+        builder = {device};
+        iconPipeline = builder
+            .Shader("icon.vert", VK_SHADER_STAGE_VERTEX_BIT)
+            .Shader("icon.frag", VK_SHADER_STAGE_FRAGMENT_BIT)
+            .DepthTarget(depthFormat, VK_TRUE, VK_COMPARE_OP_LESS)
+            .ColorTarget(swapchainFormat,
+                VK_COLOR_COMPONENT_R_BIT
+                | VK_COLOR_COMPONENT_G_BIT
+                | VK_COLOR_COMPONENT_B_BIT
+                | VK_COLOR_COMPONENT_A_BIT)
+            .ColorTarget(VK_FORMAT_R32_UINT, VK_COLOR_COMPONENT_R_BIT)
+            .Build(colorPipelineLayout);
+    }
 }
 
 // Set up frame and begin capturing draw calls

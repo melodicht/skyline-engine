@@ -1,7 +1,5 @@
 #pragma once
 
-#include "vk_render_types.h"
-
 #define VK_CHECK(x)                                                 \
     do                                                              \
     {                                                               \
@@ -13,6 +11,8 @@
             abort();                                                \
         }                                                           \
     } while (0)
+
+#include "vk_render_types.h"
 
 AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t allocSize,
     VkBufferUsageFlags usage, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags);

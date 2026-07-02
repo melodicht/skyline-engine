@@ -18,7 +18,7 @@ template <>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};
 
 template <>
-struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec2, f32> {};
+struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec2, AccessorType::Vec2, f32> {};
 
 std::unordered_map<std::string, MeshAsset> meshAssets;
 std::unordered_map<std::string, TextureAsset> texAssets;

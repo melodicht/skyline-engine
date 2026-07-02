@@ -262,12 +262,8 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         endif()
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
-        add_library(vulkan-backend STATIC
-                ${VULKAN_SRC_DIR}/renderer_vk.cpp
-                ${VULKAN_SRC_DIR}/vk_render_utils.cpp
-                ${VULKAN_SRC_DIR}/VkBootstrap.cpp
-                ${VULKAN_SRC_DIR}/vma_impl.cpp
-                ${VULKAN_SRC_DIR}/imgui_impl_vulkan.cpp)
+        file(GLOB_RECURSE VK_BACKEND_SRC ${VULKAN_SRC_DIR}/*.cpp)
+        add_library(vulkan-backend STATIC ${VK_BACKEND_SRC})
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
                 SDL3::SDL3

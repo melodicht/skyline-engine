@@ -6,23 +6,26 @@
 
 #include "meta_definitions.h"
 #include "render_types.h"
+#include "vk_render_types.h"
 #include "vk_render_utils.h"
 
 //Create a buffer using VMA
 AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage,
     VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags)
 {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.pNext = nullptr;
+    VkBufferCreateInfo bufferInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = allocSize,
+        .usage = usage
+    };
 
-    bufferInfo.size = allocSize;
-    bufferInfo.usage = usage;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.flags = allocFlags;
-    allocInfo.requiredFlags = requiredFlags;
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    VmaAllocationCreateInfo allocInfo
+    {
+        .flags = allocFlags,
+        .requiredFlags = requiredFlags,
+        .usage = VMA_MEMORY_USAGE_AUTO
+    };
 
     AllocatedBuffer newBuffer;
 
@@ -30,8 +33,11 @@ AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t all
 
     if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
     {
-        VkBufferDeviceAddressInfo addressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .buffer = newBuffer.buffer};
+        VkBufferDeviceAddressInfo addressInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .buffer = newBuffer.buffer
+        };
         newBuffer.address = vkGetBufferDeviceAddress(device, &addressInfo);
     }
 
@@ -56,24 +62,25 @@ AllocatedImage CreateImage(VmaAllocator allocator, VkFormat format, VkImageCreat
                            VkImageUsageFlags usageFlags, VkExtent3D extent, u32 layers,
                            VmaMemoryUsage memUsage, VkMemoryPropertyFlags memFlags)
 {
-    VkImageCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    info.pNext = nullptr;
+    VkImageCreateInfo info
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .flags = createFlags,
+        .extent = extent,
+        .mipLevels = 1,
+        .arrayLayers = layers,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = usageFlags
+    };
 
-    info.imageType = VK_IMAGE_TYPE_2D;
-    info.format = format;
-    info.flags = createFlags;
-    info.extent = extent;
-
-    info.mipLevels = 1;
-    info.arrayLayers = layers;
-    info.samples = VK_SAMPLE_COUNT_1_BIT;
-    info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    info.usage = usageFlags;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = memUsage;
-    allocInfo.requiredFlags = memFlags;
+    VmaAllocationCreateInfo allocInfo
+    {
+        .usage = memUsage,
+        .requiredFlags = memFlags
+    };
 
     AllocatedImage image;
 
@@ -90,29 +97,29 @@ void DestroyImage(VmaAllocator allocator, AllocatedImage image)
 //Change layout of image
 VkImageMemoryBarrier2 ImageBarrier(VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout, VkPipelineStageFlags2 srcStage, VkPipelineStageFlags2 dstStage)
 {
-    VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
-    imageBarrier.pNext = nullptr;
-
-    imageBarrier.srcStageMask = srcStage;
-    imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
-    imageBarrier.dstStageMask = dstStage;
-    imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
-
-    imageBarrier.oldLayout = currentLayout;
-    imageBarrier.newLayout = newLayout;
-
-    VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL || currentLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+    VkImageAspectFlags aspectMask = newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+            || currentLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
             ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
-    VkImageSubresourceRange subImage {};
-    subImage.aspectMask = aspectMask;
-    subImage.baseMipLevel = 0;
-    subImage.levelCount = VK_REMAINING_MIP_LEVELS;
-    subImage.baseArrayLayer = 0;
-    subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
+    VkImageSubresourceRange subImage
+    {
+        .aspectMask = aspectMask,
+        .levelCount = VK_REMAINING_MIP_LEVELS,
+        .layerCount = VK_REMAINING_ARRAY_LAYERS
+    };
 
-    imageBarrier.subresourceRange = subImage;
-    imageBarrier.image = image;
+    VkImageMemoryBarrier2 imageBarrier
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = srcStage,
+        .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
+        .dstStageMask = dstStage,
+        .dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
+        .oldLayout = currentLayout,
+        .newLayout = newLayout,
+        .subresourceRange = subImage,
+        .image = image
+    };
 
     return imageBarrier;
 }
@@ -120,18 +127,23 @@ VkImageMemoryBarrier2 ImageBarrier(VkImage image, VkImageLayout currentLayout, V
 //Create a temporary command buffer for executing commands outside of the rendering loop
 VkCommandBuffer BeginImmediateCommands(VkDevice device, VkCommandPool commandPool)
 {
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPool;
-    allocInfo.commandBufferCount = 1;
+    VkCommandBufferAllocateInfo allocInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandPool = commandPool,
+        .commandBufferCount = 1
+    };
 
     VkCommandBuffer commandBuffer;
     VK_CHECK(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer));
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    VkCommandBufferBeginInfo beginInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+
 
     VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
@@ -143,14 +155,18 @@ void EndImmediateCommands(VkDevice device, VkQueue graphicsQueue, VkCommandPool 
 {
     VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
-    VkCommandBufferSubmitInfo commandInfo{};
-    commandInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-    commandInfo.commandBuffer = commandBuffer;
+    VkCommandBufferSubmitInfo commandInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = commandBuffer
+    };
 
-    VkSubmitInfo2 submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-    submitInfo.commandBufferInfoCount = 1;
-    submitInfo.pCommandBufferInfos = &commandInfo;
+    VkSubmitInfo2 submitInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &commandInfo
+    };
 
     VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
     VK_CHECK(vkQueueWaitIdle(graphicsQueue));
