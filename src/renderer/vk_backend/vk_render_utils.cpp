@@ -23,8 +23,8 @@ AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t all
     VmaAllocationCreateInfo allocInfo
     {
         .flags = allocFlags,
-        .requiredFlags = requiredFlags,
-        .usage = VMA_MEMORY_USAGE_AUTO
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .requiredFlags = requiredFlags
     };
 
     AllocatedBuffer newBuffer;
@@ -65,9 +65,9 @@ AllocatedImage CreateImage(VmaAllocator allocator, VkFormat format, VkImageCreat
     VkImageCreateInfo info
     {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .flags = createFlags,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = format,
-        .flags = createFlags,
         .extent = extent,
         .mipLevels = 1,
         .arrayLayers = layers,
@@ -117,8 +117,8 @@ VkImageMemoryBarrier2 ImageBarrier(VkImage image, VkImageLayout currentLayout, V
         .dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT,
         .oldLayout = currentLayout,
         .newLayout = newLayout,
-        .subresourceRange = subImage,
-        .image = image
+        .image = image,
+        .subresourceRange = subImage
     };
 
     return imageBarrier;
@@ -130,8 +130,8 @@ VkCommandBuffer BeginImmediateCommands(VkDevice device, VkCommandPool commandPoo
     VkCommandBufferAllocateInfo allocInfo
     {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandPool = commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1
     };
 
