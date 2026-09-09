@@ -25,6 +25,11 @@ struct IconRenderInfo {
     u32 id;
 };
 
+struct SceneLightingRenderInfo {
+    glm::vec3 ambientLighting;
+    f32 pcfWorldRange;
+};
+
 struct DirLightRenderInfo {
     // Shared
     LightID lightID;
@@ -89,6 +94,7 @@ struct RenderFrameInfo {
     // Vulkan Specific
 
     // WGPU Specific
+    SceneLightingRenderInfo sceneLighting;
 };
 
 #define RENDERER_FUNCS(method) \

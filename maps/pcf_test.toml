@@ -1,0 +1,124 @@
+## World-space PCF verification.
+## Spot bank at z=0, point bank at z=14. Lights at 3/6/12 units from the wall in each.
+## PASS: shadow edges equally soft in every lane. FAIL: blur width tracks light distance.
+## Run with: ./skyline-engine -map pcf_test   (build with -DSKL_RENDER_SYS=WebGPU)
+
+[cam.Transform3D]
+position = [-35.0, 0.0, 8.0]
+[cam.CameraComponent]
+fov = 70.0
+farPlane = 150.0
+[cam.FlyingMovement]
+
+## Shared receiver. Spans y -22..22, z -6..24.
+[wall.Transform3D]
+position = [0.0, 0.0, 8.5]
+scale = [0.5, 44.0, 30.0]
+[wall.MeshComponent]
+mesh = "cube"
+color = [0.6, 0.6, 0.6]
+
+## Points down -X, opposite the spot/point banks. Tilted 20deg so it rakes downward
+## and actually lands on the occluder tops instead of only the wall's back face.
+[sun.Transform3D]
+rotation = [0.0, 20.0, 180.0]
+[sun.DirLight]
+diffuse = [0.5, 0.5, 0.5]
+specular = [0.0, 0.0, 0.0]
+
+## ---- Spot bank (z=0): d = 3 / 6 / 12, cone 22deg, range = 1.5*d ----
+
+[spotA.Transform3D]
+position = [-3.0, -9.0, 0.0]
+[spotA.SpotLight]
+diffuse = [2.0, 2.0, 2.0]
+specular = [0.0, 0.0, 0.0]
+innerCone = 18.0
+outerCone = 22.0
+range = 4.5
+
+[spotOccA.Transform3D]
+position = [-1.5, -9.0, 0.0]
+scale = [0.4, 0.4, 0.4]
+[spotOccA.MeshComponent]
+mesh = "cube"
+color = [0.9, 0.3, 0.2]
+
+[spotB.Transform3D]
+position = [-6.0, 0.0, 0.0]
+[spotB.SpotLight]
+diffuse = [2.0, 2.0, 2.0]
+specular = [0.0, 0.0, 0.0]
+innerCone = 18.0
+outerCone = 22.0
+range = 9.0
+
+[spotOccB.Transform3D]
+position = [-3.0, 0.0, 0.0]
+scale = [0.4, 0.4, 0.4]
+[spotOccB.MeshComponent]
+mesh = "cube"
+color = [0.9, 0.3, 0.2]
+
+[spotC.Transform3D]
+position = [-12.0, 9.0, 0.0]
+[spotC.SpotLight]
+diffuse = [2.0, 2.0, 2.0]
+specular = [0.0, 0.0, 0.0]
+innerCone = 18.0
+outerCone = 22.0
+range = 18.0
+
+[spotOccC.Transform3D]
+position = [-6.0, 9.0, 0.0]
+scale = [0.4, 0.4, 0.4]
+[spotOccC.MeshComponent]
+mesh = "cube"
+color = [0.9, 0.3, 0.2]
+
+## ---- Point bank (z=14, control group): d = 3 / 6 / 12, radius = 1.2*d ----
+
+[ptA.Transform3D]
+position = [-3.0, -13.0, 14.0]
+[ptA.PointLight]
+diffuse = [4.0, 4.0, 4.0]
+specular = [0.0, 0.0, 0.0]
+radius = 3.6
+falloff = 0.5
+
+[ptOccA.Transform3D]
+position = [-1.5, -13.0, 14.0]
+scale = [0.4, 0.4, 0.4]
+[ptOccA.MeshComponent]
+mesh = "cube"
+color = [0.2, 0.5, 0.9]
+
+[ptB.Transform3D]
+position = [-6.0, 0.0, 14.0]
+[ptB.PointLight]
+diffuse = [4.0, 4.0, 4.0]
+specular = [0.0, 0.0, 0.0]
+radius = 7.2
+falloff = 0.5
+
+[ptOccB.Transform3D]
+position = [-3.0, 0.0, 14.0]
+scale = [0.4, 0.4, 0.4]
+[ptOccB.MeshComponent]
+mesh = "cube"
+color = [0.2, 0.5, 0.9]
+
+[ptC.Transform3D]
+position = [-12.0, 13.0, 14.0]
+[ptC.PointLight]
+diffuse = [4.0, 4.0, 4.0]
+specular = [0.0, 0.0, 0.0]
+radius = 14.4
+falloff = 0.5
+
+[ptOccC.Transform3D]
+position = [-6.0, 13.0, 14.0]
+scale = [0.4, 0.4, 0.4]
+[ptOccC.MeshComponent]
+mesh = "cube"
+color = [0.2, 0.5, 0.9]

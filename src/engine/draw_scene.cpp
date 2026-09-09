@@ -29,6 +29,17 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
     CameraComponent *camera = scene.Get<CameraComponent>(gameState.currentCamera);
     Transform3D *cameraTransform = scene.Get<Transform3D>(gameState.currentCamera);
 
+    SceneLightingRenderInfo sceneLighting{ };
+    for (EntityID ent: SceneView<SceneLighting>(scene))
+    {
+        SceneLighting *l = scene.Get<SceneLighting>(ent);
+
+        sceneLighting= {
+            .ambientLighting = l->ambientColor,
+            .pcfWorldRange = l->pcfWorldRange
+        };
+    }
+
     std::vector<DirLightRenderInfo> dirLights;
     for (EntityID ent: SceneView<DirLight, Transform3D>(scene))
     {
@@ -55,7 +66,7 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         Transform3D *lTransform = scene.Get<Transform3D>(ent);
 
         spotLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                 l->innerCone, l->outerCone, l->range, true});
+                                 l->innerCone, l->outerCone, l->range, l->fallOff, true});
     }
 
     std::vector<PointLightRenderInfo> pointLights;
@@ -113,7 +124,8 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         .cameraNear = camera->nearPlane,
         .cameraFar = camera->farPlane,
         .cursorPos = {input.mouseX, input.mouseY},
-        .icons = icons
+        .icons = icons,
+        .sceneLighting = sceneLighting
     };
 
     renderer.RenderUpdate(sendState);

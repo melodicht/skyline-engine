@@ -71,6 +71,14 @@ struct DirLight
 SERIALIZE(DirLight, diffuse, specular)
 COMPONENT(DirLight, "gizmos/dir_light")
 
+// Entirely webgpu specific for now
+struct SceneLighting
+{
+    glm::vec3 ambientColor{1};
+    f32 pcfWorldRange{ 0.05f };
+};
+SERIALIZE(SceneLighting, ambientColor, pcfWorldRange)
+COMPONENT(SceneLighting, "gizmos/lights_data")
 
 struct SpotLight
 {
@@ -82,6 +90,7 @@ struct SpotLight
     f32 innerCone = 30;
     f32 outerCone = 45;
     f32 range = 100;
+    f32 fallOff = 1;
 };
 SERIALIZE(SpotLight, diffuse, specular, innerCone, outerCone, range)
 COMPONENT(SpotLight, "gizmos/spot_light")
