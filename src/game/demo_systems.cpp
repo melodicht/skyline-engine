@@ -103,13 +103,13 @@ SYSTEM_ON_UPDATE(PongMovement2DSystem)
 
         bool pressUp = IsButtonDown(input, f->upButton);
         bool pressDown = IsButtonDown(input, f->downButton);
-        if (pressUp && !pressDown) {
+        if (!pressUp && pressDown) {
             t->AddLocalPosition({0, f->moveSpeed * deltaTime, 0});
             glm::vec3 pos = t->GetLocalPosition();
             pos.y = std::min(pos.y, f->topBoundY);
             t->SetLocalPosition(pos);
         }
-        else if (pressDown && !pressUp) {
+        else if (!pressDown && pressUp) {
             t->AddLocalPosition({0, -f->moveSpeed * deltaTime, 0});
             glm::vec3 pos = t->GetLocalPosition();
             pos.y = std::max(pos.y, f->bottomBoundY);
@@ -180,13 +180,16 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
         glm::vec4 bounds = getBounds(box, t);
         glm::vec3 pos = t->GetLocalPosition();
         if (ball->bouncing) {
-            ball->vel -= ball->gravity;
-            pos.y += ball->vel;
+            ball->vel += ball->gravity * deltaTime;
+            pos.y += ball->vel * deltaTime;
             
-            if (pos.y < ball->floor) {
-                ball->vel = std::abs(ball->vel);
+            if (pos.y > ball->floor) {
+                pos.y = ball->floor;
+                ball->vel = -std::abs(ball->vertVel);
             }
 
+            t->SetLocalPosition(pos);
+            bounds = getBounds(box, t);
             for (EntityID fighterEnt: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
             {
                 Fighter2D *fighter = scene->Get<Fighter2D>(fighterEnt);
@@ -199,18 +202,25 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
                     ball->leftFacing = fighter->leftFacing;
                     ball->vel = ball->horVel;
                     ball->bouncing = false;
+                    // Place the launched ball outside its hitter.
+                    f32 halfWidth = std::abs(t->GetLocalScale().x * box->relativeWidth) / 2;
+                    pos.x = ball->leftFacing ? entBounds.x - halfWidth - 0.001f
+                                             : entBounds.z + halfWidth + 0.001f;
+                    break;
                 }
             }
         }
         else 
         {
             if (ball->leftFacing) {
-                pos.x += ball->vel;
+                pos.x -= ball->vel * deltaTime;
             }
             else {
-                pos.x -= ball->vel;
+                pos.x += ball->vel * deltaTime;
             }
 
+            t->SetLocalPosition(pos);
+            bounds = getBounds(box, t);
             for (EntityID fighterEnt: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
             {
                 Fighter2D *fighter = scene->Get<Fighter2D>(fighterEnt);
@@ -222,8 +232,11 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
                 if (collide(entBounds, bounds)) {
                     if (fighter->attacking) 
                     {
-                        ball->vel = ball->vertVel;
+                        ball->vel = -std::abs(ball->vertVel);
                         ball->bouncing = true;
+                        // Separate the popped ball so this attack cannot hit it again.
+                        pos.y = entBounds.y - std::abs(t->GetLocalScale().y * box->relativeHeight) / 2 - 0.001f;
+                        break;
                     }
                     else 
                     {
@@ -238,13 +251,14 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
         t->SetLocalPosition(pos);
     }
 }
-SYSTEM_ON_UPDATE(FightBall2DSystem) 
+SYSTEM_ON_UPDATE(Fighter2DSystem)
 {
-    for (EntityID ent: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+    for (EntityID ent: SceneView<Fighter2D, CollisionBox2D, MeshComponent, Transform3D>(*scene))
     {
-        Fighter2D *fighter = scene->Get<Fighter2D>(fighterEnt);
-        CollisionBox2D *entBox = scene->Get<CollisionBox2D>(fighterEnt);
-        Transform3D *entT = scene->Get<Transform3D>(fighterEnt);
+        Fighter2D *fighter = scene->Get<Fighter2D>(ent);
+        MeshComponent *entMesh = scene->Get<MeshComponent>(ent);
+        CollisionBox2D *entBox = scene->Get<CollisionBox2D>(ent);
+        Transform3D *entT = scene->Get<Transform3D>(ent);
 
         if (OnPress(input, fighter->attackButton)) {
             if (!fighter->attacking && fighter->attackCooldownLeft <= 0) {
@@ -269,26 +283,29 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
             fighter->dashDurationLeft -= deltaTime;
             if (fighter->leftFacing) 
             {
-                pos.x += fighter->dashSpeed;
+                pos.x -= fighter->dashSpeed * deltaTime;
             }
             else 
             {
-                pos.x -= fighter->dashSpeed;
+                pos.x += fighter->dashSpeed * deltaTime;
             }
         }
         else
         {
-            if (OnPress(input, fighter->leftButton)) {
-                pos.x += fighter->moveSpeed;
+            if (OnHold(input, fighter->leftButton)) {
+                pos.x -= fighter->moveSpeed * deltaTime;
             }
-            if (OnPress(input, fighter->rightButton)) {
-                pos.y -= fighter->moveSpeed;
+            if (OnHold(input, fighter->rightButton)) {
+                pos.x += fighter->moveSpeed * deltaTime;
             }
         }
 
 
+        entT->SetLocalPosition(pos);
+        bounds = getBounds(entBox, entT);
+        fighter->attackCooldownLeft -= deltaTime;
         if (fighter->attacking) {
-            bool hit = false;
+            fighter->attackDurationLeft -= deltaTime;
             for (EntityID otherEnt: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
             {
                 if (otherEnt == ent) 
@@ -302,22 +319,20 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
                 glm::vec4 otherBounds = getBounds(otherBox, otherT);
                 if (collide(otherBounds, bounds) && fighter->attacking) {
                     scene->DestroyEntity(otherEnt);
-                    hit = true;
                     break;
                 }
             }
-            if (hit) {
-                break;
-            }
+
             
-            if (fighter->attackDurationLeft < 0) {
+            if (fighter->attackDurationLeft <= 0) {
                 fighter->attacking = false;
                 fighter->attackCooldownLeft = fighter->attackCooldown;
             }
         }
+        entMesh->color = fighter->attacking ? fighter->attackColor : fighter->baseColor;
 
         fighter->dashCooldownLeft -= deltaTime;
-        if (fighter->dashing && fighter->dashDurationLeft < 0) {
+        if (fighter->dashing && fighter->dashDurationLeft <= 0) {
             fighter->dashing = false;
             fighter->dashCooldownLeft = fighter->dashCooldown;
         }

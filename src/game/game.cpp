@@ -28,6 +28,8 @@ void OnGameStart(GameState* gameState, GameMemory* gameMemory)
     scene.CreateSemifixedTimestepSystem<PongMovement2DSystem>();
     scene.CreateSemifixedTimestepSystem<RectCollision2DSystem>();
     scene.CreateSemifixedTimestepSystem<PongBall2DSystem>();
+    scene.CreateSemifixedTimestepSystem<Fighter2DSystem>();
+    scene.CreateSemifixedTimestepSystem<FightBall2DSystem>();
 
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 }

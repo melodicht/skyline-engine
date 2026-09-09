@@ -25,8 +25,8 @@ color = [0.2, 0.6, 1.0]
 moveSpeed = 7.2
 topBoundY = 5.0
 bottomBoundY = -5.0
-upButton = "S"
-downButton = "W"
+upButton = "W"
+downButton = "S"
 [leftPaddle.CollisionBox2D]
 relativeWidth = 1.0
 relativeHeight = 1.0
@@ -43,8 +43,8 @@ color = [1.0, 0.3, 0.3]
 moveSpeed = 7.2
 topBoundY = 5.0
 bottomBoundY = -5.0
-upButton = "K"
-downButton = "I"
+upButton = "I"
+downButton = "K"
 [rightPaddle.CollisionBox2D]
 relativeWidth = 1.0
 relativeHeight = 1.0

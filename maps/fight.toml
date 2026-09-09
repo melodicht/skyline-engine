@@ -1,0 +1,91 @@
+# Two-player fight demo. P1 (left): A/D move left/right, W attack, S dash.
+# P2 (right): J/L move left/right, I attack, K dash.
+# Attack the bouncing ball to launch it;
+# attack an incoming ball to pop it upward. Body contact while attacking
+# or a launched-ball hit removes the loser.
+# Speeds are units/second.
+[camera.Transform3D]
+position = [0.0, -2.5, 20.0]
+# View toward -Z: screen-right is +X and screen-up is -Y.
+rotation = [0.0, 90.0, -90.0]
+[camera.CameraComponent]
+fov = 60.0
+nearPlane = 0.1
+farPlane = 100.0
+[mainLight.Transform3D]
+rotation = [0.0, 60.0, -90.0]
+[mainLight.DirLight]
+diffuse = [1.0, 1.0, 1.0]
+specular = [1.0, 1.0, 1.0]
+
+[player1.Transform3D]
+position = [-5.0, -1.0, 0.0]
+scale = [0.8, 2.0, 0.5]
+[player1.MeshComponent]
+mesh = "cube"
+color = [0.2, 0.6, 1.0]
+[player1.CollisionBox2D]
+thisTag = "player1"
+[player1.Fighter2D]
+baseColor = [0.2, 0.6, 1.0]
+attackColor = [0.35, 0.75, 1.0]
+leftFacing = false
+moveSpeed = 5.0
+dashSpeed = 14.0
+dashDuration = 0.2
+dashCooldown = 0.8
+attackDuration = 0.2
+attackCooldown = 0.4
+leftButton = "A"
+rightButton = "D"
+attackButton = "W"
+dashButton = "S"
+
+[player2.Transform3D]
+position = [5.0, -1.0, 0.0]
+scale = [0.8, 2.0, 0.5]
+[player2.MeshComponent]
+mesh = "cube"
+color = [1.0, 0.3, 0.3]
+[player2.CollisionBox2D]
+thisTag = "player2"
+[player2.Fighter2D]
+baseColor = [1.0, 0.3, 0.3]
+attackColor = [1.0, 0.5, 0.5]
+leftFacing = true
+moveSpeed = 5.0
+dashSpeed = 14.0
+dashDuration = 0.2
+dashCooldown = 0.8
+attackDuration = 0.2
+attackCooldown = 0.4
+leftButton = "J"
+rightButton = "L"
+attackButton = "I"
+dashButton = "K"
+
+[ball.Transform3D]
+position = [0.0, -2.0, 0.0]
+scale = [0.6, 0.6, 0.6]
+[ball.MeshComponent]
+mesh = "cube"
+color = [1.0, 0.85, 0.2]
+[ball.CollisionBox2D]
+thisTag = "ball"
+[ball.FightBall2D]
+vertVel = 10.0
+horVel = 12.0
+gravity = 9.8
+floor = -0.3
+[floor.Transform3D]
+position = [0.0, 0.2, 0.0]
+scale = [18.0, 0.4, 0.5]
+[floor.MeshComponent]
+mesh = "cube"
+color = [0.8, 0.8, 0.8]
+[background.Transform3D]
+position = [0.0, -3.0, -0.5]
+scale = [20.0, 8.0, 0.1]
+[background.MeshComponent]
+mesh = "cube"
+color = [0.05, 0.07, 0.12]

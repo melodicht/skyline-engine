@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/vec3.hpp>
 #include <meta_definitions.h>
 #include <component_registry.h>
 
@@ -43,7 +44,7 @@ struct FightBall2D
     bool bouncing = true;
     bool leftFacing = false;
 };
-SERIALIZE(FightBall2D, startVel, gravity, floor)
+SERIALIZE(FightBall2D, vertVel, horVel, gravity, floor)
 COMPONENT(FightBall2D)
 
 struct Fighter2D
@@ -55,6 +56,8 @@ struct Fighter2D
     f32 attackCooldown = 0.5;
     f32 attackDuration = 0.1;
     f32 moveSpeed = 0;
+    glm::vec3 attackColor = glm::vec3{0.5};
+    glm::vec3 baseColor = glm::vec3{0.25};
 
     std::string leftButton;
     std::string rightButton;
@@ -68,5 +71,5 @@ struct Fighter2D
     f32 dashCooldownLeft = 0;
     f32 dashDurationLeft = 0;
 };
-SERIALIZE(Fighter2D, leftFacing, dashCooldown, dashDuration, dashSpeed, attackCooldown, attackDuration, moveSpeed)
+SERIALIZE(Fighter2D, leftFacing, dashCooldown, dashDuration, dashSpeed, attackCooldown, attackDuration, moveSpeed, attackColor, baseColor, leftButton, rightButton, attackButton, dashButton)
 COMPONENT(Fighter2D)
