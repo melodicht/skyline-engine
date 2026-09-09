@@ -10,8 +10,10 @@
 #include <scene_view.h>
 
 #include <movement.h>
+#include <demo_systems.h>
 
 #include <game_components.h>
+#include <engine_components.h>
 
 #include <physics.h>
 #include <utils.h>
@@ -23,6 +25,9 @@ void OnGameStart(GameState* gameState, GameMemory* gameMemory)
 
     scene.CreateSemifixedTimestepSystem<MovementSystem>();
     scene.CreateSemifixedTimestepSystem<BuilderSystem>(slowStep);
+    scene.CreateSemifixedTimestepSystem<PongMovement2DSystem>();
+    scene.CreateSemifixedTimestepSystem<RectCollision2DSystem>();
+    scene.CreateSemifixedTimestepSystem<PongBall2DSystem>();
 
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 }

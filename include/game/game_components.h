@@ -2,6 +2,19 @@
 
 #include <meta_definitions.h>
 #include <component_registry.h>
+#include <demo_components.h>
+
+// This assumes 2D plane on XY plane
+struct CollisionBox2D
+{
+    f32 relativeWidth = 1;
+    f32 relativeHeight = 1;
+
+    std::string thisTag = "default"; 
+    std::string colTag = "empty"; // Tag of thing collided
+};
+SERIALIZE(CollisionBox2D, relativeWidth, relativeHeight, thisTag)
+COMPONENT(CollisionBox2D);
 
 struct FlyingMovement
 {

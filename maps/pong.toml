@@ -1,0 +1,102 @@
+## Pong Game Scene
+
+[camera.Transform3D]
+position = [0.0, 0.0, 20.0]
+rotation = [0.0, 90.0, -90.0]
+[camera.CameraComponent]
+fov = 60.0
+nearPlane = 0.1
+farPlane = 100.0
+
+[mainLight.Transform3D]
+rotation = [0.0, 60.0, -90.0]
+[mainLight.DirLight]
+diffuse = [1.0, 1.0, 1.0]
+specular = [1.0, 1.0, 1.0]
+
+## Left Paddle (Player 1: W/S)
+[leftPaddle.Transform3D]
+position = [-8.0, 0.0, 0.0]
+scale = [0.5, 3.0, 0.5]
+[leftPaddle.MeshComponent]
+mesh = "cube"
+color = [0.2, 0.6, 1.0]
+[leftPaddle.PongMovement2D]
+moveSpeed = 7.2
+topBoundY = 5.0
+bottomBoundY = -5.0
+upButton = "S"
+downButton = "W"
+[leftPaddle.CollisionBox2D]
+relativeWidth = 1.0
+relativeHeight = 1.0
+thisTag = "l"
+
+## Right Paddle (Player 2: I/K)
+[rightPaddle.Transform3D]
+position = [8.0, 0.0, 0.0]
+scale = [0.5, 3.0, 0.5]
+[rightPaddle.MeshComponent]
+mesh = "cube"
+color = [1.0, 0.3, 0.3]
+[rightPaddle.PongMovement2D]
+moveSpeed = 7.2
+topBoundY = 5.0
+bottomBoundY = -5.0
+upButton = "K"
+downButton = "I"
+[rightPaddle.CollisionBox2D]
+relativeWidth = 1.0
+relativeHeight = 1.0
+thisTag = "r"
+
+## Pong Ball
+[ball.Transform3D]
+position = [0.0, 0.0, 0.0]
+scale = [0.6, 0.6, 0.6]
+[ball.MeshComponent]
+mesh = "cube"
+color = [1.0, 1.0, 1.0]
+[ball.PongBall2D]
+xVel = 3.6
+yVel = 2.4
+leftBound = -9.0
+rightBound = 9.0
+upBound = 6.5
+downBound = -6.5
+[ball.CollisionBox2D]
+relativeWidth = 1.0
+relativeHeight = 1.0
+thisTag = "ball"
+
+## Top Wall
+[topWall.Transform3D]
+position = [0.0, 7.0, 0.0]
+scale = [17.5, 0.4, 0.5]
+[topWall.MeshComponent]
+mesh = "cube"
+color = [0.8, 0.8, 0.8]
+
+## Bottom Wall
+[bottomWall.Transform3D]
+position = [0.0, -7.0, 0.0]
+scale = [17.5, 0.4, 0.5]
+[bottomWall.MeshComponent]
+mesh = "cube"
+color = [0.8, 0.8, 0.8]
+
+## Center Divider Line
+[centerLine.Transform3D]
+position = [0.0, 0.0, -0.35]
+scale = [0.1, 14.0, 0.1]
+[centerLine.MeshComponent]
+mesh = "cube"
+color = [0.3, 0.3, 0.35]
+
+## Background Arena Board
+[background.Transform3D]
+position = [0.0, 0.0, -0.5]
+scale = [20.0, 15.0, 0.1]
+[background.MeshComponent]
+mesh = "cube"
+color = [0.05, 0.07, 0.12]
