@@ -5,13 +5,21 @@
 #include <utils.h>
 #include <scene_view.h>
 
-MAKE_SYSTEM_MANUAL_VTABLE(PongMovement2DSystem);
 MAKE_SYSTEM_MANUAL_VTABLE(RectCollision2DSystem);
+
+MAKE_SYSTEM_MANUAL_VTABLE(PongMovement2DSystem);
 MAKE_SYSTEM_MANUAL_VTABLE(PongBall2DSystem);
 
+MAKE_SYSTEM_MANUAL_VTABLE(FightBall2DSystem);
+MAKE_SYSTEM_MANUAL_VTABLE(Fighter2DSystem);
+
 RectCollision2DSystem::RectCollision2DSystem() : SYSTEM_SUPER(RectCollision2DSystem) {}
+
 PongMovement2DSystem::PongMovement2DSystem() : SYSTEM_SUPER(PongMovement2DSystem) {}
 PongBall2DSystem::PongBall2DSystem() : SYSTEM_SUPER(PongBall2DSystem) {}
+
+FightBall2DSystem::FightBall2DSystem() : SYSTEM_SUPER(FightBall2DSystem) {}
+Fighter2DSystem::Fighter2DSystem() : SYSTEM_SUPER(Fighter2DSystem) {}
 
 inline glm::vec4 getBounds(CollisionBox2D *box , Transform3D *t) 
 {
@@ -26,6 +34,13 @@ inline glm::vec4 getBounds(CollisionBox2D *box , Transform3D *t)
     f32 top = pos.y + (dimHeight / 2.0f); 
 
     return {left, bot, right, top};
+}
+inline bool collide(glm::vec4 bounds1, glm::vec4 bounds2) 
+{
+    return bounds1.x <= bounds2.z && 
+        bounds1.z >= bounds2.x &&  
+        bounds1.y <= bounds2.w &&  
+        bounds1.w >= bounds2.y; 
 }
 
 // Assumes only one collision
@@ -67,18 +82,18 @@ SYSTEM_ON_UPDATE(RectCollision2DSystem)
         }
     }
 }
+
 inline bool IsButtonDown(GameInput *input, const std::string &key)
 {
-    if (OnHold(input, key) || OnHold(input, key)) return true;
+    if (OnPress(input, key) || OnHold(input, key)) return true;
     std::string upper = key;
     for (char &c : upper) c = toupper(c);
-    if (OnHold(input, upper) || OnHold(input, upper)) return true;
+    if (OnPress(input, upper) || OnHold(input, upper)) return true;
     std::string lower = key;
     for (char &c : lower) c = tolower(c);
-    if (OnHold(input, lower) || OnHold(input, lower)) return true;
+    if (OnPress(input, lower) || OnHold(input, lower)) return true;
     return false;
 }
-
 SYSTEM_ON_UPDATE(PongMovement2DSystem)
 {
     for (EntityID ent: SceneView<PongMovement2D, Transform3D>(*scene))
@@ -151,5 +166,162 @@ SYSTEM_ON_UPDATE(PongBall2DSystem)
         }
 
         t->SetLocalPosition(pos);
+    }
+}
+
+SYSTEM_ON_UPDATE(FightBall2DSystem) 
+{
+    for (EntityID ent: SceneView<FightBall2D, CollisionBox2D, Transform3D>(*scene))
+    {
+        FightBall2D *ball = scene->Get<FightBall2D>(ent);
+        CollisionBox2D *box = scene->Get<CollisionBox2D>(ent);
+        Transform3D *t = scene->Get<Transform3D>(ent);
+
+        glm::vec4 bounds = getBounds(box, t);
+        glm::vec3 pos = t->GetLocalPosition();
+        if (ball->bouncing) {
+            ball->vel -= ball->gravity;
+            pos.y += ball->vel;
+            
+            if (pos.y < ball->floor) {
+                ball->vel = std::abs(ball->vel);
+            }
+
+            for (EntityID fighterEnt: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+            {
+                Fighter2D *fighter = scene->Get<Fighter2D>(fighterEnt);
+                CollisionBox2D *entBox = scene->Get<CollisionBox2D>(fighterEnt);
+                Transform3D *entT = scene->Get<Transform3D>(fighterEnt);
+
+                glm::vec4 entBounds = getBounds(entBox, entT);
+                
+                if (collide(entBounds, bounds) && fighter->attacking) {
+                    ball->leftFacing = fighter->leftFacing;
+                    ball->vel = ball->horVel;
+                    ball->bouncing = false;
+                }
+            }
+        }
+        else 
+        {
+            if (ball->leftFacing) {
+                pos.x += ball->vel;
+            }
+            else {
+                pos.x -= ball->vel;
+            }
+
+            for (EntityID fighterEnt: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+            {
+                Fighter2D *fighter = scene->Get<Fighter2D>(fighterEnt);
+                CollisionBox2D *entBox = scene->Get<CollisionBox2D>(fighterEnt);
+                Transform3D *entT = scene->Get<Transform3D>(fighterEnt);
+
+                glm::vec4 entBounds = getBounds(entBox, entT);
+                
+                if (collide(entBounds, bounds)) {
+                    if (fighter->attacking) 
+                    {
+                        ball->vel = ball->vertVel;
+                        ball->bouncing = true;
+                    }
+                    else 
+                    {
+                        scene->DestroyEntity(fighterEnt);
+                        break;
+                    }
+                }
+                
+            }
+        }
+
+        t->SetLocalPosition(pos);
+    }
+}
+SYSTEM_ON_UPDATE(FightBall2DSystem) 
+{
+    for (EntityID ent: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+    {
+        Fighter2D *fighter = scene->Get<Fighter2D>(fighterEnt);
+        CollisionBox2D *entBox = scene->Get<CollisionBox2D>(fighterEnt);
+        Transform3D *entT = scene->Get<Transform3D>(fighterEnt);
+
+        if (OnPress(input, fighter->attackButton)) {
+            if (!fighter->attacking && fighter->attackCooldownLeft <= 0) {
+                fighter->attacking = true;
+                fighter->attackCooldownLeft = fighter->attackCooldown;
+                fighter->attackDurationLeft = fighter->attackDuration;
+            }
+        }
+
+        if (OnPress(input, fighter->dashButton)) {
+            if (!fighter->dashing && fighter->dashCooldownLeft <= 0) {
+                fighter->dashing = true;
+                fighter->dashCooldownLeft = fighter->dashCooldown;
+                fighter->dashDurationLeft = fighter->dashDuration;
+            }
+        }
+
+        glm::vec3 pos = entT->GetLocalPosition();
+        glm::vec4 bounds = getBounds(entBox, entT);
+        if (fighter->dashing) 
+        {
+            fighter->dashDurationLeft -= deltaTime;
+            if (fighter->leftFacing) 
+            {
+                pos.x += fighter->dashSpeed;
+            }
+            else 
+            {
+                pos.x -= fighter->dashSpeed;
+            }
+        }
+        else
+        {
+            if (OnPress(input, fighter->leftButton)) {
+                pos.x += fighter->moveSpeed;
+            }
+            if (OnPress(input, fighter->rightButton)) {
+                pos.y -= fighter->moveSpeed;
+            }
+        }
+
+
+        if (fighter->attacking) {
+            bool hit = false;
+            for (EntityID otherEnt: SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+            {
+                if (otherEnt == ent) 
+                {
+                    continue;
+                }
+                Fighter2D *otherFighter = scene->Get<Fighter2D>(otherEnt);
+                CollisionBox2D *otherBox = scene->Get<CollisionBox2D>(otherEnt);
+                Transform3D *otherT = scene->Get<Transform3D>(otherEnt);
+
+                glm::vec4 otherBounds = getBounds(otherBox, otherT);
+                if (collide(otherBounds, bounds) && fighter->attacking) {
+                    scene->DestroyEntity(otherEnt);
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) {
+                break;
+            }
+            
+            if (fighter->attackDurationLeft < 0) {
+                fighter->attacking = false;
+                fighter->attackCooldownLeft = fighter->attackCooldown;
+            }
+        }
+
+        fighter->dashCooldownLeft -= deltaTime;
+        if (fighter->dashing && fighter->dashDurationLeft < 0) {
+            fighter->dashing = false;
+            fighter->dashCooldownLeft = fighter->dashCooldown;
+        }
+
+        entT->SetLocalPosition(pos);
     }
 }

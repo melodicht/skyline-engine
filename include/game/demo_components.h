@@ -34,14 +34,39 @@ COMPONENT(PongBall2D)
 
 struct FightBall2D
 {
-    f32 xVel = 0;
-    f32 yVel = 0;
+    f32 vertVel = 0;
+    f32 horVel = 0;
+    f32 gravity = 9.8;
+    f32 floor = 0;
 
-    f32 leftBound = -100.0f;
-    f32 rightBound = 100.0f;
-
-    f32 upBound = 100.0f;
-    f32 downBound = -100.0f;
+    f32 vel = 0;
+    bool bouncing = true;
+    bool leftFacing = false;
 };
-SERIALIZE(FightBall2D, xVel, yVel, leftBound, rightBound, upBound, downBound)
+SERIALIZE(FightBall2D, startVel, gravity, floor)
 COMPONENT(FightBall2D)
+
+struct Fighter2D
+{
+    bool leftFacing = true;
+    f32 dashCooldown = 1.0;
+    f32 dashDuration = 0.25;
+    f32 dashSpeed = 0.1; 
+    f32 attackCooldown = 0.5;
+    f32 attackDuration = 0.1;
+    f32 moveSpeed = 0;
+
+    std::string leftButton;
+    std::string rightButton;
+    std::string attackButton;
+    std::string dashButton;
+
+    bool dashing = false;
+    bool attacking = false;
+    f32 attackCooldownLeft = 0;
+    f32 attackDurationLeft = 0;
+    f32 dashCooldownLeft = 0;
+    f32 dashDurationLeft = 0;
+};
+SERIALIZE(Fighter2D, leftFacing, dashCooldown, dashDuration, dashSpeed, attackCooldown, attackDuration, moveSpeed)
+COMPONENT(Fighter2D)
