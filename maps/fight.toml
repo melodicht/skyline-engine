@@ -27,6 +27,9 @@ color = [0.2, 0.6, 1.0]
 [player1.CollisionBox2D]
 thisTag = "player1"
 [player1.Fighter2D]
+orgPos = [-5.0, -1.0, 0.0]
+leftBound = -8
+rightBound = 8
 baseColor = [0.2, 0.6, 1.0]
 attackColor = [0.35, 0.75, 1.0]
 leftFacing = false
@@ -50,6 +53,9 @@ color = [1.0, 0.3, 0.3]
 [player2.CollisionBox2D]
 thisTag = "player2"
 [player2.Fighter2D]
+orgPos = [5.0, -1.0, 0.0]
+leftBound = -8
+rightBound = 8
 baseColor = [1.0, 0.3, 0.3]
 attackColor = [1.0, 0.5, 0.5]
 leftFacing = true
@@ -73,6 +79,7 @@ color = [1.0, 0.85, 0.2]
 [ball.CollisionBox2D]
 thisTag = "ball"
 [ball.FightBall2D]
+orgPos = [0.0, -2.0, 0.0]
 vertVel = 10.0
 horVel = 12.0
 gravity = 9.8

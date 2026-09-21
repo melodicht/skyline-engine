@@ -173,10 +173,17 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
 {
     for (EntityID ent: SceneView<FightBall2D, CollisionBox2D, Transform3D>(*scene))
     {
+
         FightBall2D *ball = scene->Get<FightBall2D>(ent);
         CollisionBox2D *box = scene->Get<CollisionBox2D>(ent);
         Transform3D *t = scene->Get<Transform3D>(ent);
 
+        if (OnPress(input, "R")) {
+            ball->bouncing = true;
+            ball->vel = ball->vertVel;
+            t->SetLocalPosition(ball->orgPos);
+            continue;
+        }
         glm::vec4 bounds = getBounds(box, t);
         glm::vec3 pos = t->GetLocalPosition();
         if (ball->bouncing) {
@@ -240,7 +247,7 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
                     }
                     else 
                     {
-                        scene->DestroyEntity(fighterEnt);
+                        entT->SetLocalPosition({-1000, -1000, -1000});;
                         break;
                     }
                 }
@@ -259,6 +266,11 @@ SYSTEM_ON_UPDATE(Fighter2DSystem)
         MeshComponent *entMesh = scene->Get<MeshComponent>(ent);
         CollisionBox2D *entBox = scene->Get<CollisionBox2D>(ent);
         Transform3D *entT = scene->Get<Transform3D>(ent);
+
+        if (OnPress(input, "R")) {
+            entT->SetLocalPosition(fighter->orgPos);
+            continue;
+        }
 
         if (OnPress(input, fighter->attackButton)) {
             if (!fighter->attacking && fighter->attackCooldownLeft <= 0) {
@@ -294,9 +306,11 @@ SYSTEM_ON_UPDATE(Fighter2DSystem)
         {
             if (OnHold(input, fighter->leftButton)) {
                 pos.x -= fighter->moveSpeed * deltaTime;
+                pos.x = std::max(pos.x, fighter->leftBound);
             }
             if (OnHold(input, fighter->rightButton)) {
                 pos.x += fighter->moveSpeed * deltaTime;
+                pos.x = std::min(pos.x, fighter->rightBound);
             }
         }
 
@@ -318,7 +332,7 @@ SYSTEM_ON_UPDATE(Fighter2DSystem)
 
                 glm::vec4 otherBounds = getBounds(otherBox, otherT);
                 if (collide(otherBounds, bounds) && fighter->attacking) {
-                    scene->DestroyEntity(otherEnt);
+                    otherT->SetLocalPosition({-1000, -1000, -1000});
                     break;
                 }
             }
