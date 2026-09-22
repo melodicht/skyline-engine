@@ -234,17 +234,15 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         // Sets up sample location
         let worldToTexCoordRatio : f32 = shadowCascadesWorldToTextureCoordRatio[cascadeCheck];
         let unit: f32 = colorFixedUniforms.pcfRange * worldToTexCoordRatio;
-        let base: vec2<f32> = texturePosition.xy - vec2<f32>(unit * 0.5);
+        let base: vec2<f32> = texturePosition.xy;
 
         // Finds PCF percentage
         var sum: f32 = 0.0;
-        for (var xIter : u32 = 0 ; xIter < 2 ; xIter++) {
-            for (var yIter : u32 = 0 ; yIter < 2; yIter++) {
-                var newPos: vec2<f32> = base + vec2<f32>(f32(xIter)*unit, f32(yIter)*unit);
-                sum += textureSampleCompare(shadowedDirLightMap, shadowMapSampler, newPos, cascadeCheck, texturePosition.z);
-            }
+        for (var iter : u32 = 0 ; iter < colorFixedUniforms.pcfSampleRate ; iter += 1) {
+            var newPos: vec2<f32> = base + (unit * colorFixedUniforms.pcfSamplePattern[iter]);
+            sum += textureSampleCompare(shadowedDirLightMap, shadowMapSampler, newPos, cascadeCheck, texturePosition.z);
         }
-        let shadowedIntensity = sum / 4.0;
+        let shadowedIntensity = sum / f32(colorFixedUniforms.pcfSampleRate);
         let adjustedLightColor : vec3<f32> = shadowedDirLightStore[dirIter].color * shadowedIntensity;
 
         addBrdf(
@@ -292,17 +290,15 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         let planeSize : f32 = spotlight.planeDimSlope * fragToPlaneDist;
         let worldToTexCoordRatio : f32 = 1 / planeSize;
         let unit: f32 = colorFixedUniforms.pcfRange * worldToTexCoordRatio;
-        let base: vec2<f32> = texturePosition.xy - vec2<f32>(unit * 0.5);
+        let base: vec2<f32> = texturePosition.xy;
 
         // Finds PCF percentage
         var shadowIntensity: f32 = 0.0;
-        for (var xIter : u32 = 0 ; xIter < 2 ; xIter++) {
-            for (var yIter : u32 = 0 ; yIter < 2; yIter++) {
-                var newPos: vec2<f32> = base + vec2<f32>(f32(xIter)*unit, f32(yIter)*unit);
-                shadowIntensity += textureSampleCompare(shadowedSpotLightMap, shadowMapSampler, newPos, spotIter,texturePosition.z);
-            }
+        for (var iter : u32 = 0 ; iter < colorFixedUniforms.pcfSampleRate ; iter += 1) {
+            var newPos: vec2<f32> = base + (unit * colorFixedUniforms.pcfSamplePattern[iter]);
+            shadowIntensity += textureSampleCompare(shadowedSpotLightMap, shadowMapSampler, newPos, spotIter,texturePosition.z);
         }
-        shadowIntensity /= 4;
+        shadowIntensity /= f32(colorFixedUniforms.pcfSampleRate);
 
         addBrdf(
             spotlight.color * 
@@ -334,23 +330,22 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         let unitLength: f32 = colorFixedUniforms.pcfRange;
         basis.up *= unitLength;
         basis.left *= unitLength;
-        let baseDir: vec3<f32> = lightToFragDir - (basis.up + basis.left) * 0.5;
+        let baseDir: vec3<f32> = lightToFragDir;
         let normalizedLightToFragDistance: f32 = lightToFragDistance/pointLight.radius;
 
         // Actually samples pcs 
         var pointLightUncovered: f32 = 0;
-        for (var xIter : u32 = 0 ; xIter < 2 ; xIter++) {
-            for (var yIter : u32 = 0 ; yIter < 2 ; yIter++) {
-                let newPos: vec3<f32> = baseDir + basis.up * f32(yIter) + basis.left * f32(xIter);
-                pointLightUncovered += textureSampleCompare(
-                    shadowedPointLightMap, 
-                    shadowMapSampler, 
-                    newPos, 
-                    pointIter, 
-                    normalizedLightToFragDistance);
-            }
+        for (var iter : u32 = 0 ; iter < colorFixedUniforms.pcfSampleRate ; iter += 1) {
+            let samplePattern = colorFixedUniforms.pcfSamplePattern[iter];
+            let newPos: vec3<f32> = baseDir + basis.up * samplePattern.x + basis.left * samplePattern.y;
+            pointLightUncovered += textureSampleCompare(
+                shadowedPointLightMap, 
+                shadowMapSampler, 
+                newPos, 
+                pointIter, 
+                normalizedLightToFragDistance);
         }
-        pointLightUncovered /= 4;
+        pointLightUncovered /= f32(colorFixedUniforms.pcfSampleRate);
 
         let sqrtDist : f32 = sqrt(lightToFragDistance/pointLight.radius);
         let attenuationModifier : f32 = sqrt(1 - sqrtDist)/ (1 + pointLight.falloff * sqrtDist);
