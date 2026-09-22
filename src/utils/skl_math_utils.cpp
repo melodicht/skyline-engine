@@ -3,6 +3,8 @@
 #include <random>
 #include <iostream>
 #include <vector>
+#include <random>
+#include <numbers>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -266,4 +268,134 @@ std::vector<glm::vec4> GetFrustumCorners(const glm::mat4& proj, const glm::mat4&
     }
 
     return frustumCorners;
+}
+
+struct coordKey {
+    f32 sampleWeight;
+    glm::vec2 coord;
+};
+
+static inline f32 sampleWeight(f32 twoRMax, f32 dist) {
+    f32 base = (1.0f - (dist/twoRMax));
+    base *= base;
+    base *= base;
+    base *= base;
+    return base;
+}
+ 
+std::vector<glm::vec2> BuildPoissonDisk(f32 diskRadius, u32 diskCount) {
+    ASSERT_PRINT(diskCount != 0, "Poisson disk of 0 cannot be built");
+
+    // Arbitrarily sets a oversampling rate of about 4* before sample exclusion
+    u32 adjustedSampleSize = diskCount * 4;
+    u32 thetaDivisions = sqrt(adjustedSampleSize);
+    u32 rangeDivisions = adjustedSampleSize / thetaDivisions;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
+
+    std::vector<glm::vec2> coords;
+    coords.reserve(thetaDivisions * rangeDivisions);
+
+    // Generates a random point in each division
+    f32 thetaStep = (2 * SKL_PI) / static_cast<f32>(thetaDivisions);
+    f32 sqRadiusStep = 1 / static_cast<f32>(rangeDivisions);
+    for (u32 t = 0 ; t < thetaDivisions ; t += 1) {
+        f32 minTheta = t * thetaStep;
+        for (u32 d = 0 ; d < rangeDivisions ; d += 1) {
+            f32 sqMinRange = sqRadiusStep * d;
+
+            f32 thetaRd = dis(gen);
+            f32 sqRadialRd = dis(gen);
+
+            f32 radial = sqMinRange + (sqRadialRd * sqRadiusStep);
+
+
+            coords.emplace_back((minTheta + thetaRd * thetaStep), sqrt(radial) * diskRadius);
+        }
+    }
+
+    // Converts coords from polar to cartesian coords
+    for (glm::vec2& coord : coords) {
+        f32 theta = coord.x;
+        f32 radius = coord.y;
+
+        coord.x = radius * cos(theta);
+        coord.y = radius * sin(theta);
+    }
+
+    // Applies sample exclusion to calculate index        
+    // Calculate initial scores
+    f32 rMax = sqrt((SKL_PI * diskRadius * diskRadius) / (2 * sqrt(3) * diskCount));
+    f32 twoRMax = 2 * rMax;
+
+    std::vector<coordKey> coordCopy;
+    coordCopy.reserve(coords.size());
+
+    for (u32 i = 0 ; i < coords.size() ; i += 1) {
+        coordCopy.emplace_back(0, coords[i]);
+    }
+
+    for (u32 i = 0 ; i < coords.size() ; i += 1) {
+        for (u32 z = i + 1 ; z < coords.size() ; z += 1) {
+            f32 dist = glm::length(coordCopy[i].coord - coordCopy[z].coord);
+            if (dist <= twoRMax) {
+                f32 scoreAdd = sampleWeight(twoRMax, dist);
+                coordCopy[i].sampleWeight += scoreAdd;
+                coordCopy[z].sampleWeight += scoreAdd;
+            }
+        }
+    }
+
+    // Repeatedly find most bundled points and remove them from coords
+    while (coordCopy.size() > diskCount) {
+        std::vector<coordKey>::iterator maxSampleWeightCoords = 
+            std::max_element(
+                coordCopy.begin(), 
+                coordCopy.end(), 
+                [](const coordKey& lhs, const coordKey& rhs) {return lhs.sampleWeight < rhs.sampleWeight; });
+
+        glm::vec2 erasedCoord = maxSampleWeightCoords->coord;
+
+        std::swap(*maxSampleWeightCoords, coordCopy.back());
+        coordCopy.pop_back();
+
+        for (u32 z = 0 ; z < coordCopy.size() ; z += 1) {
+            f32 dist = glm::length(coordCopy[z].coord - erasedCoord);
+            if (dist <= twoRMax) {
+                f32 scoreAdd = sampleWeight(twoRMax, dist);
+                coordCopy[z].sampleWeight -= scoreAdd;
+            }
+        }
+    }
+
+    std::vector<glm::vec2> retCoords;
+    retCoords.reserve(diskCount);
+
+    for (u32 i = 0 ; i < diskCount ; i++) {
+        retCoords.push_back(coordCopy[i].coord);
+    }
+
+    return retCoords;
+}
+
+std::vector<glm::vec2> BuildVogelDisk(f32 diskRadius, u32 diskCount) {
+    ASSERT_PRINT(diskCount != 0, "Vogel disk of 0 cannot be built");
+    if (diskCount == 1) {
+        return { glm::vec2(0.0f, 0.0f) };
+    }
+    std::vector<glm::vec2> ret;
+    ret.reserve(diskCount);
+
+    f32 goldenAngle = 2.3999632297;
+    for (u32 i = 0 ; i < diskCount ; i += 1) {
+        f32 radius = diskRadius * sqrt(static_cast<f32>(i + 0.5f)/static_cast<f32>(diskCount));
+        f32 theta = goldenAngle * i;
+
+        ret.push_back(radius * glm::vec2(cos(theta), sin(theta)));
+    }
+
+    return ret;
 }

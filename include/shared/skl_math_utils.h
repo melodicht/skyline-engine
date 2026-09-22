@@ -6,6 +6,8 @@
 
 #include <skl_math_types.h>
 
+inline f32 SKL_PI = 3.14159265359;
+
 template<glm::length_t C, glm::length_t R, typename T, glm::qualifier Q>
 b8 IsSymmetric(const glm::mat<C, R, T, Q>& mat) {
     if constexpr (C != R) {
@@ -50,3 +52,9 @@ glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec);
 glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right);
 
 std::vector<glm::vec4> GetFrustumCorners(const glm::mat4& proj, const glm::mat4& view);
+
+// This does have some issues at lower discs
+std::vector<glm::vec2> BuildPoissonDisk(f32 diskRadius, u32 diskCount);
+
+// Has issues with being to edge centered as time goes on.
+std::vector<glm::vec2> BuildVogelDisk(f32 diskRadius, u32 diskCount);
