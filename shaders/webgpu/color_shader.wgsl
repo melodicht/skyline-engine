@@ -1,8 +1,8 @@
 // TODO: Better explore alternatives in alignment, maybe we could merge in different variables to reduce waste due to alignment
 
 // TODO: Replace with WESL logic
-const dynamicShadowedPointLightIntegerOffset = [<int><POINT_LIGHT_PADDING><68>];
-const pcfSamplePatternMax = [<int><PCF_SAMPLE_MAX><32>];
+const dynamicShadowedPointLightIntegerOffset : u32 = [<int><POINT_LIGHT_PADDING><68>];
+const pcfSamplePatternMax : u32 = [<int><PCF_SAMPLE_MAX><32>];
 
 // Math functionality
 struct orthonormalBasis {
@@ -21,7 +21,9 @@ struct ColorUniforms {
     pointLightAmount: u32,
     spotLightAmount: u32,
     padding: u32,
-    padding2: u32
+    padding2: u32,
+    ambientLight: vec3<f32>,
+    padding3: u32
 }
 
 // Uniform variables in color pass completely controlled by renderer 
@@ -33,8 +35,7 @@ struct ColorFixedUniforms {
     pcfRange: f32, // Replace later when run out of padding room
     // Light information
     dirLightCascadeCount: u32,
-
-    padding: u32,
+    cascadeBleed: f32,
 }
 
 // Represents the data that differentiates each instance of the same mesh
@@ -144,14 +145,13 @@ fn addBrdf(
 
     // Adds on diffuse and specular lighting to overall light
     let diffuseIntensity : f32 = max(dot(fragNormal, fragToLightDir), 0.0);
-    let specularIntensity : f32 = pow(max(dot(-fragToCamDir, reflect(-fragToLightDir, fragNormal)), 0.0), 32);
+    let specularIntensity : f32 = pow(max(dot(fragToCamDir, reflect(-fragToLightDir, fragNormal)), 0.0), 32);
     (*output).color += (specularIntensity + diffuseIntensity) * lightColor;
 }
 
 // Compiles all of the previous brdfs into a single color
 fn finalizeBrdf(fragMat : MatData, finalColor : ColorData) ->  vec3<f32> {
-    let ambientIntensity : f32 = 0.25;
-    return (finalColor.color + vec3f(ambientIntensity)) * fragMat.color;
+    return finalColor.color * fragMat.color;
 }
 
 /**
@@ -202,13 +202,28 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
   return out;
 }
 
+fn interleavedGradientNoise(pixel : vec2<f32>) -> f32 {
+    return fract(52.9829189 * fract(dot(pixel, vec2<f32>(0.06711056, 0.00583715))));
+}
+
 /**
  * Fragment Pass
  */
 @fragment
 fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
-    // TODO: Set ambient lighting to be specified
-    var colorData : ColorData;
+    // Sets the disk rotation for the fragment
+    let pixel : vec2<f32> = floor(in.position.xy);
+    let noiseAngle : f32 = interleavedGradientNoise(pixel) * 6.28318530718;
+    let noiseSinAng : f32 = sin(noiseAngle);
+    let noiseCosAng : f32 = cos(noiseAngle);
+    let noiseRotMat : mat2x2<f32> = mat2x2<f32>(noiseCosAng, noiseSinAng, -noiseSinAng, noiseCosAng);
+
+    var rotatedPcfPattern: array<vec2<f32>, pcfSamplePatternMax>;
+    for (var iter : u32 = 0 ; iter < colorFixedUniforms.pcfSampleRate ; iter += 1) {
+        rotatedPcfPattern[iter] = noiseRotMat * colorFixedUniforms.pcfSamplePattern[iter];
+    }
+    
+    var colorData = ColorData(colorUniforms.ambientLight);
     let matData : MatData = getMatData(in);
 
     let normalWorldPos : vec4<f32> = in.worldPos/in.worldPos.w;
@@ -216,6 +231,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     let viewDir : vec3<f32> = normalize(in.fragToCamPos);
     let fragDepth = (colorUniforms.camViewMat * normalWorldPos).z;
 
+    let surfNormal : vec3<f32> = normalize(in.normal);
     for (var dirIter : u32 = 0 ; dirIter < colorUniforms.dirLightAmount ; dirIter++) {
         // Checks what cascade it the specific fragment should reference
         var cascadeCheck : u32 = 0;
@@ -228,8 +244,12 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
         // Checks if location has been covered by light
         let lightSpaceDirIdx : u32 = dirIter + cascadeCheck * colorUniforms.dirLightAmount;
-        var lightSpacePosition : vec4<f32> = lightsSpacesStore[lightSpaceDirIdx] * (normalWorldPos);
-        lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
+        let fragToLight : vec3<f32> = normalize(-shadowedDirLightStore[dirIter].direction);
+        let NdotL : f32 = saturate(dot(surfNormal, fragToLight));
+        let slope : f32 = clamp(sqrt(1.0 - NdotL * NdotL) / max(NdotL, 0.1), 1.0, 8.0);
+        let biasedWorldPos : vec4<f32> = vec4f(
+            normalWorldPos.xyz + surfNormal * (colorFixedUniforms.pcfRange * slope), 1.0);
+        var lightSpacePosition : vec4<f32> = lightsSpacesStore[lightSpaceDirIdx] * biasedWorldPos;
         let texturePosition : vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
         // Sets up sample location
         let worldToTexCoordRatio : f32 = shadowCascadesWorldToTextureCoordRatio[cascadeCheck];
@@ -295,7 +315,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         // Finds PCF percentage
         var shadowIntensity: f32 = 0.0;
         for (var iter : u32 = 0 ; iter < colorFixedUniforms.pcfSampleRate ; iter += 1) {
-            var newPos: vec2<f32> = base + (unit * colorFixedUniforms.pcfSamplePattern[iter]);
+            var newPos: vec2<f32> = base + (unit * rotatedPcfPattern[iter]);
             shadowIntensity += textureSampleCompare(shadowedSpotLightMap, shadowMapSampler, newPos, spotIter,texturePosition.z);
         }
         shadowIntensity /= f32(colorFixedUniforms.pcfSampleRate);
@@ -336,7 +356,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         // Actually samples pcs 
         var pointLightUncovered: f32 = 0;
         for (var iter : u32 = 0 ; iter < colorFixedUniforms.pcfSampleRate ; iter += 1) {
-            let samplePattern = colorFixedUniforms.pcfSamplePattern[iter];
+            let samplePattern = rotatedPcfPattern[iter];
             let newPos: vec3<f32> = baseDir + basis.up * samplePattern.x + basis.left * samplePattern.y;
             pointLightUncovered += textureSampleCompare(
                 shadowedPointLightMap, 

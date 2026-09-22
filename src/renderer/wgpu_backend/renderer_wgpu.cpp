@@ -25,7 +25,7 @@
 
 // TODO: Make such constants more configurable
 constexpr u32 DefaultCascadeCount = 4;
-constexpr u32 DefaultDirLightDim = 1024;
+constexpr u32 DefaultDirLightDim = 4096;
 constexpr u32 DefaultPointLightDim = 512;
 constexpr u32 DefaultSpotLightDim = 512;
 constexpr u32 DefaultSkyboxDim = 2048;
@@ -1100,8 +1100,9 @@ void WGPURenderBackend::InitPipelines()
     };
     
     WGPUDepthStencilState depthStencilSetSlopeBiased = depthStencilState;
-    depthStencilSetSlopeBiased.depthBias = 2;
-    depthStencilSetSlopeBiased.depthBiasSlopeScale = 4.5f; // TODO: Make less arbitrary allow to pass in
+    depthStencilSetSlopeBiased.depthBias = 1;
+    depthStencilSetSlopeBiased.depthBiasClamp = 0.003;
+    depthStencilSetSlopeBiased.depthBiasSlopeScale = 4; // TODO: Make less arbitrary allow to pass in
 
     WGPUDepthStencilState depthStencilReadOnlyState = depthStencilState;
     depthStencilReadOnlyState.depthWriteEnabled = WGPUOptionalBool_False;
@@ -1463,7 +1464,7 @@ void WGPURenderBackend::InitPipelines()
     .m_pcfSamplePattern = pcfDisk,
     .m_pcfSampleRate = m_pcfDiskSampleCount,
     .m_dirLightCascadeCount = DefaultCascadeCount,
-    .m_pcfRange = 0.005f
+    .m_pcfRange = 0.05f
   };
   m_colorPassFixedUniformBuffer.WriteBuffer(m_wgpuQueue, uniforms);
 
@@ -1601,7 +1602,8 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     .m_pos = state.cameraTransform->GetWorldPosition(),
     .m_dirLightCount = (u32)shadowedDirLightData.size(),
     .m_pointLightCount = (u32)shadowedPointLightData.size(),
-    .m_spotLightCount = (u32)shadowedSpotLightData.size()
+    .m_spotLightCount = (u32)shadowedSpotLightData.size(),
+    .m_ambientLight = state.sceneLighting.ambientLighting
   };
   m_colorPassUniformBuffer.WriteBuffer(m_wgpuQueue, colorPassState);
 

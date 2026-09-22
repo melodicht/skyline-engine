@@ -26,7 +26,7 @@ struct IconRenderInfo {
 };
 
 struct SceneLightingRenderInfo {
-    glm::vec3 ambientLighting;
+    glm::vec3 ambientLighting{ 0.25 };
     f32 pcfWorldRange;
 };
 
