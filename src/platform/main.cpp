@@ -14,6 +14,7 @@
 #endif
 
 #include <debug.h>
+#include <profiler.h>
 #include <game_platform.h>
 #include <render_backend.h>
 #include <platform_loader.h>

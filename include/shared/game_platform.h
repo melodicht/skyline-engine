@@ -13,21 +13,21 @@
 
 struct GameInput
 {
-    s32 mouseDeltaX;
-    s32 mouseDeltaY;
-    u32 mouseX;
-    u32 mouseY;
+    s32 mouseDeltaX{ 0 };
+    s32 mouseDeltaY{ 0 };
+    u32 mouseX{ 0 };
+    u32 mouseY{ 0 };
 
     std::set<std::string> keysDownPrevFrame;
     std::set<std::string> keysDownThisFrame;
 
     // Overlays another input onto this input.
-    void merge(GameInput&& alt) {
-        mouseDeltaX = alt.mouseDeltaX;
-        mouseDeltaY = alt.mouseDeltaY;
+    void merge(const GameInput& alt) {
+        mouseDeltaX += alt.mouseDeltaX;
+        mouseDeltaY += alt.mouseDeltaY;
         mouseX = alt.mouseX;
         mouseY = alt.mouseY;
-        keysDownThisFrame.merge(alt.keysDownThisFrame);
+        keysDownThisFrame.insert(alt.keysDownThisFrame.begin(), alt.keysDownThisFrame.end());
     }
 };
 
@@ -80,6 +80,14 @@ struct PlatformAPI
 struct ImGuiContext;
 struct DebugState;
 
+#if SKL_ENABLED_PROFILING
+struct ProfilerState
+{
+    u32 frameCount{ 0 };
+    u32 staggerCount{ 0 };
+};
+#endif
+
 struct GameMemory
 {
     void* fixedSizeStorage;
@@ -90,6 +98,10 @@ struct GameMemory
 #if SKL_INTERNAL
     void* debugStorage;
     DebugState* debugState;
+#endif
+
+#if SKL_ENABLED_PROFILING
+    ProfilerState profilerState;
 #endif
 
     PlatformAPI platformAPI;

@@ -1,4 +1,5 @@
 #include <array>
+#include <new>
 
 #include <imgui.h>
 
@@ -8,6 +9,7 @@
 
 #include <debug.h>
 #include <engine.h>
+#include <profiler.h>
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
@@ -36,13 +38,11 @@ __declspec(dllexport)
 #endif
 GAME_INITIALIZE(GameInitialize)
 {
-    memory.fixedSizeStorage = allocator.AlignedAllocate(FIXED_SIZE_STORAGE_SIZE, 8);
+    memory.fixedSizeStorage = allocator.AlignedAllocate(FIXED_SIZE_STORAGE_SIZE, alignof(GameState));
 
     DebugInitialize(memory);
     
     ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
-    GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
-
     // TODO(marvin): We currently allocate WAY more memory than we actually use... got to revisit how much memory we actually need.
 
     // NOTE(marvin): The remaining arena here only exists for the
@@ -57,8 +57,8 @@ GAME_INITIALIZE(GameInitialize)
     u8 *pastGameStateAddress = static_cast<u8 *>(memory.fixedSizeStorage) + sizeof(GameState);
     MemoryArena remainingArena = InitMemoryArena(pastGameStateAddress, FIXED_SIZE_STORAGE_SIZE - sizeof(GameState), "GameArena");
 
+    GameState *gameState = new (memory.fixedSizeStorage) GameState{Scene(&remainingArena)};
     gameState->overlayMode = overlayMode_none;
-    gameState->scene = Scene(&remainingArena);
     Scene &scene = gameState->scene;
 
     CreateComponentPools(scene);
@@ -158,11 +158,24 @@ __declspec(dllexport)
 #endif
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+    PROFILE_LOG_FRAME(memory);
     DebugUpdate(memory);
     
     ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
     GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
     Scene &scene = gameState->scene;
+    GameInput& fixedInput = gameState->accumulatedInput;
+    f32& fixedTime = gameState->accumulatedDelta;
+    fixedTime += frameTime;
+
+    // Fixed time cap is arbitrary for now, enforces that fixed time steps don't lag
+    // irreparably behind. Effectively skips when forced to.
+    f32 fixedTimeCap = FIXED_TIMESTEP_DELTA_TIME * 2.5;
+    if (fixedTime > fixedTimeCap) {
+        fixedTime = fixedTimeCap;
+        LOG("Fixed timestep update is staggering");
+        PROFILE_LOG_STAGGER(memory);
+    }
 
     // TODO(marvin): Use the interpolation technique.
 
@@ -170,13 +183,18 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     // that EditorSystem's GUI overlay will go below the tabs.
     RenderOverlay(*gameState);
 
-    accumulatedInput.d
-    f32 remainingFrameTime = frameTime;
-    while (remainingFrameTime > 0.0f)
-    {
-        f32 deltaTime = Minimum(remainingFrameTime, FIXED_TIMESTEP_DELTA_TIME);
-        scene.UpdateFixedTimestepSystems(&input, deltaTime);
-        remainingFrameTime -= deltaTime;
+    fixedInput.merge(input);
+    if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
+
+        while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
+        {
+            scene.UpdateFixedTimestepSystems(&fixedInput, FIXED_TIMESTEP_DELTA_TIME);
+            fixedInput.keysDownPrevFrame = fixedInput.keysDownThisFrame;
+            fixedInput.mouseDeltaX = 0;
+            fixedInput.mouseDeltaY = 0;
+            fixedTime -= FIXED_TIMESTEP_DELTA_TIME;
+        }
+        fixedInput.keysDownThisFrame.clear();
     }
 
     scene.UpdateVariableTimestepSystems(&input, frameTime);
@@ -184,6 +202,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     DrawScene(*gameState, input, frameTime);
 
     LogDebugRecords();
+    PROFILE_OUTPUT_LOG(memory);
 }
 
 // NOTE(marvin): Our logger doesn't have string format...
