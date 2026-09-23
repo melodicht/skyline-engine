@@ -187,19 +187,24 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
+            PROFILE_FRAMEMARK("Fixed Timestep Update");
             scene.UpdateFixedTimestepSystems(&fixedInput, FIXED_TIMESTEP_DELTA_TIME);
             fixedInput.keysDownPrevFrame = fixedInput.keysDownThisFrame;
             fixedInput.mouseDeltaX = 0;
             fixedInput.mouseDeltaY = 0;
             fixedTime -= FIXED_TIMESTEP_DELTA_TIME;
+            PROFILE_FRAMEMARK_END("Fixed Timestep Update");
         }
         fixedInput.keysDownThisFrame.clear();
     }
 
+    PROFILE_FRAMEMARK("Variable Timestep Update");
     scene.UpdateVariableTimestepSystems(&input, frameTime);
+    PROFILE_FRAMEMARK_END("Variable Timestep Update");
     
+    PROFILE_FRAMEMARK("Draw Scene");
     DrawScene(*gameState, input, frameTime);
-
+    PROFILE_FRAMEMARK_END("Draw Scene");
     LogDebugRecords();
     PROFILE_OUTPUT_LOG(memory);
 }

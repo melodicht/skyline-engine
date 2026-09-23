@@ -131,7 +131,8 @@ Install Instructions:
 With `SKL_ENABLE_PROFILING=ON`, native hot-reload builds use one shared Tracy
 client linked by both the platform and game module. The platform initializes it
 once; reloading game code does not restart the profiler. On-demand capture is
-enabled, so connect the Tracy 0.14 profiler to collect events.
+enabled, so connect the Tracy 0.13.1 profiler to collect events. The profiler
+application and engine's Tracy dependency must use matching versions.
 
 Use `PROFILE_ZONE("name")` in reloadable code. It uses transient zones that copy
 their metadata before the module is unloaded. Emit named frame markers
@@ -249,5 +250,4 @@ you can keep repeating the same thing but with different game modules.
 
 - The reason why `u64` is used for EntityID is to avoid narrowing. We use
   `std::vector::size` for getting unique EntityIDs, which outputs `u64`.
-
 

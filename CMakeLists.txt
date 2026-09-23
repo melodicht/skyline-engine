@@ -152,10 +152,10 @@ else()
         set(TRACY_LTO OFF CACHE BOOL "Keep Tracy as a separate library" FORCE)
 
         function(skl_add_tracy)
-                # Tracy 0.14 switches to an OBJECT library when IPO is enabled,
-                # even with TRACY_STATIC=OFF. Disable IPO just for this package.
+                # Keep IPO disabled for Tracy so it remains a separate shared
+                # client instead of being embedded in each reloadable module.
                 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
-                CPMAddPackage("gh:wolfpld/tracy#v0.14.0")
+                CPMAddPackage("gh:wolfpld/tracy#v0.13.1")
         endfunction()
         skl_add_tracy()
 
