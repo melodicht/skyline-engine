@@ -33,7 +33,7 @@ void LoopUtils::SDLClearBlocksByMask(SDLState* state, LoopMemoryFlags::SDLMemory
     }
 }
 
-void LoopUtils::SDLBeginInputPlayback(SDLState* state)
+void LoopUtils::SDLBeginInputPlayback(SDLState* state, GameInput* accumulatedInput)
 {
     SDLClearBlocksByMask(state, LoopMemoryFlags::sdlMem_allocatedDuringLoop);
     
@@ -48,6 +48,7 @@ void LoopUtils::SDLBeginInputPlayback(SDLState* state)
     {
         state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::playing;
         RestoreMemoryBlocksFromFile(state->loopState.playbackHandle);
+        *accumulatedInput = state->loopState.recordedAccumulatedInput;
     }
 }
 
@@ -59,7 +60,7 @@ void LoopUtils::SDLEndInputPlayback(SDLState* state)
     state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::none;
 }
 
-void LoopUtils::SDLBeginRecordingInput(SDLState* state)
+void LoopUtils::SDLBeginRecordingInput(SDLState* state, const GameInput* accumulatedInput)
 {
     const char* inputFilePath = SDLGetInputFilePath();
     state->loopState.recordingHandle = SDL_IOFromFile(inputFilePath, "w");
@@ -71,6 +72,7 @@ void LoopUtils::SDLBeginRecordingInput(SDLState* state)
     else
     {
         state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::recording;
+        state->loopState.recordedAccumulatedInput = *accumulatedInput;
         WriteMemoryBlocksToFile(state, state->loopState.recordingHandle);
     }
     
@@ -133,7 +135,7 @@ void LoopUtils::SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>
 }
 
 // Did a reset happen?
-b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode)
+b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput, GameInput* accumulatedInput, b8 forceReloadGameCode)
 {
     // NOTE(marvin): Would it be possible for there to be two notion
     // of mouse? One used in the game, and one for interacting with
@@ -152,7 +154,7 @@ b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput, b8 forceRe
         // NOTE(marvin): Could also rewind the stream, but going
         // through end and start again is safer.
         SDLEndInputPlayback(state);
-        SDLBeginInputPlayback(state);
+        SDLBeginInputPlayback(state, accumulatedInput);
         bytesRead = SDL_ReadIO(state->loopState.playbackHandle, gameInput, sizeof(*gameInput));
         result = true;
     }
@@ -176,18 +178,18 @@ b8 LoopUtils::GetIsStateInPlayback(const SDLState* state)
     return state->loopState.loopedLiveEditingState == LoopState::LoopedLiveEditingState::playing;
 }
 
-void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state)
+void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state, GameInput* accumulatedInput)
 {
     switch (state->loopState.loopedLiveEditingState)
     {
       case LoopState::LoopedLiveEditingState::none:
       {
-          SDLBeginRecordingInput(state);
+          SDLBeginRecordingInput(state, accumulatedInput);
       } break;
       case LoopState::LoopedLiveEditingState::recording:
       {
           SDLEndRecordingInput(state);
-          SDLBeginInputPlayback(state);
+          SDLBeginInputPlayback(state, accumulatedInput);
       } break;
       case LoopState::LoopedLiveEditingState::playing:
       {
@@ -196,7 +198,7 @@ void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state)
     }
 }
 
-b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode)
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, GameInput* accumulatedInput, b8 forceReloadGameCode)
 {
     b32 result = false;
     switch (state->loopState.loopedLiveEditingState)
@@ -208,7 +210,7 @@ b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, b8 
       } break;
       case LoopState::LoopedLiveEditingState::playing:
       {
-          result = SDLPlaybackInput(state, gameInput, forceReloadGameCode);
+          result = SDLPlaybackInput(state, gameInput, accumulatedInput, forceReloadGameCode);
       } break;
     }
     return result;
@@ -230,8 +232,8 @@ b8 LoopUtils::GetBlockFlagLoopAllocated(const SDLMemoryBlock* block)  {
 }
 #else 
 b8 LoopUtils::GetIsStateInLoop(const SDLState* state) {}
-void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state) {}
-b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode) { return false; }
+void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state, GameInput* accumulatedInput) {}
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, GameInput* accumulatedInput, b8 forceReloadGameCode) { return false; }
 void LoopUtils::SetBlockFlagLoopAllocated(SDLMemoryBlock* block) {}
 void LoopUtils::SetBlockFlagLoopFreed(SDLMemoryBlock* block) {}
 void LoopUtils::SetBlockFlagLoopNone(SDLMemoryBlock* block) {}

@@ -92,6 +92,10 @@ struct GameMemory
 {
     void* fixedSizeStorage;
 
+    // Platform-owned, outside the bytewise game-memory snapshot. Its sets
+    // own heap nodes and must be checkpointed using normal deep copies.
+    GameInput accumulatedInput;
+
     // TODO(marvin): Does the imgui context really belong to game memory? Should it be part of the debug storage?
     ImGuiContext *imGuiContext;
 

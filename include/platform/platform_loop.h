@@ -9,6 +9,7 @@
 #include <string>
 
 #include <meta_definitions.h>
+#include <game_platform.h>
 
 struct SDLState;
 struct GameInput;
@@ -40,6 +41,9 @@ private:
         playing,
     };
     LoopedLiveEditingState loopedLiveEditingState{ LoopedLiveEditingState::none };
+    // This checkpoint lives outside tracked game memory, just like the live
+    // accumulated input. Never restore either object's owning pointers as bytes.
+    GameInput recordedAccumulatedInput;
     union
     {
         // NOTE(marvin): A flat sequence of [GameInput, u32 (for
@@ -62,9 +66,9 @@ private:
     static const char* SDLGetInputFilePath();
     static b8 SDLIsInLoop(const SDLState* state);
     static void SDLClearBlocksByMask(SDLState* state, LoopMemoryFlags::SDLMemoryFlags mask);
-    static void SDLBeginInputPlayback(SDLState* state);
+    static void SDLBeginInputPlayback(SDLState* state, GameInput* accumulatedInput);
     static void SDLEndInputPlayback(SDLState* state);
-    static void SDLBeginRecordingInput(SDLState* state);
+    static void SDLBeginRecordingInput(SDLState* state, const GameInput* accumulatedInput);
     static void SDLEndRecordingInput(SDLState* state);
     static void SDLRecordStdString(SDLState* state, const std::string* str);
     static void SDLRecordStdSetOfString(SDLState* state, const std::set<std::string>* strings);
@@ -73,19 +77,19 @@ private:
     static void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings);
 
     // Returns if a reset happen?
-    static b8 SDLPlaybackInput(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode);
+    static b8 SDLPlaybackInput(SDLState* state, GameInput* gameInput, GameInput* accumulatedInput, b8 forceReloadGameCode);
 
 public:
     static b8 GetIsStateInLoop(const SDLState* state);
 
     static b8 GetIsStateInPlayback(const SDLState* state);
 
-    static void ToggleLoopedLiveEditingState(SDLState* state);
+    static void ToggleLoopedLiveEditingState(SDLState* state, GameInput* accumulatedInput);
 
     // Based on live editing state, stores or plays game input
     // Produces a boolean on whether to reload game code.
     // TODO(marvin): Producing a b8ean for ProcessInputWithLooping feels very contrived. Keep eyes opened for a better way.
-    static b8 ProcessInputWithLooping(SDLState* state, GameInput* gameInput, b8 forceReloadGameCode);
+    static b8 ProcessInputWithLooping(SDLState* state, GameInput* gameInput, GameInput* accumulatedInput, b8 forceReloadGameCode);
 
     // Gets and sets allocation flags
     static void SetBlockFlagLoopAllocated(SDLMemoryBlock* flag);

@@ -164,7 +164,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
     GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
     Scene &scene = gameState->scene;
-    GameInput& fixedInput = gameState->accumulatedInput;
+    GameInput& fixedInput = memory.accumulatedInput;
     f32& fixedTime = gameState->accumulatedDelta;
     fixedTime += frameTime;
 
@@ -185,7 +185,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     fixedInput.merge(input);
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
-
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             scene.UpdateFixedTimestepSystems(&fixedInput, FIXED_TIMESTEP_DELTA_TIME);

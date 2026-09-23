@@ -115,11 +115,14 @@ void updateLoop(void* appInfo) {
                     info->playing = false;
                 }
 #if SKL_INTERNAL
-                else if (info->e.key.key == SDLK_L)
+                else if (info->e.key.key == SDLK_0)
                 {
-                    LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState);
+                    if (!info->e.key.repeat)
+                    {
+                        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &info->gameMemory.accumulatedInput);
+                    }
                 }
-                else if (info->e.key.key == SDLK_R)
+                else if (info->e.key.key == SDLK_1)
                 {
                     if (LoopUtils::GetIsStateInPlayback(&globalSDLState))
                     {
@@ -167,7 +170,7 @@ void updateLoop(void* appInfo) {
     gameInput.mouseY = mouseY;
     gameInput.keysDownThisFrame = keysDown;
 
-    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, forceReloadGameCode);
+    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, &info->gameMemory.accumulatedInput, forceReloadGameCode);
     if (shouldReloadGameCode)
     {
         info->gameCode.Load(info->gameMemory, info->editor, true);
@@ -266,7 +269,7 @@ int main(int argc, char** argv)
 
     if (recordOnStart)
     {
-        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState);
+        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &gameMemory.accumulatedInput);
     }
 
     u64 now = SDL_GetPerformanceCounter();
