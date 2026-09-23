@@ -25,7 +25,7 @@
 
 // TODO: Make such constants more configurable
 constexpr u32 DefaultCascadeCount = 4;
-constexpr u32 DefaultDirLightDim = 4096;
+constexpr u32 DefaultDirLightDim = 2048;
 constexpr u32 DefaultPointLightDim = 512;
 constexpr u32 DefaultSpotLightDim = 512;
 constexpr u32 DefaultSkyboxDim = 2048;
