@@ -376,7 +376,7 @@ public:
     FreeIndicesStack freeIndices;
 
     SystemsBuffer variableTimestepSystemsBuffer;
-    SystemsBuffer semifixedTimestepSystemsBuffer;
+    SystemsBuffer fixedTimestepSystemsBuffer;
     MemoryArena systemsArena;
 
     ComponentPoolsBuffer componentPools;
@@ -397,13 +397,13 @@ public:
     
     void AddVariableTimestepSystem(System *system);
 
-    void AddSemifixedTimestepSystem(System *system);
+    void AddFixedTimestepSystem(System *system);
     
     void InitSystems();
 
     void UpdateVariableTimestepSystems(GameInput *input, f32 deltaTime);
 
-    void UpdateSemifixedTimestepSystems(GameInput *input, f32 deltaTime);
+    void UpdateFixedTimestepSystems(GameInput *input, f32 deltaTime);
 
     void AddComponentPool(size_t componentSize);
 
@@ -524,10 +524,10 @@ public:
     }
 
     template <typename T, typename... Args>
-    T* CreateSemifixedTimestepSystem(Args... args)
+    T* CreateFixedTimestepSystem(Args... args)
     {
         T* system = new (PushSystem(this, T)) T(args...);
-        this->AddSemifixedTimestepSystem(system);
+        this->AddFixedTimestepSystem(system);
         return system;
     }
 };

@@ -90,7 +90,7 @@ GAME_INITIALIZE(GameInitialize)
     {
     #endif
         #if !SKL_NO_DEFAULT_PHYSICS_SYSTEM
-        SKLPhysicsSystem* sklPhysicsSystem = scene.CreateSemifixedTimestepSystem<SKLPhysicsSystem>();
+        SKLPhysicsSystem* sklPhysicsSystem = scene.CreateFixedTimestepSystem<SKLPhysicsSystem>();
         memory.sklPhysicsSystem = static_cast<void*>(sklPhysicsSystem);
         #endif
 
@@ -170,11 +170,12 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     // that EditorSystem's GUI overlay will go below the tabs.
     RenderOverlay(*gameState);
 
+    accumulatedInput.d
     f32 remainingFrameTime = frameTime;
     while (remainingFrameTime > 0.0f)
     {
         f32 deltaTime = Minimum(remainingFrameTime, FIXED_TIMESTEP_DELTA_TIME);
-        scene.UpdateSemifixedTimestepSystems(&input, deltaTime);
+        scene.UpdateFixedTimestepSystems(&input, deltaTime);
         remainingFrameTime -= deltaTime;
     }
 

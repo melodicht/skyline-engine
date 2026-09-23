@@ -192,10 +192,6 @@ void DebugRecordPopSize_(MemoryArena *source, siz size);
 /**
  * TIME
  */
-
-
-
-
 #if SKL_INTERNAL
 
 #define NAMED_TIMED_BLOCK_(name, number, ...) TimedBlock timedBlock_##number = TimedBlock(__COUNTER__, __FILE__, __LINE__, #name, ## __VA_ARGS__)

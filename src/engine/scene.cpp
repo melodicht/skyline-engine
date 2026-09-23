@@ -104,7 +104,7 @@ Scene::Scene(MemoryArena *remainingArena)
     this->entities = InitEntitiesPool(remainingArena);
     this->freeIndices = InitFreeIndicesStack(remainingArena, MAX_ENTITIES);
     this->variableTimestepSystemsBuffer = InitSystemsBuffer(remainingArena);
-    this->semifixedTimestepSystemsBuffer = InitSystemsBuffer(remainingArena);
+    this->fixedTimestepSystemsBuffer = InitSystemsBuffer(remainingArena);
     this->systemsArena = SubArena(remainingArena, SYSTEMS_MEMORY, "Systems");
     this->componentPools = ComponentPoolsBuffer(remainingArena);
     this->componentPoolsArena = SubArena(remainingArena, COMPONENT_POOLS_MEMORY, "Component Pools");
@@ -120,15 +120,15 @@ void Scene::AddVariableTimestepSystem(System *system)
     PushSystemsBuffer(&variableTimestepSystemsBuffer, system);
 }
 
-void Scene::AddSemifixedTimestepSystem(System *system)
+void Scene::AddFixedTimestepSystem(System *system)
 {
-    PushSystemsBuffer(&semifixedTimestepSystemsBuffer, system);
+    PushSystemsBuffer(&fixedTimestepSystemsBuffer, system);
 }
 
 void Scene::InitSystems()
 {
     StartAllSystems(&variableTimestepSystemsBuffer, this);
-    StartAllSystems(&semifixedTimestepSystemsBuffer, this);
+    StartAllSystems(&fixedTimestepSystemsBuffer, this);
 }
 
 void Scene::UpdateVariableTimestepSystems(GameInput *input, f32 deltaTime)
@@ -136,9 +136,9 @@ void Scene::UpdateVariableTimestepSystems(GameInput *input, f32 deltaTime)
     UpdateAllSystems(&variableTimestepSystemsBuffer, this, input, deltaTime);
 }
 
-void Scene::UpdateSemifixedTimestepSystems(GameInput *input, f32 deltaTime)
+void Scene::UpdateFixedTimestepSystems(GameInput *input, f32 deltaTime)
 {
-    UpdateAllSystems(&semifixedTimestepSystemsBuffer, this, input, deltaTime);
+    UpdateAllSystems(&fixedTimestepSystemsBuffer, this, input, deltaTime);
 }
 
 void Scene::AddComponentPool(size_t componentSize)

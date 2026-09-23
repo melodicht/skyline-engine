@@ -16,6 +16,7 @@ struct GameState
 {
     Scene scene;
 
+    GameInput accumulatedInput;
     EntityID currentCamera = -1;
     b32 isEditor;
 

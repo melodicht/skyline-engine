@@ -23,13 +23,13 @@ void OnGameStart(GameState* gameState, GameMemory* gameMemory)
     Scene &scene = gameState->scene;
     b32 slowStep = false;
 
-    scene.CreateSemifixedTimestepSystem<MovementSystem>();
-    scene.CreateSemifixedTimestepSystem<BuilderSystem>(slowStep);
-    scene.CreateSemifixedTimestepSystem<PongMovement2DSystem>();
-    scene.CreateSemifixedTimestepSystem<RectCollision2DSystem>();
-    scene.CreateSemifixedTimestepSystem<PongBall2DSystem>();
-    scene.CreateSemifixedTimestepSystem<Fighter2DSystem>();
-    scene.CreateSemifixedTimestepSystem<FightBall2DSystem>();
+    scene.CreateFixedTimestepSystem<MovementSystem>();
+    scene.CreateFixedTimestepSystem<BuilderSystem>(slowStep);
+    scene.CreateFixedTimestepSystem<PongMovement2DSystem>();
+    scene.CreateFixedTimestepSystem<RectCollision2DSystem>();
+    scene.CreateFixedTimestepSystem<PongBall2DSystem>();
+    scene.CreateFixedTimestepSystem<Fighter2DSystem>();
+    scene.CreateFixedTimestepSystem<FightBall2DSystem>();
 
     assetUtils.LoadSkyboxAsset({"YokohamaSkybox/posx", "YokohamaSkybox/negx", "YokohamaSkybox/posy", "YokohamaSkybox/negy", "YokohamaSkybox/posz", "YokohamaSkybox/negz"});
 }

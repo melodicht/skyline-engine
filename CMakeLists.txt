@@ -57,6 +57,10 @@ if(NOT DEFINED SKL_ENABLE_LOGGING)
         option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 1)
 endif()
 
+if(NOT DEFINED SKL_ENABLE_PROFILING) 
+        option(SKL_ENABLE_PROFILING "Whether tracy or webzone should be attached or not" 1)
+endif()
+
 # SKL_SLOW allows for slower but more safe code.
 # Currently only controls hard stopping asserts.
 if(NOT DEFINED SKL_SLOW)
@@ -82,7 +86,6 @@ if ((NOT SKL_STATIC_MONOLITHIC) AND (EMSCRIPTEN OR SKL_EXTERNAL_GAME))
         message(FATAL_ERROR "Emscripten backend does not support shared libraries or hot reloading")
 endif()
 
-
 if (XCODE)
         set(SKL_BASE_PATH "${CMAKE_SOURCE_DIR}")
 elseif(EMSCRIPTEN)
@@ -97,6 +100,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_ENABLED_LOGGING=${SKL_ENABLE_LOGGING}
         SKL_INTERNAL=${SKL_INTERNAL}
         SKL_NO_DEFAULT_PHYSICS_SYSTEM=${SKL_NO_DEFAULT_PHYSICS_SYSTEM}
+        SKL_ENABLED_PROFILING=${SKL_ENABLE_PROFILING}
         SKL_SLOW=${SKL_SLOW}
         SKL_DEBUG_MEMORY_VIEWER=${SKL_DEBUG_MEMORY_VIEWER}
         SKL_STATIC_MONOLITHIC=${SKL_STATIC_MONOLITHIC}
@@ -137,11 +141,17 @@ if (EMSCRIPTEN)
         add_library(SDL3::SDL3 ALIAS SDL3PORT)
 else()
         CPMAddPackage("gh:libsdl-org/SDL#release-3.2.20")
+
+        set(TRACY_ON_DEMAND ON)
+        set(TRACY_ENABLE ${SKL_ENABLE_PROFILING})
+        CPMAddPackage("gh:wolfpld/tracy#v0.14.0")
+
 endif()
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.92.5")
 CPMAddPackage("gh:kcat/openal-soft#1.25.1")
+
 
 CPMAddPackage("gh:marzer/tomlplusplus#v3.4.0")
 
@@ -191,6 +201,9 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
 find_library(MATH_LIBRARY m)
 if(MATH_LIBRARY)
         target_link_libraries(SHARED_DEPENDENCIES INTERFACE ${MATH_LIBRARY})
+endif()
+if(EMSCRIPTEN) 
+        target_link_libraries(SHARED_DEPENDENCIES INTERFACE Tracy::TracyClient)
 endif()
 
 add_library(RENDERING_BACKEND INTERFACE)

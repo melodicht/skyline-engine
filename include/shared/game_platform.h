@@ -20,6 +20,15 @@ struct GameInput
 
     std::set<std::string> keysDownPrevFrame;
     std::set<std::string> keysDownThisFrame;
+
+    // Overlays another input onto this input.
+    void merge(GameInput&& alt) {
+        mouseDeltaX = alt.mouseDeltaX;
+        mouseDeltaY = alt.mouseDeltaY;
+        mouseX = alt.mouseX;
+        mouseY = alt.mouseY;
+        keysDownThisFrame.merge(alt.keysDownThisFrame);
+    }
 };
 
 // NOTE(marvin): When OnPress produces true for some key, OnHold will
