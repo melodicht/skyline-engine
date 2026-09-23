@@ -69,6 +69,8 @@ struct WGPUBackendColorPassUniforms
     u32 m_spotLightCount{ 0 };
     u32 m_padding{ 0 };
     u32 m_padding2{ 0 };
+    glm::vec3 m_ambientLight{ 0.25 };
+    u32 m_padding3{ 0 };
 };
 
 /*
@@ -90,7 +92,7 @@ struct WGPUBackendColorPassFixedUniforms {
     // Light Data
     u32 m_dirLightCascadeCount{ 0 };
 
-    u32 padding { 0 };
+    f32 m_dirLightCascadeBleed { 0 };
 };
 
 struct WGPUBackendPointUniforms

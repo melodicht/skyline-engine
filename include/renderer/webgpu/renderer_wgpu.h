@@ -117,8 +117,11 @@ private:
     MeshID m_nextMeshID{ 0 }; 
 
     // Utility objects
-    static constexpr f32 m_defaultNearPlane = 0.01f; // Nearplane length when it should pretty much be as close as possible to 0
+    static constexpr f32 m_defaultNearPlane = 0.5f; // Nearplane length when it should pretty much be as close as possible to 0
     DynamicLightConverter m_lightProcessor{ m_defaultNearPlane };
+
+    // Quality setting dependent
+    u32 m_pcfDiskSampleCount = 16; // TODO: Currently extremely arbitrary
 
     void ProcessDeviceSpecs();
 
