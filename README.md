@@ -126,6 +126,25 @@ Install Instructions:
 
 # Build options
 
+### Tracy and hot reload
+
+With `SKL_ENABLE_PROFILING=ON`, native hot-reload builds use one shared Tracy
+client linked by both the platform and game module. The platform initializes it
+once; reloading game code does not restart the profiler. On-demand capture is
+enabled, so connect the Tracy 0.14 profiler to collect events.
+
+Use `PROFILE_ZONE("name")` in reloadable code. It uses transient zones that copy
+their metadata before the module is unloaded. Emit named frame markers
+(`PROFILE_FRAMEMARK` / `PROFILE_FRAMEMARK_END`) from the platform only: Tracy
+retains those name pointers. The same lifetime rule applies to raw Tracy APIs
+that retain literal pointers, such as named plots and ordinary static zones.
+
+After changing this configuration, stop the app, regenerate the CMake/Xcode
+project, rebuild both platform and game module, and relaunch. Keep the generated
+Tracy shared library beside the executable. Don't hot-reload across this initial
+static-to-shared transition. Monolithic native builds still use a static client;
+Emscripten does not link Tracy.
+
 ### SKL_RENDER_SYS
 Currently defines what graphics API backend that the game engine will use.
 
@@ -230,6 +249,5 @@ you can keep repeating the same thing but with different game modules.
 
 - The reason why `u64` is used for EntityID is to avoid narrowing. We use
   `std::vector::size` for getting unique EntityIDs, which outputs `u64`.
-
 
 

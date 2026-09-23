@@ -144,7 +144,20 @@ else()
 
         set(TRACY_ON_DEMAND ON)
         set(TRACY_ENABLE ${SKL_ENABLE_PROFILING})
-        CPMAddPackage("gh:wolfpld/tracy#v0.14.0")
+        # The platform and reloadable game module must share one client. Force
+        # this option so existing Xcode/CMake caches don't retain a static client.
+        set(TRACY_STATIC ${SKL_STATIC_MONOLITHIC} CACHE BOOL "Build Tracy statically only for monolithic builds" FORCE)
+        set(TRACY_DELAYED_INIT ON CACHE BOOL "Initialize Tracy from the platform" FORCE)
+        set(TRACY_MANUAL_LIFETIME OFF CACHE BOOL "Keep Tracy alive for the platform lifetime" FORCE)
+        set(TRACY_LTO OFF CACHE BOOL "Keep Tracy as a separate library" FORCE)
+
+        function(skl_add_tracy)
+                # Tracy 0.14 switches to an OBJECT library when IPO is enabled,
+                # even with TRACY_STATIC=OFF. Disable IPO just for this package.
+                set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+                CPMAddPackage("gh:wolfpld/tracy#v0.14.0")
+        endfunction()
+        skl_add_tracy()
 
 endif()
 CPMAddPackage("gh:g-truc/glm#1.0.1")

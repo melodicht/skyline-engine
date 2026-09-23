@@ -189,6 +189,9 @@ void updateLoop(void* appInfo) {
 
 int main(int argc, char** argv)
 {
+    // Initialize and retain the shared Tracy client from the non-reloadable
+    // executable. Reloading game code must never start/stop a profiler client.
+    PROFILE_INITIALIZE();
     std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     srand(static_cast<unsigned>(time(0)));
 
