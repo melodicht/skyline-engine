@@ -181,7 +181,9 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     // NOTE(marvin): Putting RenderOverlay above the above systems so
     // that EditorSystem's GUI overlay will go below the tabs.
+    PROFILE_ZONE_BEGIN(drawOverlayZone, "Draw Overlay");
     RenderOverlay(*gameState);
+    PROFILE_ZONE_END(drawOverlayZone);
 
     fixedInput.merge(input);
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {

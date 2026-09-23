@@ -87,6 +87,7 @@ local void LaunchGame(SDLState* state, const char* mapName)
 }
 
 void updateLoop(void* appInfo) {
+    PROFILE_FRAMEMARK("Frame");
     AppInformation* info = (AppInformation* )appInfo;
     info->last = info->now;
     info->now = SDL_GetPerformanceCounter();
