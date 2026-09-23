@@ -184,6 +184,9 @@ void updateLoop(void* appInfo) {
     f32 msPerFrame =  1000.0f * frameTime;
     f32 fps = 1 / frameTime;
     //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+    // Advance Tracy's default frame track once per application frame, not per
+    // fixed tick or profiling zone. This also survives game-module reloads.
+    PROFILE_FRAME_END();
     return;
 }
 
