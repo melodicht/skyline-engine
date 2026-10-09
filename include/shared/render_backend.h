@@ -2,6 +2,7 @@
 
 #include <map>
 #include <vector>
+#include <string>
 #include <array>
 
 #include <SDL3/SDL.h>
@@ -90,10 +91,11 @@ struct RenderDestroyMeshInfo {
 };
 void DestroyMesh(RenderDestroyMeshInfo& info);
 
-// Gets all profile zones stored, simply returns an empty vector if SKL_ENABLE_PROFILING
-// is turned off
+// GPU zone durations in nanoseconds, indexed by zoneNames.
 struct RenderFramePerformanceInfo {
     std::vector<uint64_t> zoneTimes;
     std::vector<std::string> zoneNames;
 };
+
+// Drains completed GPU profiling batches; returns empty when unavailable.
 std::vector<RenderFramePerformanceInfo> FlushProfilingZones();

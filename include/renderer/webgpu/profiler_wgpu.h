@@ -3,8 +3,10 @@
 #include <set>
 #include <thread>
 #include <atomic>
+#include <memory>
+#include <mutex>
 
-#include <webgpu.h>
+#include <webgpu/webgpu.h>
 
 #include "render_backend.h"
 #include "skl_math_types.h"
@@ -14,7 +16,10 @@
 
 class WebGpuProfiler {
 private:
-    // #if SKL_ENABLED_PROFILING
+    WebGpuProfiler(WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize);
+    friend std::unique_ptr<WebGpuProfiler> CreateWebGpuProfiler(
+        WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize);
+    #if SKL_ENABLED_PROFILING
     std::vector<std::string> m_zones;
     std::vector<bool> m_zoneBitMask;
     WGPUBuffer m_queryResolveBuffer{ };
@@ -57,20 +62,24 @@ private:
         WGPUStringView message,
         void* info,
         void* _);
-    // #endif
+    #endif
 
     
 public:
-    // Affixes a set number of zones to be run each frame
-    WebGpuProfiler(WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize);
     ~WebGpuProfiler();
+    WebGpuProfiler(const WebGpuProfiler&) = delete;
+    WebGpuProfiler& operator=(const WebGpuProfiler&) = delete;
 
     // Allows for the starting and ending of zones on
     void StartZone(WGPUCommandEncoder encoder, const std::string zoneName);
     void EndZone(WGPUCommandEncoder encoder, const std::string zoneName);
 
-    // Marks that no zones should still be active and that a frame has been finished 
+    // Call after submitting this frame's encoders, with all zones closed.
     void MarkFrameEnd(WGPUDevice device, WGPUQueue queue);
 
     std::vector<RenderFramePerformanceInfo> FlushRecordedTimes();
 };
+
+// Returns null when profiling is unavailable or initialization fails.
+std::unique_ptr<WebGpuProfiler> CreateWebGpuProfiler(
+    WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize);

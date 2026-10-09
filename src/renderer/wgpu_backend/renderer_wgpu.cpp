@@ -225,6 +225,12 @@ bool WGPURenderBackend::InitFrame() {
 }
 
 void WGPURenderBackend::EndFrame() {
+  if (m_profiler) {
+    BeginCommandBuffer("Frame profiling end");
+    m_profiler->EndZone(m_passCommandEncoder, "Frame");
+    EndCommandBuffer();
+    m_profiler->MarkFrameEnd(m_wgpuCore.m_device, m_wgpuQueue);
+  }
   if (m_surfaceTextureView) {
     wgpuTextureViewRelease(m_surfaceTextureView);
   }
@@ -485,6 +491,7 @@ void WGPURenderBackend::DrawImGui() {
 
 #pragma region Interface Impl
 WGPURenderBackend::~WGPURenderBackend() {
+  m_profiler.reset();
   wgpuSurfaceUnconfigure(m_wgpuSurface);
   wgpuSurfaceRelease(m_wgpuSurface);
   wgpuQueueRelease(m_wgpuQueue);
@@ -573,6 +580,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   ProcessDeviceSpecs();
 
   m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuCore.m_device);
+  m_profiler = CreateWebGpuProfiler(m_wgpuCore.m_device, 1, 60);
 
   WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
     .mode = WGPUCallbackMode_AllowProcessEvents,
@@ -1528,6 +1536,11 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   {
       return;
   }
+  if (m_profiler) {
+    BeginCommandBuffer("Frame profiling start");
+    m_profiler->StartZone(m_passCommandEncoder, "Frame");
+    EndCommandBuffer();
+  }
 
   // >>> Begins processing frame information to be ran by renderer <<<
   // Inserts mesh instance information into a single objData vector
@@ -1706,6 +1719,10 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
 
   DrawImGui();
   EndFrame();
+}
+
+std::vector<RenderFramePerformanceInfo> WGPURenderBackend::FlushProfilingZones() {
+  return m_profiler ? m_profiler->FlushRecordedTimes() : std::vector<RenderFramePerformanceInfo>{};
 }
 
 // Adds dynamic lights into scene

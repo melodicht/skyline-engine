@@ -8,6 +8,7 @@
 #include <dynamic_shadow_array.h>
 #include <single_textures_wgpu.h>
 #include <dynamic_light_converter.h>
+#include <profiler_wgpu.h>
 
 #include <skl_math_types.h>
 
@@ -39,6 +40,7 @@ private:
     u32 m_dynamicUniformStrideSize{ 0 };
     b8 m_gettingTimeStampSupported = false;
     b8 m_hardwareDepthClampingSupported = false;
+    std::unique_ptr<WebGpuProfiler> m_profiler;
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUSurfaceTexture m_surfaceTexture{ };
@@ -224,6 +226,6 @@ public:
     void DestroySpotLight(LightID lightID);
     void DestroyPointLight(LightID lightID);
 
-    // Makes sure that profiling zones 
+    // Drains completed GPU profiling batches.
     std::vector<RenderFramePerformanceInfo> FlushProfilingZones();
 };

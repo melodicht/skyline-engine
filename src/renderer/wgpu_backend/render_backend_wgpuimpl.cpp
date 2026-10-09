@@ -45,6 +45,10 @@ void RenderUpdate(RenderFrameInfo& state) {
     wgpuRenderer.RenderUpdate(state);
 }
 
+std::vector<RenderFramePerformanceInfo> FlushProfilingZones() {
+    return wgpuRenderer.FlushProfilingZones();
+}
+
 LightID AddDirLight() {
     return wgpuRenderer.AddDirLight();
 }

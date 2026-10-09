@@ -1,21 +1,27 @@
 #include "profiler_wgpu.h"
 
+#if SKL_ENABLED_PROFILING
 
-// const std::vector<std::string> m_zones;
-// const WGPUBuffer m_currentBuffer;
-// const WGPUQuerySet m_currentQuerySet;
-// const uint64_t m_maxFrames;
-
-// std::vector<uint32_t> m_zoneIds;
-// std::vector<uint64_t> m_frameEndIndices;
-
-// uint64_t m_currentFramesUsed;
-// uint64_t m_totalFrameCounter; 
-
-// #if SKL_ENABLED_PROFILING
-
+#include <algorithm>
 #include "utils_wgpu.h"
 #include "skl_debug.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+// Encoder-level writeTimestamp requires Dawn's allow_unsafe_apis toggle.
+// An empty pass provides a timestamp with the standard TimestampQuery feature.
+static void WriteTimestamp(WGPUCommandEncoder encoder, WGPUQuerySet querySet, uint32_t index) {
+    WGPUPassTimestampWrites timestamps {
+        .querySet = querySet,
+        .beginningOfPassWriteIndex = index,
+        .endOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED
+    };
+    WGPUComputePassDescriptor descriptor { .timestampWrites = &timestamps };
+    WGPUComputePassEncoder pass = wgpuCommandEncoderBeginComputePass(encoder, &descriptor);
+    wgpuComputePassEncoderEnd(pass);
+    wgpuComputePassEncoderRelease(pass);
+}
 
 uint32_t WebGpuProfiler::RegisterZone(const std::string zone) {
     auto matchingZone = std::find(m_zones.begin(), m_zones.end(), zone);
@@ -30,7 +36,15 @@ uint32_t WebGpuProfiler::RegisterZone(const std::string zone) {
 void WebGpuProfiler::AsyncFillFrameBuffer(WGPUDevice device, WGPUQueue queue) {
     // Ensures that frame buffers are simply discared if previous buffers are still being transferred
     // Should be vanishingly unlikely to happen but prevents race condition
-    if (!m_syncData->m_filledFrameBufferInTransit) {
+    bool inTransit = m_syncData->m_filledFrameBufferInTransit;
+    if (!inTransit && m_zoneIds.empty()) {
+        // Empty frames have no timestamps to map (zero-size maps are invalid).
+        std::lock_guard<std::mutex> lock(m_syncData->m_fillBufferMut);
+        for (size_t i = 0; i < m_frameEndIndices.size(); ++i) {
+            m_frameBuffer.push_back({std::vector<uint64_t>(m_zones.size(), 0), m_zones});
+        }
+    }
+    else if (!inTransit) {
         WGPUCommandEncoderDescriptor flushCommandEncoderDesc {
             .nextInChain = nullptr,
             .label = WGPUBackendUtils::wgpuStr("WebGpuProfiler flushing operation command encoder")
@@ -76,11 +90,12 @@ void WebGpuProfiler::AsyncFillFrameBuffer(WGPUDevice device, WGPUQueue queue) {
 
         WGPUBufferMapCallbackInfo callbackInfo = {
             .nextInChain = nullptr,
-            .callback = callback,
             .mode = WGPUCallbackMode_AllowSpontaneous,
+            .callback = callback,
             .userdata1 = callbackData,
             .userdata2 = nullptr
         };
+        m_syncData->m_filledFrameBufferInTransit = true;
         wgpuBufferMapAsync(
             m_cpuMappingBuffer,
             WGPUMapMode_Read,
@@ -91,6 +106,7 @@ void WebGpuProfiler::AsyncFillFrameBuffer(WGPUDevice device, WGPUQueue queue) {
 
     m_currentFramesUsed = 0;
     m_zoneIds.clear();
+    m_frameEndIndices.clear();
     m_zoneBitMask.assign(m_zoneBitMask.size(), false);
 }
 void WebGpuProfiler::FillFrameBuffer(
@@ -98,21 +114,17 @@ void WebGpuProfiler::FillFrameBuffer(
     WGPUStringView message,
     void* info,
     void* _) {
-    FillFrameBufferInfo* fillInfo = static_cast<FillFrameBufferInfo*>(info);
+    std::unique_ptr<FillFrameBufferInfo> fillInfo(static_cast<FillFrameBufferInfo*>(info));
 
     // Checks for destruction or failure
-    std::lock_guard<std::mutex>(fillInfo->m_syncData->m_fillBufferMut);
+    std::lock_guard<std::mutex> lock(fillInfo->m_syncData->m_fillBufferMut);
     if (fillInfo->m_syncData->m_profilerDestructed) {
-        delete fillInfo;
         return;
     }
     
-    ASSERT_PRINT(!fillInfo->m_syncData->m_filledFrameBufferInTransit, "Fill logic set as not in transit despite being in transit");
-
     // Checks for callback failure
     if (status != WGPUMapAsyncStatus_Success) {
         fillInfo->m_syncData->m_filledFrameBufferInTransit = false;
-        delete fillInfo;
         return;
     }
 
@@ -139,17 +151,22 @@ void WebGpuProfiler::FillFrameBuffer(
         frameInfo.zoneNames = zoneNames;
 
         std::vector<uint64_t> frameZoneTimes(zoneNames.size(), 0);
+        std::vector<uint64_t> starts(zoneNames.size(), 0);
+        std::vector<bool> active(zoneNames.size(), false);
         uint64_t iter = i == 0 ? 0 : frameEndIndices[i - 1];
-        uint64_t end = i == frameEndIndices[i];
+        uint64_t end = frameEndIndices[i];
         while (iter < end) {
-            uint64_t& time = frameZoneTimes[vecIds[iter]];
-            if (time == 0) {
-                time = -timestamps[iter];
+            uint32_t zone = vecIds[iter];
+            if (!active[zone]) {
+                starts[zone] = timestamps[iter];
             }
             else {
-                time += timestamps[iter];
+                frameZoneTimes[zone] += timestamps[iter] - starts[zone];
             }
+            active[zone] = !active[zone];
+            ++iter;
         }
+        frameInfo.zoneTimes = std::move(frameZoneTimes);
         ret.push_back(frameInfo);
     }
     fillInfo->m_frameBuffer->insert(fillInfo->m_frameBuffer->end(), ret.begin(), ret.end());
@@ -158,15 +175,18 @@ void WebGpuProfiler::FillFrameBuffer(
     wgpuBufferUnmap(*fillInfo->m_mappedBuffer);
 
     fillInfo->m_syncData->m_filledFrameBufferInTransit = false;
-    delete fillInfo;
 }
 
 WebGpuProfiler::WebGpuProfiler(WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize) :
     m_maxFrames(frameBufferSize),
     m_maxZoneTypes(maxZoneTypes)
     {
-    
-    uint64_t maxTotalZones = maxZoneTypes * frameBufferSize;
+    uint64_t maxTotalZones = 2ull * maxZoneTypes * frameBufferSize;
+    m_zones.reserve(maxZoneTypes);
+    m_frameEndIndices.reserve(frameBufferSize);
+    m_zoneIds.reserve(maxTotalZones);
+    m_zoneBitMask = std::vector(maxZoneTypes, false);
+
     WGPUBufferDescriptor bufferDesc = {
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr("Profiler timestamp buffer"),
@@ -183,73 +203,64 @@ WebGpuProfiler::WebGpuProfiler(WGPUDevice device, uint32_t maxZoneTypes, uint32_
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr("Query set buffer"),
         .type = WGPUQueryType_Timestamp,
-        .count = maxTotalZones
+        .count = static_cast<uint32_t>(maxTotalZones)
     };
 
     m_querySet = wgpuDeviceCreateQuerySet(device, &querySetDesc);
 
-    m_zones.reserve(maxZoneTypes);
-    m_frameEndIndices.reserve(frameBufferSize);
-    m_zoneIds.reserve(maxTotalZones);
-
-    m_zoneBitMask = std::vector(maxZoneTypes, false);
 }
 WebGpuProfiler::~WebGpuProfiler() {
-    std::lock_guard<std::mutex> lock(m_syncData->m_fillBufferMut);
-    m_syncData->m_profilerDestructed = true;
+    {
+        std::lock_guard<std::mutex> lock(m_syncData->m_fillBufferMut);
+        m_syncData->m_profilerDestructed = true;
+    }
 
-    wgpuBufferUnmap(m_cpuMappingBuffer);
-    wgpuBufferDestroy(m_cpuMappingBuffer);
-    wgpuBufferDestroy(m_queryResolveBuffer);
-    wgpuQuerySetDestroy(m_querySet);    
+    if (m_cpuMappingBuffer) {
+        wgpuBufferUnmap(m_cpuMappingBuffer);
+        wgpuBufferDestroy(m_cpuMappingBuffer);
+        wgpuBufferRelease(m_cpuMappingBuffer);
+    }
+    if (m_queryResolveBuffer) {
+        wgpuBufferDestroy(m_queryResolveBuffer);
+        wgpuBufferRelease(m_queryResolveBuffer);
+    }
+    if (m_querySet) {
+        wgpuQuerySetDestroy(m_querySet);
+        wgpuQuerySetRelease(m_querySet);
+    }
 }
 
 // Allows for the starting and ending of zones in command encoders
 void WebGpuProfiler::StartZone(WGPUCommandEncoder encoder, const std::string zoneName) {
-    if (m_currentFramesUsed > m_maxFrames) {
-        return;
-    }
-    
     uint32_t zoneId = RegisterZone(zoneName);
-
-    if (m_zoneBitMask[zoneId]) {
-        ASSERT_PRINT(false, "A zone has been restarted without closing.");
-        return;
-    }
+    ASSERT_PRINT(!m_zoneBitMask[zoneId], "A zone has been restarted without closing.");
 
     m_zoneBitMask[zoneId] = true;
-    wgpuCommandEncoderWriteTimestamp(encoder, m_querySet, m_zoneIds.size());
+    WriteTimestamp(encoder, m_querySet, m_zoneIds.size());
     m_zoneIds.push_back(zoneId);
 }
 void WebGpuProfiler::EndZone(WGPUCommandEncoder encoder, const std::string zoneName) {
-    if (m_currentFramesUsed > m_maxFrames) {
-        return;
-    }
-
     uint32_t zoneId = RegisterZone(zoneName);
-
-    if (!m_zoneBitMask[zoneId]) {
-        ASSERT_PRINT(false, "A zone has been closed without actually starting");
-        return;
-    }
+    ASSERT_PRINT(m_zoneBitMask[zoneId], "A zone has been closed without actually starting");
 
     m_zoneBitMask[zoneId] = false;
-    wgpuCommandEncoderWriteTimestamp(encoder, m_querySet, m_zoneIds.size());
+    WriteTimestamp(encoder, m_querySet, m_zoneIds.size());
     m_zoneIds.push_back(zoneId);
 }
 
 // Marks that no zones should still be active and that a frame has been finished 
 void WebGpuProfiler::MarkFrameEnd(WGPUDevice device, WGPUQueue queue) {
-    if (m_currentFramesUsed > m_maxFrames) {
-        return;
-    }
-
-    ASSERT_PRINT(m_zoneBitMask == std::vector<bool>(m_maxZoneTypes, false), "Zones still in transit across frames.");
+    ASSERT_PRINT(std::find(m_zoneBitMask.begin(), m_zoneBitMask.end(), true) == m_zoneBitMask.end(),
+        "Zones still in transit across frames.");
 
     m_zoneBitMask.assign(m_zoneBitMask.size(), false);
     m_totalFrameCounter += 1;
     m_currentFramesUsed += 1;
     m_frameEndIndices.push_back(m_zoneIds.size());
+    if (m_currentFramesUsed == m_maxFrames) {
+        // Call after submitting all encoders containing this frame's zones.
+        AsyncFillFrameBuffer(device, queue);
+    }
 }
 
 std::vector<RenderFramePerformanceInfo> WebGpuProfiler::FlushRecordedTimes() {
@@ -259,17 +270,67 @@ std::vector<RenderFramePerformanceInfo> WebGpuProfiler::FlushRecordedTimes() {
     return ret;
 }
 
-// #else
-// WebGpuProfiler::WebGpuProfiler(WGPUDevice device, std::vector<std::string>&& zoneNames, uint64_t size) {
+#else
+WebGpuProfiler::WebGpuProfiler(WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize) {}
+WebGpuProfiler::~WebGpuProfiler() = default;
 
-// }
+// Allows for the starting and ending of zones on
+void WebGpuProfiler::StartZone(WGPUCommandEncoder encoder, const std::string zoneName) {}
+void WebGpuProfiler::EndZone(WGPUCommandEncoder encoder, const std::string zoneName) {}
 
-// // Allows for the starting and ending of zones on
-// void WebGpuProfiler::StartZone(WGPUCommandEncoder encoder, const std::string zoneName) {}
-// void WebGpuProfiler::EndZone(WGPUCommandEncoder encoder, const std::string zoneName) {}
+void WebGpuProfiler::MarkFrameEnd(WGPUDevice device, WGPUQueue queue) {}
 
-// // Marks that no zones should still be active and that a frame has been finished 
-// void WebGpuProfiler::MarkFrameEnd() {}
+std::vector<RenderFramePerformanceInfo> WebGpuProfiler::FlushRecordedTimes() { return {}; }
+#endif
 
-// std::vector<RenderFramePerformanceInfo> FlushRecordedTimes();
-// #endif
+std::unique_ptr<WebGpuProfiler> CreateWebGpuProfiler(
+    WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize) {
+#if SKL_ENABLED_PROFILING
+    if (!device || !wgpuDeviceHasFeature(device, WGPUFeatureName_TimestampQuery) ||
+        frameBufferSize == 0 || maxZoneTypes == 0 || maxZoneTypes > 2048 / frameBufferSize) {
+        return nullptr;
+    }
+    // WebGPU may return a non-null error object on creation failure.
+    wgpuDevicePushErrorScope(device, WGPUErrorFilter_Validation);
+    wgpuDevicePushErrorScope(device, WGPUErrorFilter_Internal);
+    wgpuDevicePushErrorScope(device, WGPUErrorFilter_OutOfMemory);
+    std::unique_ptr<WebGpuProfiler> profiler;
+    try {
+        profiler.reset(new WebGpuProfiler(device, maxZoneTypes, frameBufferSize));
+    }
+    catch (const std::bad_alloc&) {}
+
+    struct InitializationResult {
+        std::atomic<uint32_t> pending{3};
+        std::atomic<bool> failed{false};
+    } result;
+    WGPUPopErrorScopeCallbackInfo callbackInfo {
+        .mode = WGPUCallbackMode_AllowSpontaneous,
+        .callback = [](WGPUPopErrorScopeStatus status, WGPUErrorType type, WGPUStringView, void* info, void*) {
+            auto* result = static_cast<InitializationResult*>(info);
+            if (status != WGPUPopErrorScopeStatus_Success || type != WGPUErrorType_NoError) {
+                result->failed = true;
+            }
+            --result->pending;
+        },
+        .userdata1 = &result
+    };
+    for (uint32_t i = 0; i < 3; ++i) {
+        wgpuDevicePopErrorScope(device, callbackInfo);
+    }
+    while (result.pending) {
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(1);
+#else
+        std::this_thread::yield();
+#endif
+    }
+    if (result.failed || !profiler || !profiler->m_queryResolveBuffer ||
+        !profiler->m_cpuMappingBuffer || !profiler->m_querySet) {
+        return nullptr;
+    }
+    return profiler;
+#else
+    return nullptr;
+#endif
+}

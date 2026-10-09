@@ -628,6 +628,11 @@ SDL_WindowFlags GetRenderWindowFlags()
     return SDL_WINDOW_VULKAN;
 }
 
+std::vector<RenderFramePerformanceInfo> FlushProfilingZones()
+{
+    return {};
+}
+
 // Initialize the rendering API
 void InitRenderer(RenderInitInfo& info)
 {

@@ -46,6 +46,7 @@ endif()
 
 set(SKL_WGPU_SOURCES
         renderer_wgpu.cpp 
+        profiler_wgpu.cpp
         render_backend_wgpuimpl.cpp
         utils_wgpu.cpp
         bind_group_wgpu.cpp

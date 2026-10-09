@@ -61,7 +61,7 @@ static void profilerUpdateLatency(f64 extraTimeMs = 0.0) {
     f64 beforeRatio = (f64)(ProfilerState::movingWindow - 1) / (f64)ProfilerState::movingWindow;
     ProfilerState::movingAverageLatency = ProfilerState::movingAverageLatency * beforeRatio + latency * mainRatio;
 }
-#define PROFILE_SENT_FRAME(extraTimeMs) profilerUpdateLatency(extraTimeMs)
+#define PROFILE_SENT_FRAME(...) profilerUpdateLatency(__VA_ARGS__)
 
 static void profilerLogState() {
     LOG("Staggered frames in the last " << ProfilerState::staggerWindow.size() << " frames: " << ProfilerState::staggerCount);
@@ -158,7 +158,7 @@ private:
 #define PROFILE_LOG_FRAME() ((void)0)
 
 #define PROFILE_INPUT_POLLED() ((void)0)
-#define PROFILE_SENT_FRAME() ((void)0)
+#define PROFILE_SENT_FRAME(...) ((void)0)
 
 #define PROFILE_OUTPUT_LOG() ((void)0)
 
