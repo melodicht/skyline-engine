@@ -70,9 +70,10 @@ public:
     WebGpuProfiler(const WebGpuProfiler&) = delete;
     WebGpuProfiler& operator=(const WebGpuProfiler&) = delete;
 
-    // Allows for the starting and ending of zones on
-    void StartZone(WGPUCommandEncoder encoder, const std::string zoneName);
-    void EndZone(WGPUCommandEncoder encoder, const std::string zoneName);
+    // Attach these writes to real pass descriptors. The returned descriptor
+    // must be consumed by BeginRenderPass/BeginComputePass before marking the frame.
+    WGPUPassTimestampWrites StartZone(const std::string zoneName);
+    WGPUPassTimestampWrites EndZone(const std::string zoneName);
 
     // Call after submitting this frame's encoders, with all zones closed.
     void MarkFrameEnd(WGPUDevice device, WGPUQueue queue);

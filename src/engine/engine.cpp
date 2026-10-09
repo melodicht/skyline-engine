@@ -205,6 +205,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     scene.UpdateVariableTimestepSystems(&input, frameTime);
     PROFILE_ZONE_END(variableUpdateZone);
     
+    PROFILE_GPU_FRAME(renderer);
     PROFILE_ZONE_BEGIN(drawSceneZone, "Draw Scene");
     DrawScene(*gameState, input, frameTime);
     PROFILE_ZONE_END(drawSceneZone);

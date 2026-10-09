@@ -90,12 +90,3 @@ struct RenderDestroyMeshInfo {
     // WGPU Specific
 };
 void DestroyMesh(RenderDestroyMeshInfo& info);
-
-// GPU zone durations in nanoseconds, indexed by zoneNames.
-struct RenderFramePerformanceInfo {
-    std::vector<uint64_t> zoneTimes;
-    std::vector<std::string> zoneNames;
-};
-
-// Drains completed GPU profiling batches; returns empty when unavailable.
-std::vector<RenderFramePerformanceInfo> FlushProfilingZones();

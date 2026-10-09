@@ -5,6 +5,7 @@
 #include <array>
 #include <chrono>
 #include <meta_definitions.h>
+#include <render_game.h>
 
 // Gets current monotonic time in milliseconds.
 inline f64 ProfileGetCurrentTime()
@@ -26,6 +27,8 @@ struct ProfilerState
     // Timestamp and average latency are both in milliseconds.
     inline static f64 startTime{ 0 };
     inline static f64 movingAverageLatency{ 0 };
+    inline static f64 movingAverageGpuTime{ 0 };
+    inline static b8 hasGpuTime{ false };
 };
 
 
@@ -63,9 +66,35 @@ static void profilerUpdateLatency(f64 extraTimeMs = 0.0) {
 }
 #define PROFILE_SENT_FRAME(...) profilerUpdateLatency(__VA_ARGS__)
 
+// Read completed frames before submitting new work; GPU results arrive in batches.
+static void profilerUpdateGpuTime(const PlatformRenderer& renderer) {
+    for (const auto& frame : renderer.FlushProfilingZones()) {
+        for (siz zone = 0; zone < frame.zoneNames.size() && zone < frame.zoneTimes.size(); ++zone) {
+            // Use the enclosing Frame zone so nested zones aren't counted twice.
+            if (frame.zoneNames[zone] != "Frame") {
+                continue;
+            }
+            f64 timeMs = static_cast<f64>(frame.zoneTimes[zone]) / 1000000.0;
+            if (!ProfilerState::hasGpuTime) {
+                ProfilerState::movingAverageGpuTime = timeMs;
+                ProfilerState::hasGpuTime = true;
+            }
+            else {
+                ProfilerState::movingAverageGpuTime +=
+                    (timeMs - ProfilerState::movingAverageGpuTime) / ProfilerState::movingWindow;
+            }
+            break;
+        }
+    }
+}
+#define PROFILE_GPU_FRAME(renderer) profilerUpdateGpuTime(renderer)
+
 static void profilerLogState() {
     LOG("Staggered frames in the last " << ProfilerState::staggerWindow.size() << " frames: " << ProfilerState::staggerCount);
     LOG("Moving average of latency " << ProfilerState::movingAverageLatency << " ms");
+    if (ProfilerState::hasGpuTime) {
+        LOG("Moving average of GPU processing time " << ProfilerState::movingAverageGpuTime << " ms");
+    }
 }
 
 #define PROFILE_OUTPUT_LOG() profilerLogState()
@@ -159,6 +188,7 @@ private:
 
 #define PROFILE_INPUT_POLLED() ((void)0)
 #define PROFILE_SENT_FRAME(...) ((void)0)
+#define PROFILE_GPU_FRAME(renderer) ((void)0)
 
 #define PROFILE_OUTPUT_LOG() ((void)0)
 

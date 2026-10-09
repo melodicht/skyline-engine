@@ -9,20 +9,6 @@
 #include <emscripten.h>
 #endif
 
-// Encoder-level writeTimestamp requires Dawn's allow_unsafe_apis toggle.
-// An empty pass provides a timestamp with the standard TimestampQuery feature.
-static void WriteTimestamp(WGPUCommandEncoder encoder, WGPUQuerySet querySet, uint32_t index) {
-    WGPUPassTimestampWrites timestamps {
-        .querySet = querySet,
-        .beginningOfPassWriteIndex = index,
-        .endOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED
-    };
-    WGPUComputePassDescriptor descriptor { .timestampWrites = &timestamps };
-    WGPUComputePassEncoder pass = wgpuCommandEncoderBeginComputePass(encoder, &descriptor);
-    wgpuComputePassEncoderEnd(pass);
-    wgpuComputePassEncoderRelease(pass);
-}
-
 uint32_t WebGpuProfiler::RegisterZone(const std::string zone) {
     auto matchingZone = std::find(m_zones.begin(), m_zones.end(), zone);
     if (matchingZone == m_zones.end()) {
@@ -230,22 +216,32 @@ WebGpuProfiler::~WebGpuProfiler() {
     }
 }
 
-// Allows for the starting and ending of zones in command encoders
-void WebGpuProfiler::StartZone(WGPUCommandEncoder encoder, const std::string zoneName) {
+// Use real passes: Metal does not reliably write timestamps for empty encoders.
+WGPUPassTimestampWrites WebGpuProfiler::StartZone(const std::string zoneName) {
     uint32_t zoneId = RegisterZone(zoneName);
     ASSERT_PRINT(!m_zoneBitMask[zoneId], "A zone has been restarted without closing.");
 
     m_zoneBitMask[zoneId] = true;
-    WriteTimestamp(encoder, m_querySet, m_zoneIds.size());
+    uint32_t queryIndex = static_cast<uint32_t>(m_zoneIds.size());
     m_zoneIds.push_back(zoneId);
+    return {
+        .querySet = m_querySet,
+        .beginningOfPassWriteIndex = queryIndex,
+        .endOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED
+    };
 }
-void WebGpuProfiler::EndZone(WGPUCommandEncoder encoder, const std::string zoneName) {
+WGPUPassTimestampWrites WebGpuProfiler::EndZone(const std::string zoneName) {
     uint32_t zoneId = RegisterZone(zoneName);
     ASSERT_PRINT(m_zoneBitMask[zoneId], "A zone has been closed without actually starting");
 
     m_zoneBitMask[zoneId] = false;
-    WriteTimestamp(encoder, m_querySet, m_zoneIds.size());
+    uint32_t queryIndex = static_cast<uint32_t>(m_zoneIds.size());
     m_zoneIds.push_back(zoneId);
+    return {
+        .querySet = m_querySet,
+        .beginningOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED,
+        .endOfPassWriteIndex = queryIndex
+    };
 }
 
 // Marks that no zones should still be active and that a frame has been finished 
@@ -274,9 +270,14 @@ std::vector<RenderFramePerformanceInfo> WebGpuProfiler::FlushRecordedTimes() {
 WebGpuProfiler::WebGpuProfiler(WGPUDevice device, uint32_t maxZoneTypes, uint32_t frameBufferSize) {}
 WebGpuProfiler::~WebGpuProfiler() = default;
 
-// Allows for the starting and ending of zones on
-void WebGpuProfiler::StartZone(WGPUCommandEncoder encoder, const std::string zoneName) {}
-void WebGpuProfiler::EndZone(WGPUCommandEncoder encoder, const std::string zoneName) {}
+WGPUPassTimestampWrites WebGpuProfiler::StartZone(const std::string zoneName) {
+    return { .beginningOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED,
+             .endOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED };
+}
+WGPUPassTimestampWrites WebGpuProfiler::EndZone(const std::string zoneName) {
+    return { .beginningOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED,
+             .endOfPassWriteIndex = WGPU_QUERY_SET_INDEX_UNDEFINED };
+}
 
 void WebGpuProfiler::MarkFrameEnd(WGPUDevice device, WGPUQueue queue) {}
 

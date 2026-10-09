@@ -1,10 +1,16 @@
 #pragma once
 
-#include <render_types.h>
 #include <meta_definitions.h>
 #include <skl_math_types.h>
+#include <render_types.h>
 
 // The subset of renderer interface used by the game module.
+
+// GPU zone durations in nanoseconds, indexed by zoneNames.
+struct RenderFramePerformanceInfo {
+    std::vector<uint64_t> zoneTimes;
+    std::vector<std::string> zoneNames;
+};
 
 struct MeshRenderInfo {
     // Shared
@@ -97,6 +103,7 @@ struct RenderFrameInfo {
     SceneLightingRenderInfo sceneLighting;
 };
 
+// FlushProfilingZones drains completed GPU batches; returns empty when unavailable.
 #define RENDERER_FUNCS(method) \
     method(LightID,AddDirLight,())\
     method(LightID,AddSpotLight,())\
@@ -105,5 +112,6 @@ struct RenderFrameInfo {
     method(void,DestroySpotLight,(LightID lightID))\
     method(void,DestroyPointLight,(LightID lightID))\
     method(u32,GetIndexAtCursor,())\
-    method(void,RenderUpdate,(RenderFrameInfo& state))
+    method(void,RenderUpdate,(RenderFrameInfo& state))\
+    method(std::vector<RenderFramePerformanceInfo>,FlushProfilingZones,())
 DEFINE_GAME_MODULE_API(PlatformRenderer, RENDERER_FUNCS)

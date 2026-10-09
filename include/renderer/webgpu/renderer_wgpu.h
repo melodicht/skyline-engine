@@ -41,6 +41,7 @@ private:
     b8 m_gettingTimeStampSupported = false;
     b8 m_hardwareDepthClampingSupported = false;
     std::unique_ptr<WebGpuProfiler> m_profiler;
+    b8 m_frameProfilingStarted{ false };
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUSurfaceTexture m_surfaceTexture{ };

@@ -226,10 +226,9 @@ bool WGPURenderBackend::InitFrame() {
 
 void WGPURenderBackend::EndFrame() {
   if (m_profiler) {
-    BeginCommandBuffer("Frame profiling end");
-    m_profiler->EndZone(m_passCommandEncoder, "Frame");
-    EndCommandBuffer();
+    // DrawImGui submitted the final pass containing the frame's end timestamp.
     m_profiler->MarkFrameEnd(m_wgpuCore.m_device, m_wgpuQueue);
+    m_frameProfilingStarted = false;
   }
   if (m_surfaceTextureView) {
     wgpuTextureViewRelease(m_surfaceTextureView);
@@ -380,6 +379,15 @@ void WGPURenderBackend::BeginPass(
 
   m_renderPassActive = true;
 
+  // The first scene pass includes shadow rendering when present, otherwise
+  // the depth prepass. Keep the start timestamp on that real render pass.
+  WGPUPassTimestampWrites timestampWrites{};
+  const bool startFrameProfiling = m_profiler && !m_frameProfilingStarted;
+  if (startFrameProfiling) {
+    timestampWrites = m_profiler->StartZone("Frame");
+    m_frameProfilingStarted = true;
+  }
+
   // Sets up pass encoder
   WGPURenderPassDescriptor passDescriptor {
     .nextInChain = nullptr,
@@ -387,7 +395,7 @@ void WGPURenderBackend::BeginPass(
     .colorAttachmentCount = colorPassAttachment != nullptr,
     .colorAttachments = colorPassAttachment,
     .depthStencilAttachment = depthStencilAttachment,
-    .timestampWrites = nullptr,
+    .timestampWrites = startFrameProfiling ? &timestampWrites : nullptr,
   };
   m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &passDescriptor);
 
@@ -459,13 +467,18 @@ void WGPURenderBackend::DrawImGui() {
     .stencilReadOnly = true,
   };
 
+  WGPUPassTimestampWrites timestampWrites{};
+  if (m_profiler) {
+    timestampWrites = m_profiler->EndZone("Frame");
+  }
+
   WGPURenderPassDescriptor meshPassDesc {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("Imgui render pass"),
     .colorAttachmentCount = 1,
     .colorAttachments = &meshColorPass,
     .depthStencilAttachment = &depthStencilAttachment,
-    .timestampWrites = nullptr,
+    .timestampWrites = m_profiler ? &timestampWrites : nullptr,
   };
 
   WGPURenderPassEncoder imguiPassEncoder = wgpuCommandEncoderBeginRenderPass(imguiCommandEncoder, &meshPassDesc);
@@ -1536,12 +1549,6 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   {
       return;
   }
-  if (m_profiler) {
-    BeginCommandBuffer("Frame profiling start");
-    m_profiler->StartZone(m_passCommandEncoder, "Frame");
-    EndCommandBuffer();
-  }
-
   // >>> Begins processing frame information to be ran by renderer <<<
   // Inserts mesh instance information into a single objData vector
   std::map<MeshID, u32> meshCounts;
