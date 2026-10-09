@@ -80,14 +80,6 @@ struct PlatformAPI
 struct ImGuiContext;
 struct DebugState;
 
-#if SKL_ENABLED_PROFILING
-struct ProfilerState
-{
-    u32 frameCount{ 0 };
-    u32 staggerCount{ 0 };
-};
-#endif
-
 struct GameMemory
 {
     void* fixedSizeStorage;
@@ -102,10 +94,6 @@ struct GameMemory
 #if SKL_INTERNAL
     void* debugStorage;
     DebugState* debugState;
-#endif
-
-#if SKL_ENABLED_PROFILING
-    ProfilerState profilerState;
 #endif
 
     PlatformAPI platformAPI;

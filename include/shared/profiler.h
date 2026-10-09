@@ -1,18 +1,74 @@
 #pragma once
 
-// PROFILE_ZONE_BEGIN(handle, "name") starts a zone that can be ended early
-// with PROFILE_ZONE_END(handle). It also ends automatically on scope exit.
-// Use distinct handles in the same scope. End nested zones innermost-first,
-// on the same thread where they began.
-// PROFILE_FRAME_END() marks one application-frame boundary, not a zone end.
-
 #if SKL_ENABLED_PROFILING
 
+#include <array>
+#include <chrono>
 #include <meta_definitions.h>
 
-#define PROFILE_LOG_STAGGER(memory) (++(memory).profilerState.staggerCount)
-#define PROFILE_LOG_FRAME(memory) (++(memory).profilerState.frameCount)
-#define PROFILE_OUTPUT_LOG(memory) LOG("Average stagger per frame " << ((f32)(memory).profilerState.staggerCount / (f32)(memory).profilerState.frameCount))
+// Gets current monotonic time in milliseconds.
+inline f64 ProfileGetCurrentTime()
+{
+    return std::chrono::duration<f64, std::milli>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+// Inline static members share storage across translation units. These stats
+// belong to the module using them, not persistent game memory; hot reload may
+// reset them. Update them only from the main thread.
+struct ProfilerState
+{
+    inline static std::array<b8, 128> staggerWindow{ 0 };
+    inline static u32 staggerCount{ 0 };
+    inline static u32 staggerIter { 0 };
+
+    inline static u32 movingWindow{ 60 };
+    // Timestamp and average latency are both in milliseconds.
+    inline static f64 startTime{ 0 };
+    inline static f64 movingAverageLatency{ 0 };
+};
+
+
+static void profilerLogStagger() {
+    auto& staggered = ProfilerState::staggerWindow[ProfilerState::staggerIter];
+    if (!staggered) {
+        staggered = true;
+        ++ProfilerState::staggerCount;
+    }
+}
+// Call once at the start of each frame, before recording any stagger.
+static void profilerLogFrame() {
+    ProfilerState::staggerIter = (1 + ProfilerState::staggerIter) % ProfilerState::staggerWindow.size();
+    auto& staggered = ProfilerState::staggerWindow[ProfilerState::staggerIter];
+    if (staggered) {
+        --ProfilerState::staggerCount;
+        staggered = false;
+    }
+}
+#define PROFILE_LOG_STAGGER() profilerLogStagger()
+#define PROFILE_LOG_FRAME() profilerLogFrame()
+
+#define PROFILE_INPUT_POLLED() ProfilerState::startTime = ProfileGetCurrentTime()
+static void profilerUpdateLatency(f64 extraTimeMs = 0.0) {
+    f64 latency = (ProfileGetCurrentTime() - ProfilerState::startTime) + extraTimeMs;
+
+    if (ProfilerState::movingAverageLatency == 0) {
+        ProfilerState::movingAverageLatency = latency;
+        return;
+    }
+
+    f64 mainRatio = (f64)1 / (f64)ProfilerState::movingWindow;
+    f64 beforeRatio = (f64)(ProfilerState::movingWindow - 1) / (f64)ProfilerState::movingWindow;
+    ProfilerState::movingAverageLatency = ProfilerState::movingAverageLatency * beforeRatio + latency * mainRatio;
+}
+#define PROFILE_SENT_FRAME(extraTimeMs) profilerUpdateLatency(extraTimeMs)
+
+static void profilerLogState() {
+    LOG("Staggered frames in the last " << ProfilerState::staggerWindow.size() << " frames: " << ProfilerState::staggerCount);
+    LOG("Moving average of latency " << ProfilerState::movingAverageLatency << " ms");
+}
+
+#define PROFILE_OUTPUT_LOG() profilerLogState()
 
 #if EMSCRIPTEN
 #define PROFILE_INITIALIZE() ((void)0)
@@ -98,8 +154,12 @@ private:
 #define PROFILE_ZONE_BEGIN(handle, name) ((void)0)
 #define PROFILE_ZONE_END(handle) ((void)0)
 
-#define PROFILE_LOG_STAGGER(memory) ((void)0)
-#define PROFILE_LOG_FRAME(memory) ((void)0)
-#define PROFILE_OUTPUT_LOG(memory) ((void)0)
+#define PROFILE_LOG_STAGGER() ((void)0)
+#define PROFILE_LOG_FRAME() ((void)0)
+
+#define PROFILE_INPUT_POLLED() ((void)0)
+#define PROFILE_SENT_FRAME() ((void)0)
+
+#define PROFILE_OUTPUT_LOG() ((void)0)
 
 #endif

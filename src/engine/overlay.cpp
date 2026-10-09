@@ -1,6 +1,6 @@
 #include <overlay.h>
 #include <meta_definitions.h>
-#include <debug.h>
+#include <skl_debug.h>
 #include <imgui.h>
 #include <engine.h>
 

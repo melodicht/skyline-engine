@@ -13,7 +13,7 @@
 #include <emscripten/html5.h>
 #endif
 
-#include <debug.h>
+#include <skl_debug.h>
 #include <profiler.h>
 #include <game_platform.h>
 #include <render_backend.h>

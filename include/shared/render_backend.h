@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 #include <array>
 
 #include <SDL3/SDL.h>
@@ -88,3 +89,11 @@ struct RenderDestroyMeshInfo {
     // WGPU Specific
 };
 void DestroyMesh(RenderDestroyMeshInfo& info);
+
+// Gets all profile zones stored, simply returns an empty vector if SKL_ENABLE_PROFILING
+// is turned off
+struct RenderFramePerformanceInfo {
+    std::vector<uint64_t> zoneTimes;
+    std::vector<std::string> zoneNames;
+};
+std::vector<RenderFramePerformanceInfo> FlushProfilingZones();

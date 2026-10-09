@@ -1,7 +1,7 @@
 #pragma once
 
 template<typename T, void(*ReleaseFunc)(T)>
-struct Guard{ 
+struct Guard { 
 private:
     T m_data;
 

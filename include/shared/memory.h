@@ -3,7 +3,7 @@
 #include <cstring>
 
 #include <memory_types.h>
-#include <debug.h>
+#include <skl_debug.h>
 
 #if SKL_INTERNAL
 #define INTERNAL_MEMORY_PARAM const char *internalDebugID, 

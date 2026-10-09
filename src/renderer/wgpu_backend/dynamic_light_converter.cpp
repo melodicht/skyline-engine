@@ -2,7 +2,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <skl_math_utils.h>
-#include <debug.h>
+#include <skl_debug.h>
 
 // Only really needs to set near plane logic
 DynamicLightConverter::DynamicLightConverter(f32 defaultNearPlaneDistance) : m_defaultNearPlaneDistance(defaultNearPlaneDistance) {}

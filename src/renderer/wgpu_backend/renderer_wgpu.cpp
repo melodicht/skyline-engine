@@ -2,6 +2,7 @@
 #include <utils_wgpu.h>
 #include <sdl3webgpu.h>
 
+#include <profiler.h>
 #include <meta_definitions.h>
 #include <skl_math_utils.h>
 #include <wgsl_macro_processor.h>
@@ -228,6 +229,8 @@ void WGPURenderBackend::EndFrame() {
     wgpuTextureViewRelease(m_surfaceTextureView);
   }
 
+
+  PROFILE_SENT_FRAME();
   #ifndef __EMSCRIPTEN__
   wgpuSurfacePresent(m_wgpuSurface);
   wgpuInstanceProcessEvents(m_wgpuCore.m_instance);  
@@ -520,6 +523,8 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
 
   LOG("Extracting capabilities...");
 
+  m_gettingTimeStampSupported = wgpuAdapterHasFeature(adapter, WGPUFeatureName_TimestampQuery);
+  LOG("TIME QUERY SUPPORTED: " << m_gettingTimeStampSupported);
   m_hardwareDepthClampingSupported = wgpuAdapterHasFeature(adapter, WGPUFeatureName_DepthClipControl);
   LOG("DEPTH CLAMPING SUPPORTED: " << m_hardwareDepthClampingSupported);
 
@@ -533,13 +538,19 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   deviceRequirements.maxBindingsPerBindGroup = 10;
   deviceRequirements.maxTextureArrayLayers = 2048;
 
-  WGPUFeatureName depthClamping = WGPUFeatureName_DepthClipControl;
+  std::vector<WGPUFeatureName> features;
+  if (m_gettingTimeStampSupported) {
+    features.push_back(WGPUFeatureName_TimestampQuery);
+  }
+  if (m_hardwareDepthClampingSupported) {
+    features.push_back(WGPUFeatureName_DepthClipControl);
+  }
 
   WGPUDeviceDescriptor deviceDesc = {
     .nextInChain = nullptr,
     .label = WGPUBackendUtils::wgpuStr("My Device"),
-    .requiredFeatureCount = 1,
-    .requiredFeatures = &depthClamping,
+    .requiredFeatureCount = features.size(),
+    .requiredFeatures = features.data(),
     .requiredLimits = &deviceRequirements,
     .defaultQueue {
       .nextInChain = nullptr,

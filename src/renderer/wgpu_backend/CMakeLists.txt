@@ -99,3 +99,8 @@ target_link_libraries(wgpu-backend PRIVATE
         glm::glm
         imgui
         skl-utils)
+
+if(NOT EMSCRIPTEN)
+        # profiler.h needs Tracy's headers and compile definitions in this target.
+        target_link_libraries(wgpu-backend PRIVATE Tracy::TracyClient)
+endif()

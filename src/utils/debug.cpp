@@ -1,6 +1,6 @@
 #if SKL_DEBUG_MEMORY_VIEWER
 #include <meta_definitions.h>
-#include <debug.h>
+#include <skl_debug.h>
 #include <memory.h>
 
 constexpr u32 DEBUG_STORAGE_SIZE = Megabytes(256);

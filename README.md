@@ -85,7 +85,7 @@ Contains the header files that are shared between multiple different modules
   - game.h (holds the components of the ECS)
     - game_platform.h (mentioning it here because it is within game.h)
     - thread_safe_primtives.h
-    - debug.h
+    - skl_debug.h
     - GLM
     - Jolt
     - renderer

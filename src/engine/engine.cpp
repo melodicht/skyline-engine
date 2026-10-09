@@ -7,7 +7,7 @@
 #include <editor.h>
 #endif
 
-#include <debug.h>
+#include <skl_debug.h>
 #include <engine.h>
 #include <profiler.h>
 #include <game.h>
@@ -158,7 +158,7 @@ __declspec(dllexport)
 #endif
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
-    PROFILE_LOG_FRAME(memory);
+    PROFILE_LOG_FRAME();
     DebugUpdate(memory);
     
     ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
@@ -174,7 +174,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     if (fixedTime > fixedTimeCap) {
         fixedTime = fixedTimeCap;
         LOG("Fixed timestep update is staggering");
-        PROFILE_LOG_STAGGER(memory);
+        PROFILE_LOG_STAGGER();
     }
 
     // TODO(marvin): Use the interpolation technique.
@@ -187,6 +187,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     fixedInput.merge(input);
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
+        PROFILE_INPUT_POLLED();
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             PROFILE_ZONE_BEGIN(fixedUpdateZone, "Fixed Timestep Update");
@@ -208,7 +209,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     DrawScene(*gameState, input, frameTime);
     PROFILE_ZONE_END(drawSceneZone);
     LogDebugRecords();
-    PROFILE_OUTPUT_LOG(memory);
+    PROFILE_OUTPUT_LOG();
 }
 
 // NOTE(marvin): Our logger doesn't have string format...

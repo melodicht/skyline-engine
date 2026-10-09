@@ -37,6 +37,7 @@ private:
     // Represents limits of gpu
     u32 m_defaultArrayMax{ 4096 };
     u32 m_dynamicUniformStrideSize{ 0 };
+    b8 m_gettingTimeStampSupported = false;
     b8 m_hardwareDepthClampingSupported = false;
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
@@ -222,4 +223,7 @@ public:
     void DestroyDirLight(LightID lightID);
     void DestroySpotLight(LightID lightID);
     void DestroyPointLight(LightID lightID);
+
+    // Makes sure that profiling zones 
+    std::vector<RenderFramePerformanceInfo> FlushProfilingZones();
 };
