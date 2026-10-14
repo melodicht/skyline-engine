@@ -5,7 +5,7 @@ InputSpecification::PlayerInput GatherPollingSDL(const InputSpecification& speci
     switch (e.type)
     {
         case SDL_EVENT_KEY_DOWN:
-            for (int i = 0 ; i < specification.m_buttonSpecification.size() ; i++) {
+            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
                 if (auto* p = std::get_if<KeyBoardStroke>(&specification.m_buttonSpecification[i].inputType)) {
                     if (e.key.key == p->m_keycode) {
                         specification.SetButtonDown(ret, specification.m_buttonBaseId + i, true);
@@ -14,7 +14,7 @@ InputSpecification::PlayerInput GatherPollingSDL(const InputSpecification& speci
             }
             break;
         case SDL_EVENT_KEY_UP:
-            for (int i = 0 ; i < specification.m_buttonSpecification.size() ; i++) {
+            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
                 if (auto* p = std::get_if<KeyBoardStroke>(&specification.m_buttonSpecification[i].inputType)) {
                     if (e.key.key == p->m_keycode) {
                         specification.SetButtonDown(ret, specification.m_buttonBaseId + i, false);
@@ -23,7 +23,7 @@ InputSpecification::PlayerInput GatherPollingSDL(const InputSpecification& speci
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            for (int i = 0 ; i < specification.m_buttonSpecification.size() ; i++) {
+            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
                 if (auto* p = std::get_if<MouseClick>(&specification.m_buttonSpecification[i].inputType)) {
                     if (p->m_clickIndex == e.button.button) {
                         specification.SetButtonDown(ret, specification.m_buttonBaseId + i, true);
@@ -32,10 +32,10 @@ InputSpecification::PlayerInput GatherPollingSDL(const InputSpecification& speci
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            for (int i = 0 ; i < specification.m_buttonSpecification.size() ; i++) {
+            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
                 if (auto* p = std::get_if<MouseClick>(&specification.m_buttonSpecification[i].inputType)) {
                     if (p->m_clickIndex == e.button.button) {
-                        specification.SetButtonDown(ret, specification.m_buttonBaseId + i, true);
+                        specification.SetButtonDown(ret, specification.m_buttonBaseId + i, false);
                     }
                 }
             }
@@ -44,16 +44,18 @@ InputSpecification::PlayerInput GatherPollingSDL(const InputSpecification& speci
 
     for (int i = 0; i < specification.m_input2dTypeCount; i++) {
         switch (specification.m_input2dTypes[i]) {
-            case Input2DType::MouseLocation:
+            case Input2DType::MouseLocation: {
                 glm::vec2 loc{ };
                 SDL_GetMouseState(&loc.x, &loc.y);
-                specification.Set2dInput(ret, i, loc);
+                specification.Set2dInput(ret, specification.m_input2DBaseId + i, loc);
                 break;
-            case Input2DType::MouseDelta:
+            }
+            case Input2DType::MouseDelta: {
                 glm::vec2 delta{ };
                 SDL_GetRelativeMouseState(&delta.x, &delta.y);
-                specification.Set2dInput(ret, i, delta);
+                specification.Set2dInput(ret, specification.m_input2DBaseId + i, delta);
                 break;
+            }
             default:
                 //ADD FAULT
                 break;

@@ -16,7 +16,7 @@ constexpr u8 MaxInput2dTypeCount = 2;
 // Used to specify specific input types.
 typedef u16 InputTypeID;
 
-constexpr u64 MaxBufferSize = ((MaxButtonTypeCount + 7) / 8) + (MaxInput2dTypeCount * sizeof(MaxInput2dTypeCount));
+constexpr u64 MaxBufferSize = ((MaxButtonTypeCount + 7) / 8) + (MaxInput2dTypeCount * sizeof(glm::vec2));
 // This stores only the data absolutely needed for another client to recreate behavior.
 // Used for networking.
 struct InputBuffer {

@@ -34,23 +34,28 @@ InputSpecification::InputSpecification(
 }
 
 bool InputSpecification::GetButtonDown(const PlayerInput& input, InputTypeID buttonId) const { 
-    return input.inputButtonDown[buttonId + m_buttonBaseId]; 
+    ASSERT_PRINT(buttonId >= m_buttonBaseId && buttonId - m_buttonBaseId < m_buttonTypeCount, "OOB");
+    return input.inputButtonDown[buttonId - m_buttonBaseId];
 }
 bool InputSpecification::GetButtonDownPrevFrame(const PlayerInput& input, InputTypeID buttonId) const {
-    return input.inputButtonPrevDown[buttonId + m_buttonBaseId]; 
+    ASSERT_PRINT(buttonId >= m_buttonBaseId && buttonId - m_buttonBaseId < m_buttonTypeCount, "OOB");
+    return input.inputButtonPrevDown[buttonId - m_buttonBaseId];
 }
 glm::vec2 InputSpecification::Get2DInput(const PlayerInput& input, InputTypeID inputId) const {
-    return input.input2ds[inputId + m_input2DBaseId];
+    ASSERT_PRINT(inputId >= m_input2DBaseId && inputId - m_input2DBaseId < m_input2dTypeCount, "OOB");
+    return input.input2ds[inputId - m_input2DBaseId];
 }
 
 void InputSpecification::SetButtonDown(PlayerInput& input, InputTypeID buttonId, bool set) const { 
-    input.inputButtonDown[buttonId + m_buttonBaseId] = set; 
+    ASSERT_PRINT(buttonId >= m_buttonBaseId && buttonId - m_buttonBaseId < m_buttonTypeCount, "OOB");
+    input.inputButtonDown[buttonId - m_buttonBaseId] = set;
 }
 void InputSpecification::SetButtonDownPrevFrame(PlayerInput& input, const PlayerInput& lastInput) const {
-    input.inputButtonPrevDown = lastInput.inputButtonPrevDown; 
+    input.inputButtonPrevDown = lastInput.inputButtonDown;
 }
 void InputSpecification::Set2dInput(PlayerInput& input, InputTypeID inputId, glm::vec2 set) const {
-    input.input2ds[inputId + m_input2DBaseId] = set;
+    ASSERT_PRINT(inputId >= m_input2DBaseId && inputId - m_input2DBaseId < m_input2dTypeCount, "OOB");
+    input.input2ds[inputId - m_input2DBaseId] = set;
 }
 
 void InputSpecification::MergeInputs(PlayerInput& oldInput, const PlayerInput& newInput) const {
