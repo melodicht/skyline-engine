@@ -4,4 +4,4 @@
 
 #include "input.h"
 
-InputSpecification::PlayerInput GatherPollingSDL(const InputSpecification& specification, const SDL_Event& e, const InputSpecification::PlayerInput& prevInput);
+void GatherPollingSDL(InputSpecification& specification, const SDL_Event& e, std::span<PlayerInput> inputs);

@@ -1,65 +1,56 @@
 #include "sdl_input.h"
 
-InputSpecification::PlayerInput GatherPollingSDL(const InputSpecification& specification, const SDL_Event& e, const InputSpecification::PlayerInput& prevInput) {
-    InputSpecification::PlayerInput ret = prevInput;
-    switch (e.type)
-    {
+void GatherPollingSDL(InputSpecification& specification, const SDL_Event& e, std::span<PlayerInput> inputs) {
+    switch (e.type) {
         case SDL_EVENT_KEY_DOWN:
-            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
-                if (auto* p = std::get_if<KeyBoardStroke>(&specification.m_buttonSpecification[i].inputType)) {
-                    if (e.key.key == p->m_keycode) {
-                        specification.SetButtonDown(ret, specification.m_buttonBaseId + i, true);
-                    }
-                }
-            }
-            break;
         case SDL_EVENT_KEY_UP:
-            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
-                if (auto* p = std::get_if<KeyBoardStroke>(&specification.m_buttonSpecification[i].inputType)) {
-                    if (e.key.key == p->m_keycode) {
-                        specification.SetButtonDown(ret, specification.m_buttonBaseId + i, false);
+            for (const auto& behavior : specification.GetButtonGatherBehavior(ButtonGatherType::KeyBoardStroke)) {
+                if (e.key.key == behavior.m_type.m_keycode) {
+                    auto playerIdx = specification.GetPlayerIdx(behavior.m_playerId);
+                    ASSERT_PRINT(playerIdx < inputs.size(), "OOB");
+                    if (playerIdx < inputs.size()) {
+                        inputs[playerIdx].SetButtonDown(inputs[playerIdx], behavior.m_buttonId, e.type == SDL_EVENT_KEY_DOWN);
                     }
                 }
             }
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
-                if (auto* p = std::get_if<MouseClick>(&specification.m_buttonSpecification[i].inputType)) {
-                    if (p->m_clickIndex == e.button.button) {
-                        specification.SetButtonDown(ret, specification.m_buttonBaseId + i, true);
-                    }
-                }
-            }
-            break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            for (int i = 0 ; i < specification.m_buttonTypeCount ; i++) {
-                if (auto* p = std::get_if<MouseClick>(&specification.m_buttonSpecification[i].inputType)) {
-                    if (p->m_clickIndex == e.button.button) {
-                        specification.SetButtonDown(ret, specification.m_buttonBaseId + i, false);
+            for (const auto& behavior : specification.GetButtonGatherBehavior(ButtonGatherType::MouseClick)) {
+                if (e.button.button == behavior.m_type.m_mouseClickIdx) {
+                    auto playerIdx = specification.GetPlayerIdx(behavior.m_playerId);
+                    ASSERT_PRINT(playerIdx < inputs.size(), "OOB");
+                    if (playerIdx < inputs.size()) {
+                        inputs[playerIdx].SetButtonDown(inputs[playerIdx], behavior.m_buttonId, e.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
                     }
                 }
             }
             break;
     }
 
-    for (int i = 0; i < specification.m_input2dTypeCount; i++) {
-        switch (specification.m_input2dTypes[i]) {
-            case Input2DType::MouseLocation: {
-                glm::vec2 loc{ };
-                SDL_GetMouseState(&loc.x, &loc.y);
-                specification.Set2dInput(ret, specification.m_input2DBaseId + i, loc);
-                break;
+    auto locations = specification.GetInput2dGatherBehavior(Input2dGatherType::MouseLocation);
+    if (!locations.empty()) {
+        glm::vec2 loc{ };
+        SDL_GetMouseState(&loc.x, &loc.y);
+        for (const auto& behavior : locations) {
+            auto playerIdx = behavior.m_playerIdx;
+            ASSERT_PRINT(playerIdx < inputs.size(), "OOB");
+            if (playerIdx < inputs.size()) {
+                inputs[playerIdx].Set2dInput(inputs[playerIdx], behavior.m_buttonId, loc);
             }
-            case Input2DType::MouseDelta: {
-                glm::vec2 delta{ };
-                SDL_GetRelativeMouseState(&delta.x, &delta.y);
-                specification.Set2dInput(ret, specification.m_input2DBaseId + i, delta);
-                break;
-            }
-            default:
-                //ADD FAULT
-                break;
         }
     }
-    return ret;
+
+    auto deltas = specification.GetInput2dGatherBehavior(Input2dGatherType::MouseDelta);
+    if (!deltas.empty()) {
+        glm::vec2 delta{ };
+        SDL_GetRelativeMouseState(&delta.x, &delta.y);
+        for (const auto& behavior : deltas) {
+            auto playerIdx = behavior.m_playerIdx;
+            ASSERT_PRINT(playerIdx < inputs.size(), "OOB");
+            if (playerIdx < inputs.size()) {
+                inputs[playerIdx].Set2dInput(inputs[playerIdx], behavior.m_buttonId, delta);
+            }
+        }
+    }
 }

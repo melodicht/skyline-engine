@@ -69,7 +69,6 @@ typedef size_t   siz;
 #define LOG_ERROR(x) (void)(0)
 
 
-
 #endif
 
 // Misc
@@ -124,7 +123,13 @@ typedef size_t   siz;
 #define TRY_EXPECT(Expression, Expected) ((void)(Expression))
 #endif
 
+// Consteval logic
+inline void CompileTimeError(const char*) {} // not constexpr
 
+consteval void ConstevalCheck(bool cond, const char* msg) {
+    if (!cond) CompileTimeError(msg);
+}
+#define CONSTEVAL_CHECK(cond, msg) ConstevalCheck((cond), (msg))
 
 #define Kilobytes(Expression) ((Expression)*1024LL)
 #define Megabytes(Expression) (Kilobytes(Expression)*1024LL)
