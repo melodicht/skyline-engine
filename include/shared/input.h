@@ -37,21 +37,22 @@ enum class ButtonGatherType : u8{
 };
 struct ButtonGatherTypeInfo {
     union {
+        u8 m_emptyPadding{ 0 };
         SDL_Keycode m_keycode;
         u8 m_mouseClickIdx;
     };
-    ButtonGatherType m_type;
+    ButtonGatherType m_type{ ButtonGatherType::Empty };
 };
-struct ButtonGatherBehavior  {
-    u32 m_playerId;
-    u32 m_buttonId;
-    ButtonGatherTypeInfo m_type;
+struct ButtonGatherSpecification  {
+    u8 m_playerIdx{ 0 };
+    u8 m_buttonIdx{ 0 };
+    ButtonGatherTypeInfo m_type{ 0 };
 };
 
 // How should 2d inputs be merged together
-enum class MergeBehavior2D : u8 {
-    Copy =  0,
-    Add = 1
+enum class MergeBehavior2d : u8 {
+    Copy,
+    Add
 };
 // Specifies how the input 2d is gathered
 enum class Input2dGatherType : u8 {
@@ -60,13 +61,13 @@ enum class Input2dGatherType : u8 {
     MouseDelta,
     Count
 };
-struct Input2dGatherBehavior {
-    u32 m_playerIdx;
-    u32 m_buttonId;
-    Input2dGatherType m_type;
+struct Input2dGatherSpecification {
+    u8 m_playerIdx{ 0 };
+    u8 m_buttonIdx{ 0 };
+    Input2dGatherType m_type{ Input2dGatherType::Empty };
 };
 struct Input2dSpecification {
-    MergeBehavior2D m_mergeBehavior;
+    MergeBehavior2d m_mergeBehavior{ 0 };
 };
 
 template <std::size_t N>
@@ -84,41 +85,21 @@ static void BufferToBitset(std::bitset<N>& out, const std::byte* in, u8 bytes) {
 
 // The raw data used for gameplay code.
 class InputSpecification;
+union SDL_Event;
 
-class PlayerInput {
-private:
-    const InputSpecification* spec{ nullptr };
+struct PlayerData {
     std::bitset<MaxButtonTypeCount> m_inputButtonPrevDown{ 0 };
     std::bitset<MaxButtonTypeCount> m_inputButtonDown{ 0 };
     std::array<glm::vec2, MaxInput2dTypeCount> m_input2ds{ };
-    friend InputSpecification;
-
-public:
-
-    PlayerInput(const InputSpecification& spec, PlayerId playerId);
-
-    bool GetButtonDown(const PlayerInput& input, InputId buttonId) const;
-    bool GetButtonDownPrevFrame(const PlayerInput& input, InputId buttonId) const;
-    glm::vec2 Get2DInput(const PlayerInput& input, InputId inputId) const;
-
-    void SetButtonDown(PlayerInput& input, InputId buttonId, bool set);
-    void SetButtonDownPrevFrame(PlayerInput& input, const PlayerInput& lastInput);
-    void Set2dInput(PlayerInput& input, InputId inputId, glm::vec2 set);
-
-    void MergeInputs(const PlayerInput& newInput);
 };
 
-// Processes a string as
-static constexpr bool IsLetterOrSpace(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ';
-}
 consteval InputId GetInputId(const char* str) {
     CONSTEVAL_CHECK(
-        std::char_traits<char>::length(str) >= sizeof(InputId), 
+        std::char_traits<char>::length(str) <= sizeof(InputId),
         "String is too big to be converted into input id");
 
     std::array<std::byte, sizeof(InputId)> inputIdBuffer{ };
-    for (std::size_t i = 0; i < sizeof(InputId); ++i) {
+    for (std::size_t i = 0; i < std::char_traits<char>::length(str); ++i) {
         inputIdBuffer[i] = static_cast<std::byte>(str[i]);
     }
 
@@ -129,7 +110,7 @@ consteval InputId GetInputId(const char* str) {
 // Assumed to be the same for all clients.
 class InputSpecification {
 private:
-    friend PlayerInput;
+    friend class PlayerInput;
 
     struct GatherRange {
         u32 begin{ 0 };
@@ -137,25 +118,30 @@ private:
     };
 
     // Specifies how a single player input should be 
-    std::array<InputId, MaxButtonTypeCount> m_buttonIds{ };
-    std::array<InputId, MaxButtonTypeCount> m_input2dIds{ };
-    std::array<Input2dSpecification, MaxInput2dTypeCount> m_input2Specs;
+    std::array<InputId, MaxButtonTypeCount> m_buttonIds{ 0 };
+    std::array<InputId, MaxButtonTypeCount> m_input2dIds{ 0 };
+    std::array<Input2dSpecification, MaxInput2dTypeCount> m_input2Specs{ };
 
     // Specifies how to move input to players
     // and how inputs are locally gathered
-    std::array<GatherRange, (size_t)Input2dGatherType::Count> m_buttonGatherRanges;
+    std::array<GatherRange, (size_t)ButtonGatherType::Count> m_buttonGatherRanges;
     std::array<GatherRange, (size_t)Input2dGatherType::Count> m_input2dGatherRanges;
 
     std::vector<PlayerId> m_playerIds{ };
-    std::vector<ButtonGatherBehavior> m_buttonGatherTypes{ };
-    std::vector<Input2dGatherBehavior> m_input2dGatherTypes{ };
-    PlayerId m_playerIdCounter;
+    std::vector<ButtonGatherSpecification> m_buttonGatherTypes{ };
+    std::vector<Input2dGatherSpecification> m_input2dGatherTypes{ };
+
+    // A player id of 0 indicates an error
+    PlayerId m_playerIdCounter{ 1 };
 
     // Specifies the amount of types of player inputs
     u8 m_buttonTypeByteCount{ 0 };
     u8 m_buttonTypeCount{ 0 };
     u8 m_input2dTypeByteCount{ 0 };
     u8 m_input2dTypeCount{ 0 };
+
+    void UpdateGatherRanges();
+    void GetPlayerIdxInner(PlayerId playerId) const;
 public:
     InputSpecification(
         u8 buttonTypeCount,
@@ -163,39 +149,49 @@ public:
         std::array<InputId, MaxButtonTypeCount> buttonIds,
         std::array<InputId, MaxButtonTypeCount> input2dIds);
 
-    // Handles administration of input process spec
-    void AddButton(InputId count);
-    void AddInput2d(InputId count);
-    void RemoveButton(InputId count);
-    void RemoveInput2d(InputId count);
+    // Handles administration of input process spec]
+    u8 GetButtonSpecCount() const;
+    u8 GetInput2dSpecCount() const;
+    void AddButtonSpec(InputId count);
+    void AddInput2dSpec(InputId count);
+    void RemoveButtonSpec(InputId count);
+    void RemoveInput2dSpec(InputId count);
     void SetInput2dSpec(InputId inputId, Input2dSpecification input);
 
     // Handles administration of input gather spec
     PlayerId AddPlayer();
-    void RemovePlayer();
+    void RemovePlayer(PlayerId playerId);
     void AddButtonGatheringSpec(PlayerId playerId, InputId inputId, ButtonGatherTypeInfo info);
     void AddInput2dGatheringSpec(PlayerId playerId, InputId inputId, Input2dGatherType info);
 
     // Uses gather spec
     const u64 GetPlayerIdx(PlayerId playerId) const;
     const u64 GetPlayerCount(PlayerId playerId) const;
-    const std::span<ButtonGatherBehavior> GetButtonGatherBehavior(ButtonGatherType type);
-    const std::span<Input2dGatherBehavior> GetInput2dGatherBehavior(Input2dGatherType type);
+    const std::span<const ButtonGatherSpecification> GetButtonGatherSpecification(ButtonGatherType type) const;
+    const std::span<const Input2dGatherSpecification> GetInput2dGatherSpecification(Input2dGatherType type) const;
 
     // Returns amount read/wrote bytes
-    u32 WriteBuffer(std::byte* buffer, const PlayerInput& input) const;
-    u32 ReadBuffer(const std::byte* buffer, PlayerInput& input) const;
-
-
+    u32 WriteBuffer(std::byte* buffer, const PlayerData& input) const;
+    u32 ReadBuffer(const std::byte* buffer, PlayerData& input) const;
 };
 
-
-
-struct PlayerSpecification {
+// Object exposed to gameplay code.
+// Provides interfaces of gameplay
+class PlayerInput {
 private:
-    std::vector<PlayerId> playerIds{ };
-
-    PlayerId playerIdCounter{ 0 };
+    const InputSpecification& m_inputSpec;
+    PlayerData& m_playerData;
 public:
-    u64 GetPlayerIdIdx(PlayerId id);
+    // The specification and data must outlive this view.
+    PlayerInput(const InputSpecification& spec, PlayerData& data);
+
+    bool GetButtonDown(InputId buttonId) const;
+    bool GetButtonDownPrevFrame(InputId buttonId) const;
+    glm::vec2 Get2dInput(InputId inputId) const;
+
+    void SetButtonDown(InputId buttonId, bool set);
+    void SetButtonDownPrevFrame(const PlayerInput& lastInput);
+    void Set2dInput(InputId inputId, glm::vec2 set);
+
+    void MergeInputs(const PlayerInput& newInput);
 };

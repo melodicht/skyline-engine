@@ -55,9 +55,12 @@ typedef size_t   siz;
 
 
 // Logging
+#if SKL_ENABLED_LOGGING || SKL_SLOW
+#include <iostream>
+#endif
+
 #if SKL_ENABLED_LOGGING
 
-#include <iostream>
 #include <cassert>
 
 #define LOG(x) std::cout << x << std::endl
@@ -108,8 +111,27 @@ typedef size_t   siz;
 
 // Breaks if expression is false, doesn't run at all in release build
 #define ASSERT(Expression) do { if(!(Expression)) { DEBUG_BREAK(); }}while(0)
-//Breaks if expression is false and prints message, doesn't run at all in release build
+// Breaks if expression is false and prints message, doesn't run at all in release build
 #define ASSERT_PRINT(Expression, Message) do{if(!(Expression)) { std::cerr << (Message) << std::endl; DEBUG_BREAK(); }}while(0)
+#define ASSERT_LOG(Expression, Message) do{if(!(Expression)) { LOG_ERROR(Message); DEBUG_BREAK(); }}while(0)
+
+// Always breaks; FAULT_LOG also logs when logging is enabled. Debug builds only.
+#define FAULT() do{ DEBUG_BREAK(); }while(0)
+#define FAULT_LOG(Message) do{ LOG_ERROR(Message); DEBUG_BREAK(); }while(0)
+
+// Guards that assert and(or) logs on debug mode but still checks in release.
+#define TRY_RETURN_PATTERN(Expression, Keyword, ...) \
+    if (!(Expression)) {                             \
+        FAULT();                                     \
+        Keyword __VA_ARGS__;                         \
+    } else                                           \
+        (void)0
+#define TRY_RETURN_LOG_PATTERN(Expression, Message, Keyword, ...) \
+    if (!(Expression)) {                             \
+        FAULT_LOG(Message);                          \
+        Keyword __VA_ARGS__;                         \
+    } else                                           \
+        (void)0
 
 // Breaks if expression is false, keeps just expression in release build
 #define TRY(Expression) do{if (!(Expression)) { DEBUG_BREAK(); }}while(0)
@@ -119,9 +141,38 @@ typedef size_t   siz;
 #else
 #define ASSERT(Expression) ((void)0)
 #define ASSERT_PRINT(Expression, Message) ((void)0)
+#define ASSERT_LOG(Expression, Message) ((void)0)
+#define FAULT() ((void)0)
+#define FAULT_LOG(Message) ((void)0)
+
+#define TRY_RETURN_PATTERN(Expression, Keyword, ...) \
+    if (!(Expression)) {                             \
+        Keyword __VA_ARGS__;                         \
+    } else                                           \
+        (void)0
+#define TRY_RETURN_LOG_PATTERN(Expression, Message, Keyword, ...) \
+    if (!(Expression)) {                             \
+        Keyword __VA_ARGS__;                         \
+    } else                                           \
+        (void)0
+
 #define TRY(Expression) ((void)(Expression))
 #define TRY_EXPECT(Expression, Expected) ((void)(Expression))
+
 #endif
+
+#define TRY_RETURN(Expression, ...) \
+    TRY_RETURN_PATTERN(Expression, return, __VA_ARGS__)
+#define TRY_LOG_RETURN(Expression, Message, ...) \
+    TRY_RETURN_LOG_PATTERN(Expression, Message, return, __VA_ARGS__)
+#define TRY_CONTINUE(Expression) \
+    TRY_RETURN_PATTERN(Expression, continue)
+#define TRY_LOG_CONTINUE(Expression, Message) \
+    TRY_RETURN_LOG_PATTERN(Expression, Message, continue)
+#define TRY_BREAK(Expression) \
+    TRY_RETURN_PATTERN(Expression, break)
+#define TRY_LOG_BREAK(Expression, Message) \
+    TRY_RETURN_LOG_PATTERN(Expression, Message, break)
 
 // Consteval logic
 inline void CompileTimeError(const char*) {} // not constexpr
@@ -212,7 +263,7 @@ inline void CPUPause() {
 #define SKL_AS_HEADER_FUNC(r, n, p);
 #define SKL_AS_CONSTRUCT_INSERT(r, n, p);
 #define SKL_AS_CONSTRUCT_FUNC(name, methods);
-#endif\
+#endif
 
 // Allows for funcs to be passed into the game module as a part of an api struct 
 // while only being declared once
