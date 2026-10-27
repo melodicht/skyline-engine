@@ -22,5 +22,5 @@ private:
 public:
     BuilderSystem(bool slowStep);
 
-    SYSTEM_ON_UPDATE();
+    SYSTEM_ON_UPDATE(Scene &scene, f32 deltaTime);
 };

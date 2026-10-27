@@ -201,18 +201,18 @@ EditorSystem::EditorSystem(EntityID editorCam, OverlayMode *overlayMode) : SYSTE
 
 MAKE_SYSTEM_MANUAL_VTABLE(EditorSystem);
 
-SYSTEM_ON_UPDATE(EditorSystem)
+SYSTEM_ON_UPDATE_MEM(EditorSystem, Scene &scene, GameInput &input, f32 deltaTime)
 {
-    if (OnHold(input, "Mouse 3"))
+    if (OnHold(&input, "Mouse 3"))
     {
-        EditorController *f = scene->Get<EditorController>(this->editorCam);
-        Transform3D *t = scene->Get<Transform3D>(this->editorCam);
+        EditorController *f = scene.Get<EditorController>(this->editorCam);
+        Transform3D *t = scene.Get<Transform3D>(this->editorCam);
 
-        t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
-        t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
+        t->AddLocalRotation({0, 0, input.mouseDeltaX * f->turnSpeed});
+        t->AddLocalRotation({0, input.mouseDeltaY * f->turnSpeed, 0});
         t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
 
-        glm::vec3 movementDirection = GetMovementDirection(input, t);
+        glm::vec3 movementDirection = GetMovementDirection(&input, t);
         t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
 
         // NOTE(marvin): This is so that when the user intends to move
@@ -240,7 +240,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
 
         ImGui::Begin("Overlay", nullptr, window_flags);
 
-        if (OnHold(input, "Mouse 1"))
+        if (OnHold(&input, "Mouse 1"))
         {
             u32 cursorEntityIndex = renderer.GetIndexAtCursor();
             selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
@@ -250,9 +250,9 @@ SYSTEM_ON_UPDATE(EditorSystem)
         // NOTE(marvin): Entities list
         if (ImGui::BeginListBox("Entities"))
         {
-            for (auto [entityID] : SceneView<>(*scene))
+            for (auto [entityID] : SceneView<>(scene))
             {
-                NameComponent *maybeNameComponent = scene->Get<NameComponent>(entityID);
+                NameComponent *maybeNameComponent = scene.Get<NameComponent>(entityID);
                 if (maybeNameComponent)
                 {
                     NameComponent *nameComponent = maybeNameComponent;
@@ -293,14 +293,14 @@ SYSTEM_ON_UPDATE(EditorSystem)
         // NOTE(marvin): Destroy selected entity.
         if (IsEntityValid(selectedEntityID) && ImGui::Button("Destroy Selected Entity"))
         {
-            scene->DestroyEntity(selectedEntityID);
+            scene.DestroyEntity(selectedEntityID);
             selectedEntityID = INVALID_ENTITY;
         }
 
         // NOTE(marvin): Add new entity.
         if (ImGui::Button("New Entity"))
         {
-            EntityID newEntityID = CreateNewEntity(scene, "New Entity");
+            EntityID newEntityID = CreateNewEntity(&scene, "New Entity");
             selectedEntityID = newEntityID;
         }
 
@@ -309,12 +309,12 @@ SYSTEM_ON_UPDATE(EditorSystem)
             // NOTE(marvin): Duplicate selected entity.
             if (ImGui::Button("Duplicate Entity"))
             {
-                NameComponent* nameComp = scene->Get<NameComponent>(selectedEntityID);
+                NameComponent* nameComp = scene.Get<NameComponent>(selectedEntityID);
                 std::string originalName = nameComp->name;
                 std::string duplicateName = std::format("{} Duplicate", originalName);
-                EntityID duplicatedEntityID = CreateNewEntity(scene, duplicateName);
+                EntityID duplicatedEntityID = CreateNewEntity(&scene, duplicateName);
 
-                for (ComponentID componentID : EntityView(*scene, selectedEntityID))
+                for (ComponentID componentID : EntityView(scene, selectedEntityID))
                 {
                     ComponentInfo& compInfo = CompInfos()[componentID];
 
@@ -325,11 +325,11 @@ SYSTEM_ON_UPDATE(EditorSystem)
 
                     if (compInfo.name != TRANSFORM_COMPONENT)
                     {
-                        compInfo.assignFunc(*scene, duplicatedEntityID);
+                        compInfo.assignFunc(scene, duplicatedEntityID);
                     }
 
-                    DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
-                    s32 val = compInfo.writeFunc(*scene, duplicatedEntityID, dataEntry);
+                    DataEntry *dataEntry = compInfo.readFunc(scene, selectedEntityID);
+                    s32 val = compInfo.writeFunc(scene, duplicatedEntityID, dataEntry);
                     if (val != 0)
                     {
                         LOG_ERROR("failed to write component");
@@ -339,7 +339,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
             }
 
             // NOTE(marvin): Component interactive tree view
-            for (ComponentID componentID : EntityView(*scene, selectedEntityID))
+            for (ComponentID componentID : EntityView(scene, selectedEntityID))
             {
                 ComponentInfo& compInfo = CompInfos()[componentID];
                 if (compInfo.name == NAME_COMPONENT)
@@ -351,11 +351,11 @@ SYSTEM_ON_UPDATE(EditorSystem)
                 // remove at the same time, but rewrite is
                 // prioritised. Allowing both at the same time (if
                 // somehow possible) seems risky.
-                DataEntry *dataEntry = compInfo.readFunc(*scene, selectedEntityID);
-                ComponentDataEntryActionOutcome componentOutcome = ImguiDisplayDataEntry(dataEntry, *scene, selectedEntityID, true);
+                DataEntry *dataEntry = compInfo.readFunc(scene, selectedEntityID);
+                ComponentDataEntryActionOutcome componentOutcome = ImguiDisplayDataEntry(dataEntry, scene, selectedEntityID, true);
                 if (this->ShouldRewriteComponentDataEntry(componentOutcome))
                 {
-                    s32 val = compInfo.writeFunc(*scene, selectedEntityID, dataEntry);
+                    s32 val = compInfo.writeFunc(scene, selectedEntityID, dataEntry);
                     if (val != 0)
                     {
                         printf("failed to write component");
@@ -363,7 +363,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
                 }
                 else if (this->ShouldRemoveComponentDataEntry(componentOutcome))
                 {
-                    compInfo.removeFunc(*scene, selectedEntityID);
+                    compInfo.removeFunc(scene, selectedEntityID);
                 }
                 delete dataEntry;
             }
@@ -379,12 +379,12 @@ SYSTEM_ON_UPDATE(EditorSystem)
             {
                 if (ImGui::BeginListBox("Add which component?"))
                 {
-                    for (ComponentID componentID : EntityComplementView(*scene, selectedEntityID))
+                    for (ComponentID componentID : EntityComplementView(scene, selectedEntityID))
                     {
                         ComponentInfo& compInfo = CompInfos()[componentID];
                         if (ImGui::Button(compInfo.name.c_str()))
                         {
-                            compInfo.assignFunc(*scene, selectedEntityID);
+                            compInfo.assignFunc(scene, selectedEntityID);
                         }
                     }
                     ImGui::EndListBox();
@@ -399,9 +399,9 @@ SYSTEM_ON_UPDATE(EditorSystem)
         }
 
         // NOTE(marvin): Save scene button
-        if (ImGui::Button("Save Scene") || (OnHold(input, "S") && (OnHold(input, "Left Ctrl") || OnHold(input, "Right Ctrl"))))
+        if (ImGui::Button("Save Scene") || (OnHold(&input, "S") && (OnHold(&input, "Left Ctrl") || OnHold(&input, "Right Ctrl"))))
         {
-            SaveCurrentMap(*scene);
+            SaveCurrentMap(scene);
         }
 
         ImGui::End();

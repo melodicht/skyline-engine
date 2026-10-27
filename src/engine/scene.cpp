@@ -78,7 +78,7 @@ inline SystemVTable* GetSystemVTable(System* system)
     return result;
 }
 
-void StartAllSystems(SystemsBuffer *systemsBuffer, Scene *scene)
+void StartAllSystems(SystemsBuffer *systemsBuffer, SYSTEM_VTABLE_ON_START_PARAMS)
 {
     for (u32 i = 0; i < systemsBuffer->count; ++i)
     {
@@ -88,7 +88,7 @@ void StartAllSystems(SystemsBuffer *systemsBuffer, Scene *scene)
     }
 }
 
-void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene *scene, GameInput *input, f32 deltaTime)
+void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene &scene, GameInput &input, f32 deltaTime)
 {
     for (u32 i = 0; i < systemsBuffer->count; ++i)
     {
@@ -127,18 +127,18 @@ void Scene::AddFixedTimestepSystem(System *system)
 
 void Scene::InitSystems()
 {
-    StartAllSystems(&variableTimestepSystemsBuffer, this);
-    StartAllSystems(&fixedTimestepSystemsBuffer, this);
+    StartAllSystems(&variableTimestepSystemsBuffer, *this);
+    StartAllSystems(&fixedTimestepSystemsBuffer, *this);
 }
 
-void Scene::UpdateVariableTimestepSystems(GameInput *input, f32 deltaTime)
+void Scene::UpdateVariableTimestepSystems(GameInput &input, f32 deltaTime)
 {
-    UpdateAllSystems(&variableTimestepSystemsBuffer, this, input, deltaTime);
+    UpdateAllSystems(&variableTimestepSystemsBuffer, *this, input, deltaTime);
 }
 
-void Scene::UpdateFixedTimestepSystems(GameInput *input, f32 deltaTime)
+void Scene::UpdateFixedTimestepSystems(GameInput &input, f32 deltaTime)
 {
-    UpdateAllSystems(&fixedTimestepSystemsBuffer, this, input, deltaTime);
+    UpdateAllSystems(&fixedTimestepSystemsBuffer, *this, input, deltaTime);
 }
 
 void Scene::AddComponentPool(size_t componentSize)

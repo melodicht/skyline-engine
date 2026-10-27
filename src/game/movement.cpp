@@ -14,27 +14,27 @@ void MovementSystem::CapVerticalRotationForward(Transform3D *transform)
     transform->SetLocalRotation({transform->GetLocalRotation().x, std::min(std::max(transform->GetLocalRotation().y, -90.0f), 90.0f), transform->GetLocalRotation().z});
 }
 
-SYSTEM_ON_UPDATE(MovementSystem)
+SYSTEM_ON_UPDATE_MEM(MovementSystem, Scene &scene, GameInput &input, f32 deltaTime)
 {
     // TODO(marvin): Duplicate looking code between FlyingMovement and the XLook family of components.
-    for (auto [entityId, flyingMovement, transform] : SceneView<FlyingMovement, Transform3D>(*scene))
+    for (auto [entityId, flyingMovement, transform] : SceneView<FlyingMovement, Transform3D>(scene))
     {
-        transform.AddLocalRotation({0, 0, input->mouseDeltaX * flyingMovement.turnSpeed});
-        transform.AddLocalRotation({0, input->mouseDeltaY * flyingMovement.turnSpeed, 0});
+        transform.AddLocalRotation({0, 0, input.mouseDeltaX * flyingMovement.turnSpeed});
+        transform.AddLocalRotation({0, input.mouseDeltaY * flyingMovement.turnSpeed, 0});
         this->CapVerticalRotationForward(&transform);
 
-        glm::vec3 movementDirection = GetMovementDirection(input, &transform);
+        glm::vec3 movementDirection = GetMovementDirection(&input, &transform);
         transform.AddLocalPosition(movementDirection * flyingMovement.moveSpeed * deltaTime);
     }
 
-    for (auto [entityId, horizontalLook, transform] : SceneView<HorizontalLook, Transform3D>(*scene))
+    for (auto [entityId, horizontalLook, transform] : SceneView<HorizontalLook, Transform3D>(scene))
     {
-        transform.AddLocalRotation({0, 0, input->mouseDeltaX * horizontalLook.turnSpeed});
+        transform.AddLocalRotation({0, 0, input.mouseDeltaX * horizontalLook.turnSpeed});
     }
 
-    for (auto [entityId, verticalLook, transform] : SceneView<VerticalLook, Transform3D>(*scene))
+    for (auto [entityId, verticalLook, transform] : SceneView<VerticalLook, Transform3D>(scene))
     {
-        transform.AddLocalRotation({0, input->mouseDeltaY * verticalLook.turnSpeed, 0});
+        transform.AddLocalRotation({0, input.mouseDeltaY * verticalLook.turnSpeed, 0});
         this->CapVerticalRotationForward(&transform);
     }
 }

@@ -3,6 +3,7 @@
 #include <bitset>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <typeinfo>
 #include <typeindex>
 #include <unordered_map>
@@ -118,53 +119,140 @@ struct GameInput;
 template<typename... ComponentTypes>
 struct SceneView;
 
-// Function types discard parameter names while retaining their component types.
-template<typename Signature>
-struct ExtractComponentSceneView;
+// Context available to a whole-system update (which has no current entity).
+template<typename T>
+inline constexpr bool IsSystemUpdateContext =
+    std::is_same_v<T, Scene &> ||
+    std::is_same_v<T, const Scene &> ||
+    std::is_same_v<T, GameInput &> ||
+    std::is_same_v<T, const GameInput &> ||
+    std::is_same_v<std::remove_cvref_t<T>, f32>;
 
-template<typename... ComponentTypes>
-struct ExtractComponentSceneView<void(ComponentTypes...)>
+// Chooses to pass one of the base arguments through
+// if it matches the tempated arg.
+template<typename Arg>
+decltype(auto) SystemUpdateArgument(Scene &scene, GameInput &input, f32 deltaTime)
 {
-    using type = SceneView<std::remove_cvref_t<ComponentTypes>...>;
+    using T = std::remove_cvref_t<Arg>;
+    static_assert(IsSystemUpdateContext<Arg>,
+        "SYSTEM_ON_UPDATE accepts only Scene&, GameInput& (also const references), and f32");
+    if constexpr (std::is_same_v<T, Scene>)
+        return static_cast<Arg>(scene);
+    else if constexpr (std::is_same_v<T, GameInput>)
+        return static_cast<Arg>(input);
+    else if constexpr (std::is_same_v<T, f32>)
+        return f32(deltaTime);
+}
+
+// For all arguments that are part of normal inputs, forward their values
+// to a lambda
+template<typename Signature>
+struct ExtractSystemUpdateArguments;
+template<typename... Args>
+struct ExtractSystemUpdateArguments<void(Args...)>
+{
+    template<typename F>
+    static void run(Scene &scene, GameInput &input, f32 deltaTime, F &&body)
+    {
+        body(SystemUpdateArgument<Args>(scene, input, deltaTime)...);
+    }
 };
 
-#define SYSTEM_VTABLE_ON_START_PARAMS Scene *scene
+// Checks if a type is a part of greater update context (i.e. GameInput&)
+// or a component (Transform3D&)
+template<typename T>
+inline constexpr bool IsSceneUpdateContext =
+    IsSystemUpdateContext<T> || std::is_same_v<std::remove_cvref_t<T>, EntityID>;
+
+// Filters out non component types so that they can be iterated upon
+// in scene view.
+template<typename T>
+using SceneUpdateComponentTuple = std::conditional_t<IsSceneUpdateContext<T>,
+    std::tuple<>, std::tuple<std::remove_cvref_t<T>>>;
+template<typename Tuple>
+struct TupleToSceneView;
+template<typename... Types>
+struct TupleToSceneView<std::tuple<Types...>>
+{
+    using type = SceneView<Types...>;
+};
+
+// Function types discard parameter names while retaining their argument types.
+template<typename Signature>
+struct ExtractComponentSceneView;
+template<typename... Args>
+struct ExtractComponentSceneView<void(Args...)>
+{
+    using Components = decltype(std::tuple_cat(
+        std::declval<SceneUpdateComponentTuple<Args>>()...));
+    using type = typename TupleToSceneView<Components>::type;
+
+    // Keeps context then forwards component arguments to body.
+    template<typename Arg, typename Tuple>
+    static decltype(auto) argument(Tuple &components, Scene &scene,
+        GameInput &input, f32 deltaTime)
+    {
+        using T = std::remove_cvref_t<Arg>;
+        if constexpr (IsSystemUpdateContext<Arg>)
+            return SystemUpdateArgument<Arg>(scene, input, deltaTime);
+        else if constexpr (std::is_same_v<T, EntityID>)
+            return EntityID(std::get<0>(components));
+        else
+            return std::get<T &>(components);
+    }
+    template<typename F>
+    static void run(Scene &scene, GameInput &input, f32 deltaTime, F &&body)
+    {
+        for (auto components : type(scene))
+            body(argument<Args>(components, scene, input, deltaTime)...);
+    }
+};
+
+#define SYSTEM_VTABLE_ON_START_PARAMS Scene& scene
 #define SYSTEM_VTABLE_ON_START_PASS scene
 #define SYSTEM_VTABLE_ON_START(name) void name(void *self, SYSTEM_VTABLE_ON_START_PARAMS)
 typedef SYSTEM_VTABLE_ON_START(system_vtable_on_start_t);
 #define SYSTEM_ON_START(...) void __VA_ARGS__ __VA_OPT__(::) OnStart(SYSTEM_VTABLE_ON_START_PARAMS)
 
-// NOTE(marvin): The SYSTEM_ON_X(...) family of macros should only
-// take in 0 or 1 argument, where the 1 argument is the name of the
-// derived System.
-
-#define SYSTEM_VTABLE_ON_UPDATE_PARAMS Scene *scene, GameInput *input, f32 deltaTime
+#define SYSTEM_VTABLE_ON_UPDATE_PARAMS Scene& scene, GameInput& input, f32 deltaTime
 #define SYSTEM_VTABLE_ON_UPDATE_PASS scene, input, deltaTime
 #define SYSTEM_VTABLE_ON_UPDATE(name) void name(void *self, SYSTEM_VTABLE_ON_UPDATE_PARAMS)
 typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
-#define SYSTEM_ON_UPDATE(...) void __VA_ARGS__ __VA_OPT__(::) OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS)
+// Runs once per update.
+// Only allows arguments in update context 
+// (Scene &scene, GameInput &input, f32 deltaTime)
+// Pulls in argument data automatically.
+#define SYSTEM_ON_UPDATE(...) \
+    void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
+    { \
+        using Arguments = ExtractSystemUpdateArguments<void(__VA_ARGS__)>; \
+        Arguments::run(SYSTEM_VTABLE_ON_UPDATE_PASS, [&](auto &&...values) \
+        { \
+            OnUpdateBody(std::forward<decltype(values)>(values)...); \
+        }); \
+    } \
+    void OnUpdateBody(__VA_ARGS__)
 
-// Use references to mutate stored components, e.g.:
-// COMPONENTS_ON_UPDATE(Transform3D &transform, const Spin &spin) { ... }
-// The body also receives scene, input, deltaTime, and entityId.
-// For an out-of-class body, use COMPONENTS_ON_UPDATE(...); in the class,
-// then COMPONENTS_ON_UPDATE_MEM(Class, ...) { ... } in the implementation.
+#define SYSTEM_ON_UPDATE_MEM(Class, ...) \
+    void Class::OnUpdateBody(__VA_ARGS__)
+
+// Updates by entity with required components instead of by all entities.
+// Gathers all entities with the components specified by args and supplies all args.
+// Core arguments like (Scene& scene, GameInput& input, and f32 delta) can be put in much
+// like with SYSTEM_ON_UPDATE
 #define COMPONENTS_ON_UPDATE(...) \
     void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
     { \
-        using ComponentView = typename ExtractComponentSceneView<void(__VA_ARGS__)>::type; \
-        for (auto components : ComponentView(*scene)) \
+        using Arguments = ExtractComponentSceneView<void(__VA_ARGS__)>; \
+        Arguments::run(SYSTEM_VTABLE_ON_UPDATE_PASS, [&](auto &&...values) \
         { \
-            std::apply([&](EntityID entityId, auto &...values) \
-            { \
-                OnUpdateIterate(SYSTEM_VTABLE_ON_UPDATE_PASS, entityId, values...); \
-            }, components); \
-        } \
+            OnUpdateIterate(std::forward<decltype(values)>(values)...); \
+        }); \
     } \
-    void OnUpdateIterate(SYSTEM_VTABLE_ON_UPDATE_PARAMS, EntityID entityId __VA_OPT__(,) __VA_ARGS__)
+    void OnUpdateIterate(__VA_ARGS__)
 
 #define COMPONENTS_ON_UPDATE_MEM(Class, ...) \
-    void Class::OnUpdateIterate(SYSTEM_VTABLE_ON_UPDATE_PARAMS, EntityID entityId __VA_OPT__(,) __VA_ARGS__)
+    void Class::OnUpdateIterate(__VA_ARGS__)
 
 #define SYSTEM_SUPER(T) System(SystemTypeToIndex()[std::type_index(typeid(T))])
 
@@ -440,9 +528,9 @@ public:
     
     void InitSystems();
 
-    void UpdateVariableTimestepSystems(GameInput *input, f32 deltaTime);
+    void UpdateVariableTimestepSystems(GameInput &input, f32 deltaTime);
 
-    void UpdateFixedTimestepSystems(GameInput *input, f32 deltaTime);
+    void UpdateFixedTimestepSystems(GameInput &input, f32 deltaTime);
 
     void AddComponentPool(size_t componentSize);
 

@@ -243,11 +243,11 @@ SKLPhysicsSystem::~SKLPhysicsSystem()
 
 MAKE_SYSTEM_MANUAL_VTABLE(SKLPhysicsSystem);
 
-SYSTEM_ON_UPDATE(SKLPhysicsSystem)
+SYSTEM_ON_UPDATE_MEM(SKLPhysicsSystem, Scene &scene, GameInput &input, f32 deltaTime)
 {
     // NOTE(marvin): Initialising static boxes
     JPH::BodyInterface &bodyInterface = this->physicsSystem->GetBodyInterface();
-    for (auto [entityId, staticBox, transform] : SceneView<StaticBox, Transform3D>(*scene))
+    for (auto [entityId, staticBox, transform] : SceneView<StaticBox, Transform3D>(scene))
     {
         if (!staticBox.initialized)
         {

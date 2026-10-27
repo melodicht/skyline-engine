@@ -10,7 +10,7 @@ class MovementSystem : public System
 public:
     MovementSystem();
 
-    SYSTEM_ON_UPDATE();
+    SYSTEM_ON_UPDATE(Scene &scene, GameInput &input, f32 deltaTime);
 
 
 private:

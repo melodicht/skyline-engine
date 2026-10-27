@@ -44,18 +44,18 @@ inline bool collide(glm::vec4 bounds1, glm::vec4 bounds2)
 }
 
 // Assumes only one collision
-SYSTEM_ON_UPDATE(RectCollision2DSystem)
+SYSTEM_ON_UPDATE_MEM(RectCollision2DSystem, Scene &scene)
 {
-    for (auto [entityId, box] : SceneView<CollisionBox2D>(*scene))
+    for (auto [entityId, box] : SceneView<CollisionBox2D>(scene))
     {
         box.colTag = "empty";
     }
 
-    for (auto [entityId, box, transform] : SceneView<CollisionBox2D, Transform3D>(*scene))
+    for (auto [entityId, box, transform] : SceneView<CollisionBox2D, Transform3D>(scene))
     {
         glm::vec4 baseBounds = getBounds(&box, &transform);
 
-        for (auto [innerEntityId, innerBox, innerTransform] : SceneView<CollisionBox2D, Transform3D>(*scene)) {
+        for (auto [innerEntityId, innerBox, innerTransform] : SceneView<CollisionBox2D, Transform3D>(scene)) {
             if (innerEntityId == entityId) {
                 continue;
             }
@@ -88,12 +88,12 @@ inline bool IsButtonDown(GameInput *input, const std::string &key)
     if (OnPress(input, lower) || OnHold(input, lower)) return true;
     return false;
 }
-SYSTEM_ON_UPDATE(PongMovement2DSystem)
+SYSTEM_ON_UPDATE_MEM(PongMovement2DSystem, Scene &scene, GameInput &input, f32 deltaTime)
 {
-    for (auto [entityId, pongMovement, transform] : SceneView<PongMovement2D, Transform3D>(*scene))
+    for (auto [entityId, pongMovement, transform] : SceneView<PongMovement2D, Transform3D>(scene))
     {
-        bool pressUp = IsButtonDown(input, pongMovement.upButton);
-        bool pressDown = IsButtonDown(input, pongMovement.downButton);
+        bool pressUp = IsButtonDown(&input, pongMovement.upButton);
+        bool pressDown = IsButtonDown(&input, pongMovement.downButton);
         if (!pressUp && pressDown) {
             transform.AddLocalPosition({0, pongMovement.moveSpeed * deltaTime, 0});
             glm::vec3 pos = transform.GetLocalPosition();
@@ -108,9 +108,9 @@ SYSTEM_ON_UPDATE(PongMovement2DSystem)
         }
     }
 }
-SYSTEM_ON_UPDATE(PongBall2DSystem)
+SYSTEM_ON_UPDATE_MEM(PongBall2DSystem, Scene &scene, f32 deltaTime)
 {
-    for (auto [entityId, ball, box, transform] : SceneView<PongBall2D, CollisionBox2D, Transform3D>(*scene))
+    for (auto [entityId, ball, box, transform] : SceneView<PongBall2D, CollisionBox2D, Transform3D>(scene))
     {
         glm::vec3 pos = transform.GetLocalPosition();
         
@@ -137,7 +137,7 @@ SYSTEM_ON_UPDATE(PongBall2DSystem)
         // position avoids stale collision tags and catches fast crossings.
         const float halfWidth = std::abs(transform.GetLocalScale().x * box.relativeWidth) * 0.5f;
         const float halfHeight = std::abs(transform.GetLocalScale().y * box.relativeHeight) * 0.5f;
-        for (auto [paddle, pongMovement2D, collisionBox2D, transform3D] : SceneView<PongMovement2D, CollisionBox2D, Transform3D>(*scene)) {
+        for (auto [paddle, pongMovement2D, collisionBox2D, transform3D] : SceneView<PongMovement2D, CollisionBox2D, Transform3D>(scene)) {
             const glm::vec4 bounds = getBounds(&collisionBox2D, &transform3D);
             const bool movingLeft = ball.xVel < 0.0f;
             const float face = movingLeft ? bounds.z + halfWidth : bounds.x - halfWidth;
@@ -156,12 +156,12 @@ SYSTEM_ON_UPDATE(PongBall2DSystem)
     }
 }
 
-SYSTEM_ON_UPDATE(FightBall2DSystem) 
+SYSTEM_ON_UPDATE_MEM(FightBall2DSystem, Scene &scene, GameInput &input, f32 deltaTime)
 {
-    for (auto [entityId, ball, box, transform] : SceneView<FightBall2D, CollisionBox2D, Transform3D>(*scene))
+    for (auto [entityId, ball, box, transform] : SceneView<FightBall2D, CollisionBox2D, Transform3D>(scene))
     {
 
-        if (OnPress(input, "R")) {
+        if (OnPress(&input, "R")) {
             ball.bouncing = true;
             ball.vel = ball.vertVel;
             transform.SetLocalPosition(ball.orgPos);
@@ -180,7 +180,7 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
 
             transform.SetLocalPosition(pos);
             bounds = getBounds(&box, &transform);
-            for (auto [fighterEntityId, fighter, fighterBox, fighterTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+            for (auto [fighterEntityId, fighter, fighterBox, fighterTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(scene))
             {
                 glm::vec4 entBounds = getBounds(&fighterBox, &fighterTransform);
                 
@@ -207,7 +207,7 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
 
             transform.SetLocalPosition(pos);
             bounds = getBounds(&box, &transform);
-            for (auto [fighterEntityId, fighter, fighterBox, fighterTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+            for (auto [fighterEntityId, fighter, fighterBox, fighterTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(scene))
             {
                 glm::vec4 entBounds = getBounds(&fighterBox, &fighterTransform);
                 
@@ -233,16 +233,16 @@ SYSTEM_ON_UPDATE(FightBall2DSystem)
         transform.SetLocalPosition(pos);
     }
 }
-SYSTEM_ON_UPDATE(Fighter2DSystem)
+SYSTEM_ON_UPDATE_MEM(Fighter2DSystem, Scene &scene, GameInput &input, f32 deltaTime)
 {
-    for (auto [entityId, fighter, fighterBox, fighterMesh, fighterTransform] : SceneView<Fighter2D, CollisionBox2D, MeshComponent, Transform3D>(*scene))
+    for (auto [entityId, fighter, fighterBox, fighterMesh, fighterTransform] : SceneView<Fighter2D, CollisionBox2D, MeshComponent, Transform3D>(scene))
     {
-        if (OnPress(input, "R")) {
+        if (OnPress(&input, "R")) {
             fighterTransform.SetLocalPosition(fighter.orgPos);
             continue;
         }
 
-        if (OnPress(input, fighter.attackButton)) {
+        if (OnPress(&input, fighter.attackButton)) {
             if (!fighter.attacking && fighter.attackCooldownLeft <= 0) {
                 fighter.attacking = true;
                 fighter.attackCooldownLeft = fighter.attackCooldown;
@@ -250,7 +250,7 @@ SYSTEM_ON_UPDATE(Fighter2DSystem)
             }
         }
 
-        if (OnPress(input, fighter.dashButton)) {
+        if (OnPress(&input, fighter.dashButton)) {
             if (!fighter.dashing && fighter.dashCooldownLeft <= 0) {
                 fighter.dashing = true;
                 fighter.dashCooldownLeft = fighter.dashCooldown;
@@ -274,11 +274,11 @@ SYSTEM_ON_UPDATE(Fighter2DSystem)
         }
         else
         {
-            if (OnHold(input, fighter.leftButton)) {
+            if (OnHold(&input, fighter.leftButton)) {
                 pos.x -= fighter.moveSpeed * deltaTime;
                 pos.x = std::max(pos.x, fighter.leftBound);
             }
-            if (OnHold(input, fighter.rightButton)) {
+            if (OnHold(&input, fighter.rightButton)) {
                 pos.x += fighter.moveSpeed * deltaTime;
                 pos.x = std::min(pos.x, fighter.rightBound);
             }
@@ -290,7 +290,7 @@ SYSTEM_ON_UPDATE(Fighter2DSystem)
         fighter.attackCooldownLeft -= deltaTime;
         if (fighter.attacking) {
             fighter.attackDurationLeft -= deltaTime;
-            for (auto [otherEntityId, otherFighter, otherBox, otherTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(*scene))
+            for (auto [otherEntityId, otherFighter, otherBox, otherTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(scene))
             {
                 if (otherEntityId == entityId)
                 {

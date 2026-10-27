@@ -48,7 +48,7 @@ public:
 
     ~SKLPhysicsSystem();
 
-    SYSTEM_ON_UPDATE();
+    SYSTEM_ON_UPDATE(Scene &scene, GameInput &input, f32 deltaTime);
 
     void Initialize(b32 firstTime = false);
 

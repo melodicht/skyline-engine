@@ -191,7 +191,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             PROFILE_ZONE_BEGIN(fixedUpdateZone, "Fixed Timestep Update");
-            scene.UpdateFixedTimestepSystems(&fixedInput, FIXED_TIMESTEP_DELTA_TIME);
+            scene.UpdateFixedTimestepSystems(fixedInput, FIXED_TIMESTEP_DELTA_TIME);
             fixedInput.keysDownPrevFrame = fixedInput.keysDownThisFrame;
             fixedInput.mouseDeltaX = 0;
             fixedInput.mouseDeltaY = 0;
@@ -202,7 +202,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
 
     PROFILE_ZONE_BEGIN(variableUpdateZone, "Variable Timestep Update");
-    scene.UpdateVariableTimestepSystems(&input, frameTime);
+    scene.UpdateVariableTimestepSystems(input, frameTime);
     PROFILE_ZONE_END(variableUpdateZone);
     
     PROFILE_GPU_FRAME(renderer);

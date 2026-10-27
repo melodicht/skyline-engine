@@ -40,5 +40,5 @@ private:
 public:
     EditorSystem(EntityID editorCam, OverlayMode *overlayMode);
 
-    SYSTEM_ON_UPDATE();
+    SYSTEM_ON_UPDATE(Scene &scene, GameInput &input, f32 deltaTime);
 };

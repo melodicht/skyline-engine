@@ -227,9 +227,9 @@ BuilderSystem::BuilderSystem(bool slowStep) : SYSTEM_SUPER(BuilderSystem)
 
 MAKE_SYSTEM_MANUAL_VTABLE(BuilderSystem);
 
-SYSTEM_ON_UPDATE(BuilderSystem)
+SYSTEM_ON_UPDATE_MEM(BuilderSystem, Scene &scene, f32 deltaTime)
 {
-    for (auto [entityId, transform, spin] : SceneView<Transform3D, Spin>(*scene))
+    for (auto [entityId, transform, spin] : SceneView<Transform3D, Spin>(scene))
     {
         transform.AddLocalRotation({0, 0, spin.speed * deltaTime * 10.25f});
     }
@@ -241,6 +241,6 @@ SYSTEM_ON_UPDATE(BuilderSystem)
     else
     {
         this->timer = 1.0f / this->rate;
-        Step(scene);
+        Step(&scene);
     }
 }
