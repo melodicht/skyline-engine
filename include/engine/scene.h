@@ -1,8 +1,11 @@
 #pragma once
 
 #include <bitset>
+#include <tuple>
+#include <type_traits>
 #include <typeinfo>
 #include <typeindex>
+#include <unordered_map>
 
 #include <memory.h>
 
@@ -111,6 +114,20 @@ struct ComponentPool
 struct Scene;
 struct GameInput;
 
+// Used for meta programming
+template<typename... ComponentTypes>
+struct SceneView;
+
+// Function types discard parameter names while retaining their component types.
+template<typename Signature>
+struct ExtractComponentSceneView;
+
+template<typename... ComponentTypes>
+struct ExtractComponentSceneView<void(ComponentTypes...)>
+{
+    using type = SceneView<std::remove_cvref_t<ComponentTypes>...>;
+};
+
 #define SYSTEM_VTABLE_ON_START_PARAMS Scene *scene
 #define SYSTEM_VTABLE_ON_START_PASS scene
 #define SYSTEM_VTABLE_ON_START(name) void name(void *self, SYSTEM_VTABLE_ON_START_PARAMS)
@@ -126,6 +143,28 @@ typedef SYSTEM_VTABLE_ON_START(system_vtable_on_start_t);
 #define SYSTEM_VTABLE_ON_UPDATE(name) void name(void *self, SYSTEM_VTABLE_ON_UPDATE_PARAMS)
 typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
 #define SYSTEM_ON_UPDATE(...) void __VA_ARGS__ __VA_OPT__(::) OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS)
+
+// Use references to mutate stored components, e.g.:
+// COMPONENTS_ON_UPDATE(Transform3D &transform, const Spin &spin) { ... }
+// The body also receives scene, input, deltaTime, and entityId.
+// For an out-of-class body, use COMPONENTS_ON_UPDATE(...); in the class,
+// then COMPONENTS_ON_UPDATE_MEM(Class, ...) { ... } in the implementation.
+#define COMPONENTS_ON_UPDATE(...) \
+    void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
+    { \
+        using ComponentView = typename ExtractComponentSceneView<void(__VA_ARGS__)>::type; \
+        for (auto components : ComponentView(*scene)) \
+        { \
+            std::apply([&](EntityID entityId, auto &...values) \
+            { \
+                OnUpdateIterate(SYSTEM_VTABLE_ON_UPDATE_PASS, entityId, values...); \
+            }, components); \
+        } \
+    } \
+    void OnUpdateIterate(SYSTEM_VTABLE_ON_UPDATE_PARAMS, EntityID entityId __VA_OPT__(,) __VA_ARGS__)
+
+#define COMPONENTS_ON_UPDATE_MEM(Class, ...) \
+    void Class::OnUpdateIterate(SYSTEM_VTABLE_ON_UPDATE_PARAMS, EntityID entityId __VA_OPT__(,) __VA_ARGS__)
 
 #define SYSTEM_SUPER(T) System(SystemTypeToIndex()[std::type_index(typeid(T))])
 
@@ -531,3 +570,6 @@ public:
         return system;
     }
 };
+
+// Component update macros need the complete view when expanded by scene.h users.
+#include <scene_view.h>
