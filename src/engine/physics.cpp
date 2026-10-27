@@ -247,14 +247,11 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
 {
     // NOTE(marvin): Initialising static boxes
     JPH::BodyInterface &bodyInterface = this->physicsSystem->GetBodyInterface();
-    for (EntityID ent : SceneView<StaticBox, Transform3D>(*scene))
+    for (auto [entityId, staticBox, transform] : SceneView<StaticBox, Transform3D>(*scene))
     {
-        StaticBox *sb = scene->Get<StaticBox>(ent);
-        Transform3D *t = scene->Get<Transform3D>(ent);
-
-        if (!sb->initialized)
+        if (!staticBox.initialized)
         {
-            JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(t->GetLocalScale());
+            JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(transform.GetLocalScale());
             JPH::Vec3 halfExtent{
                 abs(abs(joltVolume.GetX()) / 2),
                 abs(abs(joltVolume.GetY()) / 2),
@@ -264,13 +261,13 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
             JPH::ShapeSettings::ShapeResult shapeResult = staticBodySettings.Create();
             JPH::ShapeRefC shape = shapeResult.Get();
 
-            JPH::Vec3 position = OurToJoltCoordinateSystem(t->GetWorldPosition());
+            JPH::Vec3 position = OurToJoltCoordinateSystem(transform.GetWorldPosition());
             JPH::BodyCreationSettings bodyCreationSettings{shape, position,
                                                            JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
             JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
             bodyInterface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
 
-            sb->initialized = true;
+            staticBox.initialized = true;
         }
     }
 

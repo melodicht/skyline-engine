@@ -1,5 +1,7 @@
 #pragma once
 
+#include <tuple>
+
 #include <meta_definitions.h>
 #include <scene.h>
 
@@ -27,11 +29,11 @@ struct SceneView
         Iterator(Scene *pScene, u32 index, ComponentMask mask, bool all)
             : pScene(pScene), index(index), mask(mask), all(all) {}
 
-        // give back the entityID we're currently at
-        EntityID operator*() const
+        // Return the entity ID and references to the requested components, in template order.
+        std::tuple<EntityID, ComponentTypes&...> operator*() const
         {
             EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, index);
-            return entityEntry->id;
+            return {entityEntry->id, *pScene->Get<ComponentTypes>(entityEntry->id)...};
         }
 
         // Compare two iterators
@@ -75,13 +77,13 @@ struct SceneView
     const Iterator begin() const
     {
         u32 firstIndex = 0;
-        EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, firstIndex);
-        while (firstIndex < GetEntitiesPoolSize(&pScene->entities) &&
-               (componentMask != (componentMask & entityEntry->mask)
-                || !IsEntityValid(entityEntry->id)))
+        while (firstIndex < GetEntitiesPoolSize(&pScene->entities))
         {
+            EntityEntry *entityEntry = GetFromEntitiesPool(&pScene->entities, firstIndex);
+            if (EntityEntryValid(entityEntry) &&
+                (all || componentMask == (componentMask & entityEntry->mask)))
+                break;
             firstIndex++;
-            entityEntry = GetFromEntitiesPool(&pScene->entities, firstIndex);
         }
         return Iterator(pScene, firstIndex, componentMask, all);
     }

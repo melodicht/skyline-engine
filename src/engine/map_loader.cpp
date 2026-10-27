@@ -120,9 +120,9 @@ DataEntry* ReadEntityToData(Scene& scene, EntityID ent)
 void SaveMap(Scene& scene, std::string name)
 {
     DataEntry* sceneData = new DataEntry("Scene");
-    for (EntityID ent : SceneView<NameComponent>(scene))
+    for (auto [entityId, nameComponent] : SceneView<NameComponent>(scene))
     {
-        sceneData->structVal.push_back(ReadEntityToData(scene, ent));
+        sceneData->structVal.push_back(ReadEntityToData(scene, entityId));
     }
 
     std::string filepath = "maps/" + name;

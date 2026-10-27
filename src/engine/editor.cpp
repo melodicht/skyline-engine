@@ -250,7 +250,7 @@ SYSTEM_ON_UPDATE(EditorSystem)
         // NOTE(marvin): Entities list
         if (ImGui::BeginListBox("Entities"))
         {
-            for (EntityID entityID : SceneView(*scene))
+            for (auto [entityID] : SceneView<>(*scene))
             {
                 NameComponent *maybeNameComponent = scene->Get<NameComponent>(entityID);
                 if (maybeNameComponent)

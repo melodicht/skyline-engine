@@ -14,7 +14,7 @@ void FindCamera(GameState &gameState)
     SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(gameState.scene);
     if (cameraView.begin() != cameraView.end())
     {
-        gameState.currentCamera = *cameraView.begin();
+        gameState.currentCamera = std::get<0>(*cameraView.begin());
     }
 }
 
@@ -30,87 +30,75 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
     Transform3D *cameraTransform = scene.Get<Transform3D>(gameState.currentCamera);
 
     SceneLightingRenderInfo sceneLighting{ };
-    for (EntityID ent: SceneView<SceneLighting>(scene))
+    for (auto [entityId, lighting] : SceneView<SceneLighting>(scene))
     {
-        SceneLighting *l = scene.Get<SceneLighting>(ent);
-
         sceneLighting= {
-            .ambientLighting = l->ambientColor,
-            .pcfWorldRange = l->pcfWorldRange
+            .ambientLighting = lighting.ambientColor,
+            .pcfWorldRange = lighting.pcfWorldRange
         };
     }
 
     std::vector<DirLightRenderInfo> dirLights;
-    for (EntityID ent: SceneView<DirLight, Transform3D>(scene))
+    for (auto [entityId, directionalLight, lightTransform] : SceneView<DirLight, Transform3D>(scene))
     {
-        DirLight *l = scene.Get<DirLight>(ent);
-        if (l->lightID == -1)
+        if (directionalLight.lightID == -1)
         {
-            l->lightID = renderer.AddDirLight();
+            directionalLight.lightID = renderer.AddDirLight();
         }
 
-        Transform3D *lTransform = scene.Get<Transform3D>(ent);
-
-        dirLights.push_back({l->lightID, lTransform, l->diffuse, l->specular});
+        dirLights.push_back({directionalLight.lightID, &lightTransform, directionalLight.diffuse, directionalLight.specular});
     }
 
     std::vector<SpotLightRenderInfo> spotLights;
-    for (EntityID ent: SceneView<SpotLight, Transform3D>(scene))
+    for (auto [entityId, spotlight, transform] : SceneView<SpotLight, Transform3D>(scene))
     {
-        SpotLight *l = scene.Get<SpotLight>(ent);
-        if (l->lightID == -1)
+        if (spotlight.lightID == -1)
         {
-            l->lightID = renderer.AddSpotLight();
+            spotlight.lightID = renderer.AddSpotLight();
         }
 
-        Transform3D *lTransform = scene.Get<Transform3D>(ent);
-
-        spotLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                 l->innerCone, l->outerCone, l->range, l->fallOff, true});
+        spotLights.push_back({spotlight.lightID, &transform, spotlight.diffuse, spotlight.specular,
+                                 spotlight.innerCone, spotlight.outerCone, spotlight.range, spotlight.fallOff, true});
     }
 
     std::vector<PointLightRenderInfo> pointLights;
-    for (EntityID ent: SceneView<PointLight, Transform3D>(scene))
+    for (auto [entityId, pointlight, transform] : SceneView<PointLight, Transform3D>(scene))
     {
-        PointLight *l = scene.Get<PointLight>(ent);
-        if (l->lightID == -1)
+        if (pointlight.lightID == -1)
         {
-            l->lightID = renderer.AddPointLight();
+            pointlight.lightID = renderer.AddPointLight();
         }
 
-        Transform3D *lTransform = scene.Get<Transform3D>(ent);
-
-        pointLights.push_back({l->lightID, lTransform, l->diffuse, l->specular,
-                                  l->radius, l->falloff, true});
+        pointLights.push_back({
+            pointlight.lightID, &transform,
+            pointlight.diffuse, pointlight.specular,
+            pointlight.radius, pointlight.falloff, true});
     }
 
     std::vector<IconRenderInfo> icons;
     if (gameState.isEditor)
     {
-        for (EntityID ent : SceneView<Transform3D, NameComponent>(scene))
+        for (auto [entityId, iconTransform, nameComponent] : SceneView<Transform3D, NameComponent>(scene))
         {
-            Transform3D *iconTransform = scene.Get<Transform3D>(ent);
             for (IconGizmo& gizmo : iconGizmos)
             {
-                if (scene.Has(ent, gizmo.id))
+                if (scene.Has(entityId, gizmo.id))
                 {
-                    icons.push_back({iconTransform->GetWorldPosition(), gizmo.texture->id, GetEntityIndex(ent)});
+                    icons.push_back({iconTransform.GetWorldPosition(), gizmo.texture->id, GetEntityIndex(entityId)});
                 }
             }
         }
     }
 
     std::vector<MeshRenderInfo> meshInstances;
-    for (EntityID ent: SceneView<MeshComponent, Transform3D>(scene))
+    for (auto [entityId, meshComponent, transform] : SceneView<MeshComponent, Transform3D>(scene))
     {
-        Transform3D *t = scene.Get<Transform3D>(ent);
-        glm::mat4 model = t->GetWorldTransform();
-        MeshComponent *m = scene.Get<MeshComponent>(ent);
-        if (m->mesh != nullptr)
+        glm::mat4 model = transform.GetWorldTransform();
+        if (meshComponent.mesh != nullptr)
         {
-            MeshID meshID = m->mesh->id;
-            TextureID texID = m->texture == nullptr ? -1 : m->texture->id;
-            meshInstances.push_back({model, m->color, meshID, texID, GetEntityIndex(ent)});
+            MeshID meshID = meshComponent.mesh->id;
+            TextureID texID = meshComponent.texture == nullptr ? -1 : meshComponent.texture->id;
+            meshInstances.push_back({model, meshComponent.color, meshID, texID, GetEntityIndex(entityId)});
         }
     }
 
