@@ -43,6 +43,8 @@ public:
 
     SKLPhysicsSubSystemBuffer preUpdateSubsystemBuffer;
     SKLPhysicsSubSystemBuffer postUpdateSubsystemBuffer;
+
+    JPH::ObjectLayer nonMovingLayer;
     
     SKLPhysicsSystem();
 
@@ -58,6 +60,8 @@ public:
     // Must be called before Initialize for it to take effect.
     void InitializeSubSystems(SKLPhysicsSubSystemBuffer preUpdateSubsystemBuffer,
                               SKLPhysicsSubSystemBuffer postUpdateSubsystemBuffer);
+
+    void SetNonMovingLayer(JPH::ObjectLayer nonMovingLayer);
 };
 
 JPH::Vec3 OurToJoltCoordinateSystem(glm::vec3 ourVec3);

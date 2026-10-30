@@ -79,6 +79,8 @@ struct RenderFrameInfo {
     float cameraNear;
     float cameraFar;
 
+    glm::vec3 skyColor;
+
     // Editor stuff
     glm::ivec2 cursorPos;
     std::vector<IconRenderInfo>& icons;

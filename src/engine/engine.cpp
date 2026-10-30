@@ -25,6 +25,7 @@ constexpr f32 FIXED_TIMESTEP_DELTA_TIME = 1.0f / 60.0f;
 PlatformAssetUtils assetUtils;
 PlatformRenderer renderer;
 PlatformAllocator allocator;
+PlatformRandUtils randUtils;
 
 #if SKL_INTERNAL
 DebugState* globalDebugState;
@@ -120,6 +121,7 @@ GAME_LOAD(GameLoad)
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;
     allocator = memory.platformAPI.allocator;
+    randUtils = memory.platformAPI.randUtils;
 
     #if SKL_INTERNAL
     globalDebugState = memory.debugState;
@@ -168,7 +170,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     // NOTE(marvin): Putting RenderOverlay above the above systems so
     // that EditorSystem's GUI overlay will go below the tabs.
-    RenderOverlay(*gameState);
+    // RenderOverlay(*gameState);
 
     f32 remainingFrameTime = frameTime;
     while (remainingFrameTime > 0.0f)

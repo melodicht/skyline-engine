@@ -41,7 +41,7 @@ COMPONENT(PlayerCharacter)
 
 struct StaticBox
 {
-    bool initialized = false;
+    JPH::Body* body = nullptr;
 };
 SERIALIZE(StaticBox)
 COMPONENT(StaticBox)

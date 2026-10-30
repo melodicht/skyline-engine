@@ -22,8 +22,11 @@ struct GameState
     // TODO(marvin): Overlay mode is a shared between ecs editor and debug mode. Ideally in a different struct or compiled away for the actual game release. However, because ecs editor is part of game release, cannot be compiled away.
     // NOTE(marvin): In actual release, overlay mode should only be none, and is never checked.
     OverlayMode overlayMode;
+
+    glm::vec3 skyColor = {};
 };
 
 extern PlatformAssetUtils assetUtils;
 extern PlatformRenderer renderer;
 extern PlatformAllocator allocator;
+extern PlatformRandUtils randUtils;

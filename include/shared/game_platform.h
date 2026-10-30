@@ -57,11 +57,16 @@ DEFINE_GAME_MODULE_API(PlatformAssetUtils,ASSET_UTIL_FUNCS)
     method(void *,Realloc,(void *block, siz oldSize, siz newSize))
 DEFINE_GAME_MODULE_API(PlatformAllocator, ALLOCATOR_FUNCS)
 
+#define RAND_FUNCS(method) \
+    method(f32,RandF32InRange,(f32 min, f32 max))
+DEFINE_GAME_MODULE_API(PlatformRandUtils, RAND_FUNCS)
+
 struct PlatformAPI
 {
     PlatformAssetUtils assetUtils;
     PlatformRenderer renderer;
     PlatformAllocator allocator;
+    PlatformRandUtils randUtils;
 };
 
 struct ImGuiContext;

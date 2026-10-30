@@ -229,6 +229,7 @@ SKLPhysicsSystem::SKLPhysicsSystem() : SYSTEM_SUPER(SKLPhysicsSystem)
 {
     this->preUpdateSubsystemBuffer = {};
     this->postUpdateSubsystemBuffer = {};
+    this->nonMovingLayer = Layer::NON_MOVING;
 }
 
 SKLPhysicsSystem::~SKLPhysicsSystem()
@@ -252,7 +253,7 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
         StaticBox *sb = scene->Get<StaticBox>(ent);
         Transform3D *t = scene->Get<Transform3D>(ent);
 
-        if (!sb->initialized)
+        if (sb->body == nullptr)
         {
             JPH::Vec3 joltVolume = OurToJoltCoordinateSystem(t->GetLocalScale());
             JPH::Vec3 halfExtent{
@@ -266,11 +267,11 @@ SYSTEM_ON_UPDATE(SKLPhysicsSystem)
 
             JPH::Vec3 position = OurToJoltCoordinateSystem(t->GetWorldPosition());
             JPH::BodyCreationSettings bodyCreationSettings{shape, position,
-                                                           JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layer::NON_MOVING};
+                                                           JPH::Quat::sIdentity(), JPH::EMotionType::Static, this->nonMovingLayer};
             JPH::Body *body = bodyInterface.CreateBody(bodyCreationSettings);
             bodyInterface.AddBody(body->GetID(), JPH::EActivation::DontActivate);
 
-            sb->initialized = true;
+            sb->body = body;
         }
     }
 
@@ -341,4 +342,9 @@ void SKLPhysicsSystem::InitializeSubSystems(SKLPhysicsSubSystemBuffer preUpdateS
 {
     this->preUpdateSubsystemBuffer = preUpdateSubsystemBuffer;
     this->postUpdateSubsystemBuffer = postUpdateSubsystemBuffer;
+}
+
+void SKLPhysicsSystem::SetNonMovingLayer(JPH::ObjectLayer nonMovingLayer)
+{
+    this->nonMovingLayer = nonMovingLayer;
 }

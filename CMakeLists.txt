@@ -52,6 +52,10 @@ if(NOT DEFINED SKL_NO_DEFAULT_PHYSICS_SYSTEM)
         option(SKL_NO_DEFAULT_PHYSICS_SYSTEM "Whether you don't want the default physics system" 0)
 endif()
 
+if(NOT DEFINED JPH_GJK_DEBUG)
+        option(JPH_GJK_DEBUG "JPH GJK DEBUG" 0)
+endif()
+
 # When debugging mode is active, determines whether logging should also be enabled.
 if(NOT DEFINED SKL_ENABLE_LOGGING)
         option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" 1)
@@ -168,6 +172,8 @@ endif()
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.92.5")
+# NOTE(marvin): 1.25.2 doesn't build with clang + the MSVC STL (its nonblocking
+# function-effects annotations break std::max and std::ranges::for_each).
 CPMAddPackage("gh:kcat/openal-soft#1.25.1")
 
 CPMAddPackage("gh:marzer/tomlplusplus#v3.4.0")

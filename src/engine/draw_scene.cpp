@@ -112,8 +112,9 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         .cameraFov = camera->fov,
         .cameraNear = camera->nearPlane,
         .cameraFar = camera->farPlane,
+        .skyColor = gameState.skyColor,
         .cursorPos = {input.mouseX, input.mouseY},
-        .icons = icons
+        .icons = icons,
     };
 
     renderer.RenderUpdate(sendState);

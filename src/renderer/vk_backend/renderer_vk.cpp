@@ -1552,7 +1552,7 @@ void BeginCubemapShadowPass(Texture target, CullMode cullMode)
         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT));
 }
 
-void BeginColorPass(CullMode cullMode)
+void BeginColorPass(CullMode cullMode, glm::vec3 skyColor)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -1585,7 +1585,7 @@ void BeginColorPass(CullMode cullMode)
     vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
     vkCmdSetDepthBiasEnable(cmd, false);
 
-    VkClearValue clearValue{.color = {{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkClearValue clearValue{.color = {{sRGBToLinear(skyColor.x), sRGBToLinear(skyColor.y), sRGBToLinear(skyColor.z), 1.0f}}};
     VkClearValue idClearValue{.color = {.uint32 = {UINT32_MAX, 0, 0, 0}}};
 
     VkRenderingAttachmentInfo colorAttachment
@@ -2124,9 +2124,9 @@ void RenderUpdate(RenderFrameInfo& info)
     }
     EndPass();
 
-    BeginColorPass(CullMode::BACK);
+    BeginColorPass(CullMode::BACK, info.skyColor);
 
-    SetLights(sRGBToLinear({0.1f, 0.1f, 0.1f}),
+    SetLights(sRGBToLinear({0.3f, 0.3f, 0.3f}),
               dirLightData.size(), dirLightData.data(), cascades.data(),
               spotLightData.size(), spotLightData.data(),
               pointLightData.size(), pointLightData.data());

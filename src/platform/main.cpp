@@ -49,8 +49,8 @@ struct AppInformation
     { }
 };
 
-#define WINDOW_WIDTH 1600
-#define WINDOW_HEIGHT 1200
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
 
 file_global std::set<std::string> keysDown;
 file_global f32 mouseDeltaX = 0;
@@ -191,7 +191,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    window = SDL_CreateWindow("Skyline Engine", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | GetRenderWindowFlags());
+    window = SDL_CreateWindow("Skyline Engine", WINDOW_WIDTH, WINDOW_HEIGHT,  SDL_WINDOW_FULLSCREEN | SDL_WINDOW_RESIZABLE | GetRenderWindowFlags());
+    SDL_SetWindowFullscreen(window, true);
     if (window == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -202,7 +203,7 @@ int main(int argc, char** argv)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
 
-    std::string mapName = "start";
+    std::string mapName = "release";
     bool editor = false;
     bool recordOnStart = false;
 
@@ -250,6 +251,7 @@ int main(int argc, char** argv)
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameMemory.platformAPI.allocator = constructPlatformAllocator();
+    gameMemory.platformAPI.randUtils = constructPlatformRandUtils();
     gameCode.gameLoad(gameMemory, editor, false);
     gameCode.gameInitialize(gameMemory, mapName, editor);
 
