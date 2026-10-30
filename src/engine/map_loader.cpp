@@ -42,7 +42,7 @@ void CreateComponentPools(Scene& scene)
     for (ComponentID id = 0; id < CompInfos().size(); id++)
     {
         ComponentInfo& compInfo = CompInfos()[id];
-        scene.AddComponentPool(compInfo.size);
+        scene.AddComponentPool(compInfo.size, compInfo.alignment);
     }
 }
 

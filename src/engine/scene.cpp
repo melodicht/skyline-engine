@@ -141,9 +141,11 @@ void Scene::UpdateSemifixedTimestepSystems(GameInput *input, f32 deltaTime)
     UpdateAllSystems(&semifixedTimestepSystemsBuffer, this, input, deltaTime);
 }
 
-void Scene::AddComponentPool(size_t componentSize)
+void Scene::AddComponentPool(size_t componentSize, size_t alignment)
 {
-    void *base = PushSize(&componentPoolsArena, MAX_ENTITIES * componentSize);
+    ArenaParams params = DefaultArenaParams();
+    params.alignment = alignment;
+    void *base = PushSize(&componentPoolsArena, MAX_ENTITIES * componentSize, params);
     ComponentPool componentPool = ComponentPool(base, componentSize);
     componentPools.Push(componentPool);
 }

@@ -72,14 +72,14 @@ template <typename T>
 void AddComponent(const char *name)
 {
     compName<T> = name;
-    CompInfos().push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), std::type_index(typeid(T)), name});
+    CompInfos().push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), alignof(T), std::type_index(typeid(T)), name});
 }
 
 template <typename T>
 void AddComponent(const char *name, const char *icon)
 {
     compName<T> = name;
-    CompInfos().push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), std::type_index(typeid(T)), name, icon});
+    CompInfos().push_back({AssignComponent<T>, RemoveComponent<T>, WriteComponent<T>, ReadComponent<T>, sizeof(T), alignof(T), std::type_index(typeid(T)), name, icon});
 }
 
 #define PARENS ()

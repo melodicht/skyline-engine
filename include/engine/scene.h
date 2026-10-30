@@ -405,7 +405,7 @@ public:
 
     void UpdateSemifixedTimestepSystems(GameInput *input, f32 deltaTime);
 
-    void AddComponentPool(size_t componentSize);
+    void AddComponentPool(size_t componentSize, size_t alignment);
 
     // Adds a new entity to this vector of entities, and returns its
     // ID. Can only support 2^64 entities without ID conflicts.

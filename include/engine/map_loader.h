@@ -23,6 +23,7 @@ struct ComponentInfo
     s32 (*writeFunc)(Scene&, EntityID, DataEntry*);
     DataEntry* (*readFunc)(Scene&, EntityID);
     size_t size;
+    size_t alignment;
     std::type_index type;
     std::string name;
     std::string iconPath;
