@@ -49,8 +49,13 @@ struct AppInformation
     { }
 };
 
+#if MARVIN_GAME
 #define WINDOW_WIDTH 1920
 #define WINDOW_HEIGHT 1080
+#else
+#define WINDOW_WIDTH 1600
+#define WINDOW_HEIGHT 1200
+#endif
 
 file_global std::set<std::string> keysDown;
 file_global f32 mouseDeltaX = 0;
@@ -191,8 +196,12 @@ int main(int argc, char** argv)
         return 1;
     }
 
+#if MARVIN_GAME
     window = SDL_CreateWindow("Skyline Engine", WINDOW_WIDTH, WINDOW_HEIGHT,  SDL_WINDOW_FULLSCREEN | SDL_WINDOW_RESIZABLE | GetRenderWindowFlags());
     SDL_SetWindowFullscreen(window, true);
+#else
+    window = SDL_CreateWindow("Skyline Engine", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | GetRenderWindowFlags());
+#endif
     if (window == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -203,7 +212,11 @@ int main(int argc, char** argv)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
 
+#if MARVIN_GAME
     std::string mapName = "release";
+#else
+    std::string mapName = "start";
+#endif
     bool editor = false;
     bool recordOnStart = false;
 

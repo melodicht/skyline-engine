@@ -170,7 +170,9 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     // NOTE(marvin): Putting RenderOverlay above the above systems so
     // that EditorSystem's GUI overlay will go below the tabs.
-    // RenderOverlay(*gameState);
+#if !MARVIN_GAME
+    RenderOverlay(*gameState);
+#endif
 
     f32 remainingFrameTime = frameTime;
     while (remainingFrameTime > 0.0f)

@@ -2126,7 +2126,12 @@ void RenderUpdate(RenderFrameInfo& info)
 
     BeginColorPass(CullMode::BACK, info.skyColor);
 
-    SetLights(sRGBToLinear({0.3f, 0.3f, 0.3f}),
+#if MARVIN_GAME
+    glm::vec3 lightColor = sRGBToLinear({0.3f, 0.3f, 0.3f});
+#else
+    glm::vec3 lightColor = sRGBToLinear({0.1f, 0.1f, 0.1f});
+#endif
+    SetLights(lightColor,
               dirLightData.size(), dirLightData.data(), cascades.data(),
               spotLightData.size(), spotLightData.data(),
               pointLightData.size(), pointLightData.data());
