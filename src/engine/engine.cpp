@@ -217,11 +217,12 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     b8 ranFixedStep = false;
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
         b32 consumedInput = false;
-        std::span<PlayerData> stepInputs = fixedPlayerData;
 
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             PROFILE_ZONE_BEGIN(fixedUpdateZone, "Fixed Timestep Update");
+            // Must be reset each step, as it can point at the previous step's network inputs.
+            std::span<PlayerData> stepInputs = fixedPlayerData;
             if (isNetworked)
             {   
                 // Prevents network from sending things too far ahead. What gets sent
