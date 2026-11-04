@@ -221,7 +221,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             PROFILE_ZONE_BEGIN(fixedUpdateZone, "Fixed Timestep Update");
-            // Must be reset each step, as it can point at the previous step's network inputs.
+            std::vector<PlayerData> networkInputs;
             std::span<PlayerData> stepInputs = fixedPlayerData;
             if (isNetworked)
             {   
@@ -241,7 +241,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     }
                 }
 
-                std::vector<PlayerData> networkInputs = network.GetInputs();
+                networkInputs = network.GetInputs();
                 if (networkInputs.empty())
                 {
                     // Others haven't caught up. This step is retried next frame, so we deferred
