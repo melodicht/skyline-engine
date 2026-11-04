@@ -14,6 +14,7 @@
 #include <meta_definitions.h>
 #include <scene.h>
 #include <utils.h>
+#include <input.h>
 #include <SDL3/SDL_mouse.h>
 #include <map_loader.h>
 #include <system_registry.h>
@@ -29,6 +30,8 @@ constexpr f32 FIXED_TIMESTEP_DELTA_TIME = 1.0f / 60.0f;
 PlatformAssetUtils assetUtils;
 PlatformRenderer renderer;
 PlatformAllocator allocator;
+
+std::queue<PlayerData> dataQueue;
 
 #if SKL_INTERNAL
 DebugState* globalDebugState;

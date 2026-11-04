@@ -237,6 +237,8 @@ if(SKL_ENABLE_WEBRTC)
         endif()
 endif()
 
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/network network)
+
 #==============================================================================
 # IMGUI
 #==============================================================================
@@ -417,7 +419,7 @@ target_include_directories(platform PUBLIC
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
-        WEBRTC_BACKEND
+        network
         fastgltf::fastgltf
         SDL3::SDL3
         tomlplusplus::tomlplusplus)
