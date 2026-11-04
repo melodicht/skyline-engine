@@ -92,12 +92,14 @@ GAME_INITIALIZE(GameInitialize)
         inputSpecification.AddButtonSpec(InputEditorLook);
         inputSpecification.AddButtonSpec(InputEditorSelect);
         inputSpecification.AddButtonSpec(InputEditorCtrl);
+        inputSpecification.SetInput2dSpec(InputEditorCursor, {MergeBehavior2d::Copy});
         PlayerId editorPlayer = AddInputPlayer(memory);
         AddMovementGathering(inputSpecification, editorPlayer);
         inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorLook, MouseClickGather(SDL_BUTTON_RIGHT));
         inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorSelect, MouseClickGather(SDL_BUTTON_LEFT));
         inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorCtrl, KeyboardGather(SDLK_LCTRL));
         inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorCtrl, KeyboardGather(SDLK_RCTRL));
+        inputSpecification.AddInput2dGatheringSpec(editorPlayer, InputEditorCursor, Input2dGatherType::MouseLocation);
 
         EditorSystem *editorSystem = scene.CreateVariableTimestepSystem<EditorSystem>(gameState->currentCamera, &gameState->overlayMode);
 
@@ -232,7 +234,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     PROFILE_GPU_FRAME(renderer);
     PROFILE_ZONE_BEGIN(drawSceneZone, "Draw Scene");
-    DrawScene(*gameState, input, frameTime);
+    DrawScene(*gameState, memory.playerData, inputSpecification, frameTime);
     PROFILE_ZONE_END(drawSceneZone);
     LogDebugRecords();
     PROFILE_OUTPUT_LOG();

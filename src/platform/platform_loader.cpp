@@ -206,7 +206,7 @@ GAME_INITIALIZE(GameCode::Initialize) {
 
 GAME_UPDATE_AND_RENDER(GameCode::UpdateAndRender) {
     ASSERT(m_gameUpdateAndRenderPtr != nullptr);
-    m_gameUpdateAndRenderPtr(memory, input, frameTime);
+    m_gameUpdateAndRenderPtr(memory, frameTime);
 }
 #else 
 
@@ -229,6 +229,6 @@ GAME_INITIALIZE(GameCode::Initialize) {
 }
 
 GAME_UPDATE_AND_RENDER(GameCode::UpdateAndRender) {
-    ::GameUpdateAndRender(memory, input, frameTime);
+    ::GameUpdateAndRender(memory, frameTime);
 }
 #endif

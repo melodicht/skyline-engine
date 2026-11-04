@@ -1,5 +1,4 @@
 #include <meta_definitions.h>
-#include <format>
 #include <filesystem>
 #include <iostream>
 
@@ -60,10 +59,6 @@ struct AppInformation
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-file_global std::set<std::string> keysDown;
-file_global f32 mouseX = 0;
-file_global f32 mouseY = 0;
-
 // Kills the previous game process if it exists before creating the new game process.
 local void LaunchGame(SDLState* state, const char* mapName)
 {
@@ -94,9 +89,6 @@ void updateLoop(void* appInfo) {
 
     info->gameCode.UpdateGameCode(info->gameMemory, info->editor);
 
-    GameInput gameInput;
-    gameInput.keysDownPrevFrame = keysDown;
-
     for (PlayerData& data : info->gameMemory.playerData)
     {
         data.m_inputButtonPrevDown = data.m_inputButtonDown;
@@ -124,7 +116,7 @@ void updateLoop(void* appInfo) {
                 {
                     if (!info->e.key.repeat)
                     {
-                        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &info->gameMemory.accumulatedPlayerData);
+                        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, info->gameMemory.playerData, &info->gameMemory.accumulatedPlayerData);
                     }
                 }
                 else if (info->e.key.key == SDLK_1)
@@ -139,22 +131,11 @@ void updateLoop(void* appInfo) {
                 {
                     LaunchGame(&globalSDLState, info->mapName);
                 }
-                keysDown.insert(SDL_GetKeyName(info->e.key.key));
-                break;
-            case SDL_EVENT_KEY_UP:
-                keysDown.erase(SDL_GetKeyName(info->e.key.key));
-                break;
-            case SDL_EVENT_MOUSE_BUTTON_DOWN:
-                keysDown.insert(std::format("Mouse {}", info->e.button.button));
-                break;
-            case SDL_EVENT_MOUSE_BUTTON_UP:
-                keysDown.erase(std::format("Mouse {}", info->e.button.button));
                 break;
         }
     }
 
     GatherInputs(*info->gameMemory.inputSpecification, info->gameMemory.playerData);
-    SDL_GetMouseState(&mouseX, &mouseY);
 
     s32 windowWidth = WINDOW_WIDTH;
     s32 windowHeight = WINDOW_HEIGHT;
@@ -162,24 +143,14 @@ void updateLoop(void* appInfo) {
 
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    ImGuiIO& io = ImGui::GetIO();
-    
-    if (io.WantCaptureMouse)
-    {
-        keysDown.erase("Mouse 1");
-    }
 
-    gameInput.mouseX = mouseX;
-    gameInput.mouseY = mouseY;
-    gameInput.keysDownThisFrame = keysDown;
-
-    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, info->gameMemory.playerData, &info->gameMemory.accumulatedPlayerData, forceReloadGameCode);
+    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, *info->gameMemory.inputSpecification, info->gameMemory.playerData, &info->gameMemory.accumulatedPlayerData, forceReloadGameCode);
     if (shouldReloadGameCode)
     {
         info->gameCode.Load(info->gameMemory, info->editor, true);
     }
     
-    info->gameCode.UpdateAndRender(info->gameMemory, gameInput, frameTime);
+    info->gameCode.UpdateAndRender(info->gameMemory, frameTime);
 
     f32 msPerFrame =  1000.0f * frameTime;
     f32 fps = 1 / frameTime;
@@ -277,7 +248,7 @@ int main(int argc, char** argv)
 
     if (recordOnStart)
     {
-        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &gameMemory.accumulatedPlayerData);
+        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, gameMemory.playerData, &gameMemory.accumulatedPlayerData);
     }
 
     u64 now = SDL_GetPerformanceCounter();

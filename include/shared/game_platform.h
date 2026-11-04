@@ -1,6 +1,5 @@
 #pragma once
 
-#include <set>
 #include <string>
 #include <vector>
 
@@ -12,15 +11,6 @@
 /**
  * This file represents platform logic that is exported to the game.
  */
-
-struct GameInput
-{
-    u32 mouseX{ 0 };
-    u32 mouseY{ 0 };
-
-    std::set<std::string> keysDownPrevFrame;
-    std::set<std::string> keysDownThisFrame;
-};
 
 #define ASSET_UTIL_FUNCS(method)\
     method(MeshAsset *,LoadMeshAsset,(std::string name))\
@@ -96,7 +86,7 @@ typedef GAME_GET_PERSISTENT_DLL_PATHS(game_get_persistent_dll_paths_t);
 #define GAME_INITIALIZE(name) void name(GameMemory &memory, std::string mapName, b32 editor)
 typedef GAME_INITIALIZE(game_initialize_t);
 
-#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 frameTime)
+#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, f32 frameTime)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);
 
 #if SKL_STATIC_MONOLITHIC

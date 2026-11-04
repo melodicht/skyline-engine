@@ -1,10 +1,18 @@
 #include <platform_loop.h>
 
 #if SKL_INTERNAL
+#include <algorithm>
+
 #include <platform_memory.h>
 #include <game_platform.h>
 
 // >>> Local Helper Functions <<<
+// Upper bound of a recorded frame: each player's input.
+local siz SDLGetFrameBufferCapacity(siz playerCount)
+{
+    return playerCount * MaxBufferSize;
+}
+
 const char* LoopUtils::SDLGetInputFilePath()
 {
     const char* result = "loop_start.skli";
@@ -33,7 +41,7 @@ void LoopUtils::SDLClearBlocksByMask(SDLState* state, LoopMemoryFlags::SDLMemory
     }
 }
 
-void LoopUtils::SDLBeginInputPlayback(SDLState* state, std::vector<PlayerData>* accumulatedPlayerData)
+void LoopUtils::SDLBeginInputPlayback(SDLState* state, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData)
 {
     SDLClearBlocksByMask(state, LoopMemoryFlags::sdlMem_allocatedDuringLoop);
     
@@ -49,6 +57,9 @@ void LoopUtils::SDLBeginInputPlayback(SDLState* state, std::vector<PlayerData>* 
         state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::playing;
         RestoreMemoryBlocksFromFile(state->loopState.playbackHandle);
         *accumulatedPlayerData = state->loopState.recordedAccumulatedPlayerData;
+        // Recorded frames don't hold previous button state, so the first frame gets it from here.
+        ASSERT_PRINT(playerData.size() == state->loopState.recordedPlayerData.size(), "Player count changed during looped-live editing.");
+        std::copy(state->loopState.recordedPlayerData.begin(), state->loopState.recordedPlayerData.end(), playerData.begin());
     }
 }
 
@@ -60,7 +71,7 @@ void LoopUtils::SDLEndInputPlayback(SDLState* state)
     state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::none;
 }
 
-void LoopUtils::SDLBeginRecordingInput(SDLState* state, const std::vector<PlayerData>* accumulatedPlayerData)
+void LoopUtils::SDLBeginRecordingInput(SDLState* state, std::span<const PlayerData> playerData, const std::vector<PlayerData>* accumulatedPlayerData)
 {
     const char* inputFilePath = SDLGetInputFilePath();
     state->loopState.recordingHandle = SDL_IOFromFile(inputFilePath, "w");
@@ -72,6 +83,7 @@ void LoopUtils::SDLBeginRecordingInput(SDLState* state, const std::vector<Player
     else
     {
         state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::recording;
+        state->loopState.recordedPlayerData.assign(playerData.begin(), playerData.end());
         state->loopState.recordedAccumulatedPlayerData = *accumulatedPlayerData;
         WriteMemoryBlocksToFile(state, state->loopState.recordingHandle);
     }
@@ -84,60 +96,24 @@ void LoopUtils::SDLEndRecordingInput(SDLState* state)
     state->loopState.loopedLiveEditingState = LoopState::LoopedLiveEditingState::none;
 }
 
-void LoopUtils::SDLRecordStdString(SDLState* state, const std::string* str)
+void LoopUtils::SDLRecordInput(SDLState* state, const InputSpecification& specification, std::span<const PlayerData> playerData)
 {
-    u32 length = static_cast<u32>(str->size());
-    TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, &length, sizeof(length)), sizeof(length));
-    TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, str->data(), length), length);
-}
+    std::vector<std::byte>& buffer = state->loopState.frameBuffer;
+    buffer.resize(SDLGetFrameBufferCapacity(playerData.size()));
 
-void LoopUtils::SDLRecordStdSetOfString(SDLState* state, const std::set<std::string>* strings)
-{
-    u32 count = static_cast<u32>(strings->size());
-    TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, &count, sizeof(count)), sizeof(count));
-
-    for (const std::string& str : *strings)
+    std::byte* cursor = buffer.data();
+    for (const PlayerData& data : playerData)
     {
-        SDLRecordStdString(state, &str);
+        cursor += specification.WriteBuffer(cursor, data);
     }
-}
 
-void LoopUtils::SDLRecordInput(SDLState* state, const GameInput* gameInput, std::span<const PlayerData> playerData)
-{
-    // NOTE(marvin): The keys down is not going to be used.
-    siz bytesWritten = SDL_WriteIO(state->loopState.recordingHandle, gameInput, sizeof(*gameInput));
-    ASSERT_PRINT(bytesWritten == sizeof(*gameInput), "Failed to properly write.");
-
-    // NOTE(marvin): Have to manually deserialize std set.
-    SDLRecordStdSetOfString(state, &gameInput->keysDownPrevFrame);
-    SDLRecordStdSetOfString(state, &gameInput->keysDownThisFrame);
-
-    TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, playerData.data(), playerData.size_bytes()), playerData.size_bytes());
-}
-
-void LoopUtils::SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings)
-{
-    u32 length;
-    TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, &length, sizeof(length)), sizeof(length));
-
-    std::string str(length, '\0');
-    TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, str.data(), length), length);
-    strings->insert(std::move(str));
-}
-
-void LoopUtils::SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings)
-{
-    u32 count;
-    TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, &count, sizeof(count)), sizeof(count));
-
-    for (u32 index = 0; index < count; ++index)
-    {
-        SDLPlaybackStdString(state, strings);
-    }
+    u32 frameSize = static_cast<u32>(cursor - buffer.data());
+    TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, &frameSize, sizeof(frameSize)), sizeof(frameSize));
+    TRY_EXPECT(SDL_WriteIO(state->loopState.recordingHandle, buffer.data(), frameSize), frameSize);
 }
 
 // Did a reset happen?
-b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode)
+b8 LoopUtils::SDLPlaybackInput(SDLState* state, const InputSpecification& specification, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode)
 {
     // NOTE(marvin): Would it be possible for there to be two notion
     // of mouse? One used in the game, and one for interacting with
@@ -145,28 +121,31 @@ b8 LoopUtils::SDLPlaybackInput(SDLState* state, GameInput* gameInput, std::span<
 
     b32 result = false;
 
-    // NOTE(marvin): Need to destroy the std set prior to writing to
-    // it because the write will corrupt std set memory. Reconstruct it after.
-    gameInput->keysDownPrevFrame.~set();
-    gameInput->keysDownThisFrame.~set();
-    siz bytesRead = SDL_ReadIO(state->loopState.playbackHandle, gameInput, sizeof(*gameInput));
+    u32 frameSize = 0;
+    siz bytesRead = SDL_ReadIO(state->loopState.playbackHandle, &frameSize, sizeof(frameSize));
 
     if (bytesRead == 0 || forceReloadGameCode)
     {
         // NOTE(marvin): Could also rewind the stream, but going
         // through end and start again is safer.
         SDLEndInputPlayback(state);
-        SDLBeginInputPlayback(state, accumulatedPlayerData);
-        bytesRead = SDL_ReadIO(state->loopState.playbackHandle, gameInput, sizeof(*gameInput));
+        SDLBeginInputPlayback(state, playerData, accumulatedPlayerData);
+        bytesRead = SDL_ReadIO(state->loopState.playbackHandle, &frameSize, sizeof(frameSize));
         result = true;
     }
-    ASSERT(bytesRead == sizeof(*gameInput));
-    
-    new (&gameInput->keysDownPrevFrame) std::set<std::string>();
-    new (&gameInput->keysDownThisFrame) std::set<std::string>();
-    SDLPlaybackStdSetOfString(state, &gameInput->keysDownPrevFrame);
-    SDLPlaybackStdSetOfString(state, &gameInput->keysDownThisFrame);
-    TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, playerData.data(), playerData.size_bytes()), playerData.size_bytes());
+    ASSERT(bytesRead == sizeof(frameSize));
+
+    std::vector<std::byte>& buffer = state->loopState.frameBuffer;
+    buffer.resize(SDLGetFrameBufferCapacity(playerData.size()));
+    ASSERT_PRINT(frameSize <= buffer.size(), "Recorded frame doesn't fit the current input specification.");
+    TRY_EXPECT(SDL_ReadIO(state->loopState.playbackHandle, buffer.data(), frameSize), frameSize);
+
+    const std::byte* cursor = buffer.data();
+    for (PlayerData& data : playerData)
+    {
+        cursor += specification.ReadBuffer(cursor, data);
+    }
+    ASSERT_PRINT(cursor == buffer.data() + frameSize, "Recorded frame doesn't match the current input specification.");
     return result;
 }
 
@@ -181,18 +160,18 @@ b8 LoopUtils::GetIsStateInPlayback(const SDLState* state)
     return state->loopState.loopedLiveEditingState == LoopState::LoopedLiveEditingState::playing;
 }
 
-void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state, std::vector<PlayerData>* accumulatedPlayerData)
+void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData)
 {
     switch (state->loopState.loopedLiveEditingState)
     {
       case LoopState::LoopedLiveEditingState::none:
       {
-          SDLBeginRecordingInput(state, accumulatedPlayerData);
+          SDLBeginRecordingInput(state, playerData, accumulatedPlayerData);
       } break;
       case LoopState::LoopedLiveEditingState::recording:
       {
           SDLEndRecordingInput(state);
-          SDLBeginInputPlayback(state, accumulatedPlayerData);
+          SDLBeginInputPlayback(state, playerData, accumulatedPlayerData);
       } break;
       case LoopState::LoopedLiveEditingState::playing:
       {
@@ -201,7 +180,7 @@ void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state, std::vector<Player
     }
 }
 
-b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode)
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, const InputSpecification& specification, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode)
 {
     b32 result = false;
     switch (state->loopState.loopedLiveEditingState)
@@ -209,11 +188,11 @@ b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, std
       case LoopState::LoopedLiveEditingState::none: {} break;
       case LoopState::LoopedLiveEditingState::recording:
       {
-          SDLRecordInput(state, gameInput, playerData);
+          SDLRecordInput(state, specification, playerData);
       } break;
       case LoopState::LoopedLiveEditingState::playing:
       {
-          result = SDLPlaybackInput(state, gameInput, playerData, accumulatedPlayerData, forceReloadGameCode);
+          result = SDLPlaybackInput(state, specification, playerData, accumulatedPlayerData, forceReloadGameCode);
       } break;
     }
     return result;
@@ -235,8 +214,8 @@ b8 LoopUtils::GetBlockFlagLoopAllocated(const SDLMemoryBlock* block)  {
 }
 #else 
 b8 LoopUtils::GetIsStateInLoop(const SDLState* state) {}
-void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state, std::vector<PlayerData>* accumulatedPlayerData) {}
-b8 LoopUtils::ProcessInputWithLooping(SDLState* state, GameInput* gameInput, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode) { return false; }
+void LoopUtils::ToggleLoopedLiveEditingState(SDLState* state, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData) {}
+b8 LoopUtils::ProcessInputWithLooping(SDLState* state, const InputSpecification& specification, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode) { return false; }
 void LoopUtils::SetBlockFlagLoopAllocated(SDLMemoryBlock* block) {}
 void LoopUtils::SetBlockFlagLoopFreed(SDLMemoryBlock* block) {}
 void LoopUtils::SetBlockFlagLoopNone(SDLMemoryBlock* block) {}

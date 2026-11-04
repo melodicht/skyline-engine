@@ -8,6 +8,7 @@
 struct DataEntry;
 
 inline constexpr InputId InputEditorLook = GetInputId("EdLook");
+inline constexpr InputId InputEditorCursor = GetInputId("EdCursor");
 inline constexpr InputId InputEditorSelect = GetInputId("EdSelect");
 inline constexpr InputId InputEditorCtrl = GetInputId("EdCtrl");
 

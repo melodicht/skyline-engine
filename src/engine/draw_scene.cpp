@@ -1,6 +1,7 @@
 #include <vector>
 
 #include <draw_scene.h>
+#include <editor.h>
 #include <meta_definitions.h>
 #include <engine.h>
 #include <engine_components.h>
@@ -18,7 +19,7 @@ void FindCamera(GameState &gameState)
     }
 }
 
-void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
+void DrawScene(GameState &gameState, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime)
 {
     if (gameState.currentCamera == -1)
     {
@@ -102,6 +103,15 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         }
     }
 
+    // The cursor is only gathered in the editor, where it's used for picking.
+    glm::ivec2 cursorPos{ 0 };
+    #if SKL_ENABLED_EDITOR
+    if (gameState.isEditor)
+    {
+        cursorPos = glm::ivec2(PlayerInput(inputSpecification, playerData[0]).Get2dInput(InputEditorCursor));
+    }
+    #endif
+
     RenderFrameInfo sendState{
         .cameraTransform = cameraTransform,
         .meshes = meshInstances,
@@ -111,7 +121,7 @@ void DrawScene(GameState &gameState, GameInput &input, f32 deltaTime)
         .cameraFov = camera->fov,
         .cameraNear = camera->nearPlane,
         .cameraFar = camera->farPlane,
-        .cursorPos = {input.mouseX, input.mouseY},
+        .cursorPos = cursorPos,
         .icons = icons,
         .sceneLighting = sceneLighting
     };
