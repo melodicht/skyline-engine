@@ -20,6 +20,18 @@ s32 WriteFromData<s32>(s32* dest, DataEntry* data)
 }
 
 template <>
+s32 WriteFromData<u32>(u32* dest, DataEntry* data)
+{
+    if (data->type != INT_ENTRY)
+    {
+        printf("entry must be int but instead is %d\n", data->type);
+        return -1;
+    }
+    *dest = data->intVal;
+    return 0;
+}
+
+template <>
 s32 WriteFromData<f32>(f32* dest, DataEntry* data)
 {
     if (data->type != FLOAT_ENTRY)
@@ -127,6 +139,12 @@ DataEntry* ReadToData(T* src, std::string name)
 
 template <>
 DataEntry* ReadToData<s32>(s32* src, std::string name)
+{
+    return new DataEntry(name, (s64)*src);
+}
+
+template <>
+DataEntry* ReadToData<u32>(u32* src, std::string name)
 {
     return new DataEntry(name, (s64)*src);
 }

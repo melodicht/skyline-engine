@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <span>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -8,6 +9,7 @@
 #include <typeindex>
 #include <unordered_map>
 
+#include <input.h>
 #include <memory.h>
 
 /*
@@ -113,7 +115,7 @@ struct ComponentPool
  */
 
 struct Scene;
-struct GameInput;
+struct PlayerComponent;
 
 // Used for meta programming
 template<typename... ComponentTypes>
@@ -124,22 +126,26 @@ template<typename T>
 inline constexpr bool IsSystemUpdateContext =
     std::is_same_v<T, Scene &> ||
     std::is_same_v<T, const Scene &> ||
-    std::is_same_v<T, GameInput &> ||
-    std::is_same_v<T, const GameInput &> ||
+    std::is_same_v<std::remove_cvref_t<T>, std::span<PlayerData>> ||
+    std::is_same_v<T, const InputSpecification &> ||
     std::is_same_v<std::remove_cvref_t<T>, f32>;
 
 // Chooses to pass one of the base arguments through
 // if it matches the tempated arg.
 template<typename Arg>
-decltype(auto) SystemUpdateArgument(Scene &scene, GameInput &input, f32 deltaTime)
+decltype(auto) SystemUpdateArgument(Scene &scene, std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime)
 {
     using T = std::remove_cvref_t<Arg>;
     static_assert(IsSystemUpdateContext<Arg>,
-        "SYSTEM_ON_UPDATE accepts only Scene&, GameInput& (also const references), and f32");
+        "SYSTEM_ON_UPDATE accepts only Scene& (also const), std::span<PlayerData>, "
+        "const InputSpecification&, and f32");
     if constexpr (std::is_same_v<T, Scene>)
         return static_cast<Arg>(scene);
-    else if constexpr (std::is_same_v<T, GameInput>)
-        return static_cast<Arg>(input);
+    else if constexpr (std::is_same_v<T, std::span<PlayerData>>)
+        return std::span<PlayerData>(playerData);
+    else if constexpr (std::is_same_v<T, InputSpecification>)
+        return static_cast<Arg>(inputSpecification);
     else if constexpr (std::is_same_v<T, f32>)
         return f32(deltaTime);
 }
@@ -152,23 +158,51 @@ template<typename... Args>
 struct ExtractSystemUpdateArguments<void(Args...)>
 {
     template<typename F>
-    static void run(Scene &scene, GameInput &input, f32 deltaTime, F &&body)
+    static void run(Scene &scene, std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime, F &&body)
     {
-        body(SystemUpdateArgument<Args>(scene, input, deltaTime)...);
+        body(SystemUpdateArgument<Args>(scene, playerData, inputSpecification, deltaTime)...);
     }
 };
 
-// Checks if a type is a part of greater update context (i.e. GameInput&)
+// Checks if a type is a part of greater update context (i.e. Scene&)
 // or a component (Transform3D&)
 template<typename T>
 inline constexpr bool IsSceneUpdateContext =
     IsSystemUpdateContext<T> || std::is_same_v<std::remove_cvref_t<T>, EntityID>;
 
 // Filters out non component types so that they can be iterated upon
-// in scene view.
+// in scene view. Asking for const PlayerInput& requires PlayerComponent,
+// which identifies the player whose input is supplied.
 template<typename T>
-using SceneUpdateComponentTuple = std::conditional_t<IsSceneUpdateContext<T>,
-    std::tuple<>, std::tuple<std::remove_cvref_t<T>>>;
+using SceneUpdateComponentTuple = std::conditional_t<std::is_same_v<T, const PlayerInput &>,
+    std::tuple<PlayerComponent>,
+    std::conditional_t<IsSceneUpdateContext<T>,
+        std::tuple<>, std::tuple<std::remove_cvref_t<T>>>>;
+
+// Removes duplicates, as both const PlayerInput& and PlayerComponent& can
+// require PlayerComponent.
+template<typename Seen, typename... Rest>
+struct UniqueTuple
+{
+    using type = Seen;
+};
+template<typename... Seen, typename First, typename... Rest>
+struct UniqueTuple<std::tuple<Seen...>, First, Rest...>
+{
+    using type = typename UniqueTuple<
+        std::conditional_t<(std::is_same_v<First, Seen> || ...),
+            std::tuple<Seen...>, std::tuple<Seen..., First>>,
+        Rest...>::type;
+};
+template<typename Tuple>
+struct UniqueComponentTuple;
+template<typename... Types>
+struct UniqueComponentTuple<std::tuple<Types...>>
+{
+    using type = typename UniqueTuple<std::tuple<>, Types...>::type;
+};
+
 template<typename Tuple>
 struct TupleToSceneView;
 template<typename... Types>
@@ -183,28 +217,39 @@ struct ExtractComponentSceneView;
 template<typename... Args>
 struct ExtractComponentSceneView<void(Args...)>
 {
-    using Components = decltype(std::tuple_cat(
-        std::declval<SceneUpdateComponentTuple<Args>>()...));
+    using Components = typename UniqueComponentTuple<decltype(std::tuple_cat(
+        std::declval<SceneUpdateComponentTuple<Args>>()...))>::type;
     using type = typename TupleToSceneView<Components>::type;
+
+    static_assert(((!std::is_same_v<std::remove_cvref_t<Args>, PlayerInput> ||
+        std::is_same_v<Args, const PlayerInput &>) && ...),
+        "COMPONENTS_ON_UPDATE accepts PlayerInput only as const PlayerInput&");
 
     // Keeps context then forwards component arguments to body.
     template<typename Arg, typename Tuple>
-    static decltype(auto) argument(Tuple &components, Scene &scene,
-        GameInput &input, f32 deltaTime)
+    static decltype(auto) argument(Tuple &components, Scene &scene, std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime)
     {
         using T = std::remove_cvref_t<Arg>;
         if constexpr (IsSystemUpdateContext<Arg>)
-            return SystemUpdateArgument<Arg>(scene, input, deltaTime);
+            return SystemUpdateArgument<Arg>(scene, playerData, inputSpecification, deltaTime);
+        else if constexpr (std::is_same_v<Arg, const PlayerInput &>)
+        {
+            u64 playerIdx = inputSpecification.GetPlayerIdx(std::get<PlayerComponent &>(components).playerId);
+            ASSERT_PRINT(playerIdx < playerData.size(), "PlayerComponent has an unknown player id");
+            return PlayerInput(inputSpecification, playerData[playerIdx]);
+        }
         else if constexpr (std::is_same_v<T, EntityID>)
             return EntityID(std::get<0>(components));
         else
             return std::get<T &>(components);
     }
     template<typename F>
-    static void run(Scene &scene, GameInput &input, f32 deltaTime, F &&body)
+    static void run(Scene &scene, std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime, F &&body)
     {
         for (auto components : type(scene))
-            body(argument<Args>(components, scene, input, deltaTime)...);
+            body(argument<Args>(components, scene, playerData, inputSpecification, deltaTime)...);
     }
 };
 
@@ -214,13 +259,14 @@ struct ExtractComponentSceneView<void(Args...)>
 typedef SYSTEM_VTABLE_ON_START(system_vtable_on_start_t);
 #define SYSTEM_ON_START(...) void __VA_ARGS__ __VA_OPT__(::) OnStart(SYSTEM_VTABLE_ON_START_PARAMS)
 
-#define SYSTEM_VTABLE_ON_UPDATE_PARAMS Scene& scene, GameInput& input, f32 deltaTime
-#define SYSTEM_VTABLE_ON_UPDATE_PASS scene, input, deltaTime
+#define SYSTEM_VTABLE_ON_UPDATE_PARAMS Scene& scene, std::span<PlayerData> playerData, const InputSpecification& inputSpecification, f32 deltaTime
+#define SYSTEM_VTABLE_ON_UPDATE_PASS scene, playerData, inputSpecification, deltaTime
 #define SYSTEM_VTABLE_ON_UPDATE(name) void name(void *self, SYSTEM_VTABLE_ON_UPDATE_PARAMS)
 typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
 // Runs once per update.
 // Only allows arguments in update context 
-// (Scene &scene, GameInput &input, f32 deltaTime)
+// (Scene &scene, std::span<PlayerData> playerData,
+// const InputSpecification &inputSpecification, f32 deltaTime)
 // Pulls in argument data automatically.
 #define SYSTEM_ON_UPDATE(...) \
     void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
@@ -234,20 +280,14 @@ typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
     void OnUpdateBody(__VA_ARGS__)
 
 #define SYSTEM_ON_UPDATE_MEM(Class, ...) \
-    void Class::OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
-    { \
-        using Arguments = ExtractSystemUpdateArguments<void(__VA_ARGS__)>; \
-        Arguments::run(SYSTEM_VTABLE_ON_UPDATE_PASS, [&](auto &&...values) \
-        { \
-            OnUpdateBody(std::forward<decltype(values)>(values)...); \
-        }); \
-    } \
     void Class::OnUpdateBody(__VA_ARGS__)
 
 // Updates by entity with required components instead of by all entities.
 // Gathers all entities with the components specified by args and supplies all args.
-// Core arguments like (Scene& scene, GameInput& input, and f32 delta) can be put in much
-// like with SYSTEM_ON_UPDATE
+// Core arguments like (Scene& scene, const InputSpecification& inputSpecification, and f32 delta)
+// can be put in much like with SYSTEM_ON_UPDATE
+// Asking for const PlayerInput& limits the update to entities with a PlayerComponent,
+// and supplies the input of that entity's player.
 #define COMPONENTS_ON_UPDATE(...) \
     void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
     { \
@@ -536,9 +576,11 @@ public:
     
     void InitSystems();
 
-    void UpdateVariableTimestepSystems(GameInput &input, f32 deltaTime);
+    void UpdateVariableTimestepSystems(std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime);
 
-    void UpdateFixedTimestepSystems(GameInput &input, f32 deltaTime);
+    void UpdateFixedTimestepSystems(std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime);
 
     void AddComponentPool(size_t componentSize);
 

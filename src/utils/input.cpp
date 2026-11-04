@@ -213,6 +213,10 @@ bool PlayerInput::GetButtonDownPrevFrame(InputId buttonId) const {
     return dist < m_inputSpec.m_buttonTypeCount && m_playerData.m_inputButtonPrevDown[dist];
 }
 
+bool PlayerInput::GetButtonPressed(InputId buttonId) const {
+    return GetButtonDown(buttonId) && !GetButtonDownPrevFrame(buttonId);
+}
+
 glm::vec2 PlayerInput::Get2dInput(InputId inputId) const {
     auto end = m_inputSpec.m_input2dIds.begin() + m_inputSpec.m_input2dTypeCount;
     auto it = std::find(m_inputSpec.m_input2dIds.begin(), end, inputId);
@@ -240,6 +244,19 @@ void PlayerInput::Set2dInput(InputId inputId, glm::vec2 set) {
     size_t dist = std::distance(m_inputSpec.m_input2dIds.begin(), it);
     ASSERT_PRINT(dist < m_inputSpec.m_input2dTypeCount, "OOB");
     if (dist < m_inputSpec.m_input2dTypeCount) m_playerData.m_input2ds[dist] = set;
+}
+
+void PlayerInput::AdvanceFixedStep() {
+    m_playerData.m_inputButtonPrevDown = m_playerData.m_inputButtonDown;
+    for (int i = 0 ; i < m_inputSpec.m_input2dTypeCount ; i++) {
+        if (m_inputSpec.m_input2Specs[i].m_mergeBehavior == MergeBehavior2d::Add) {
+            m_playerData.m_input2ds[i] = glm::vec2(0.0f);
+        }
+    }
+}
+
+void PlayerInput::ClearButtonsDown() {
+    m_playerData.m_inputButtonDown.reset();
 }
 
 void PlayerInput::MergeInputs(const PlayerInput& newInput) {

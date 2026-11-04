@@ -11,11 +11,8 @@ struct PongMovement2D
 
     f32 topBoundY = 100;
     f32 bottomBoundY = 0;
-
-    std::string upButton = "W";
-    std::string downButton = "S";
 };
-SERIALIZE(PongMovement2D, moveSpeed, topBoundY, bottomBoundY, upButton, downButton)
+SERIALIZE(PongMovement2D, moveSpeed, topBoundY, bottomBoundY)
 COMPONENT(PongMovement2D)
 
 struct PongBall2D
@@ -63,11 +60,6 @@ struct Fighter2D
     glm::vec3 attackColor = glm::vec3{0.5};
     glm::vec3 baseColor = glm::vec3{0.25};
 
-    std::string leftButton;
-    std::string rightButton;
-    std::string attackButton;
-    std::string dashButton;
-
     bool dashing = false;
     bool attacking = false;
     f32 attackCooldownLeft = 0;
@@ -75,5 +67,5 @@ struct Fighter2D
     f32 dashCooldownLeft = 0;
     f32 dashDurationLeft = 0;
 };
-SERIALIZE(Fighter2D, leftFacing, dashCooldown, dashDuration, dashSpeed, attackCooldown, attackDuration, orgPos, moveSpeed, attackColor, baseColor, leftButton, rightButton, attackButton, dashButton)
+SERIALIZE(Fighter2D, leftFacing, dashCooldown, dashDuration, dashSpeed, attackCooldown, attackDuration, orgPos, moveSpeed, attackColor, baseColor)
 COMPONENT(Fighter2D)

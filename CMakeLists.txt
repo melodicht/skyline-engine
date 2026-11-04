@@ -61,6 +61,12 @@ if(NOT DEFINED SKL_ENABLE_PROFILING)
         option(SKL_ENABLE_PROFILING "Whether tracy or webzone should be attached or not" 1)
 endif()
 
+# SKL_ENABLE_WEBRTC pulls in the WebRTC library for peer to peer networking.
+# Native builds require OpenSSL to be installed on the system.
+if(NOT DEFINED SKL_ENABLE_WEBRTC)
+        option(SKL_ENABLE_WEBRTC "Whether WebRTC networking should be included or not" 0)
+endif()
+
 # SKL_SLOW allows for slower but more safe code.
 # Currently only controls hard stopping asserts.
 if(NOT DEFINED SKL_SLOW)
@@ -101,6 +107,7 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
         SKL_INTERNAL=$<BOOL:${SKL_INTERNAL}>
         SKL_NO_DEFAULT_PHYSICS_SYSTEM=$<BOOL:${SKL_NO_DEFAULT_PHYSICS_SYSTEM}>
         SKL_ENABLED_PROFILING=$<BOOL:${SKL_ENABLE_PROFILING}>
+        SKL_ENABLED_WEBRTC=$<BOOL:${SKL_ENABLE_WEBRTC}>
         SKL_SLOW=$<BOOL:${SKL_SLOW}>
         SKL_DEBUG_MEMORY_VIEWER=$<BOOL:${SKL_DEBUG_MEMORY_VIEWER}>
         SKL_STATIC_MONOLITHIC=$<BOOL:${SKL_STATIC_MONOLITHIC}>
@@ -188,6 +195,47 @@ CPMAddPackage(
       )
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
+
+#==============================================================================
+# WEBRTC
+#==============================================================================
+
+add_library(WEBRTC_BACKEND INTERFACE)
+
+# Both packages expose the same rtc:: API through <rtc/rtc.hpp>
+if(SKL_ENABLE_WEBRTC)
+        message(STATUS "Initializing WebRTC backend...")
+        if(EMSCRIPTEN)
+                # Wraps the browser's native WebRTC implementation
+                CPMAddPackage("gh:paullouisageneau/datachannel-wasm#v0.4.0")
+                target_link_libraries(WEBRTC_BACKEND INTERFACE datachannel-wasm)
+        else()
+                # CMake can't locate Homebrew's keg-only OpenSSL by itself
+                if(APPLE AND NOT DEFINED OPENSSL_ROOT_DIR)
+                        find_program(BREW_PROGRAM brew)
+                        if(BREW_PROGRAM)
+                                execute_process(
+                                        COMMAND ${BREW_PROGRAM} --prefix openssl@3
+                                        OUTPUT_VARIABLE OPENSSL_ROOT_DIR
+                                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                                        ERROR_QUIET)
+                        endif()
+                endif()
+
+                # Data channels only for now, drop NO_MEDIA for audio/video tracks
+                CPMAddPackage(
+                        NAME libdatachannel
+                        GITHUB_REPOSITORY paullouisageneau/libdatachannel
+                        GIT_TAG v0.24.6
+                        EXCLUDE_FROM_ALL YES
+                        OPTIONS
+                                "BUILD_SHARED_LIBS OFF"
+                                "NO_MEDIA ON"
+                                "NO_EXAMPLES ON"
+                                "NO_TESTS ON")
+                target_link_libraries(WEBRTC_BACKEND INTERFACE LibDataChannel::LibDataChannelStatic)
+        endif()
+endif()
 
 #==============================================================================
 # IMGUI
@@ -369,6 +417,7 @@ target_include_directories(platform PUBLIC
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
+        WEBRTC_BACKEND
         fastgltf::fastgltf
         SDL3::SDL3
         tomlplusplus::tomlplusplus)

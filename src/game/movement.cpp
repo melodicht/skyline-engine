@@ -5,37 +5,39 @@
 #include <utils.h>
 #include <scene_view.h>
 
-MAKE_SYSTEM_MANUAL_VTABLE(MovementSystem);
+MAKE_SYSTEM_MANUAL_VTABLE(FlyingMovementSystem);
+MAKE_SYSTEM_MANUAL_VTABLE(HorizontalLookSystem);
+MAKE_SYSTEM_MANUAL_VTABLE(VerticalLookSystem);
 
-MovementSystem::MovementSystem() : SYSTEM_SUPER(MovementSystem) {}
+FlyingMovementSystem::FlyingMovementSystem() : SYSTEM_SUPER(FlyingMovementSystem) {}
+HorizontalLookSystem::HorizontalLookSystem() : SYSTEM_SUPER(HorizontalLookSystem) {}
+VerticalLookSystem::VerticalLookSystem() : SYSTEM_SUPER(VerticalLookSystem) {}
 
-void MovementSystem::CapVerticalRotationForward(Transform3D *transform)
+// Cannot look up/down to the extent where it becomes looking behind.
+local void CapVerticalRotationForward(Transform3D *transform)
 {
     transform->SetLocalRotation({transform->GetLocalRotation().x, std::min(std::max(transform->GetLocalRotation().y, -90.0f), 90.0f), transform->GetLocalRotation().z});
 }
 
-SYSTEM_ON_UPDATE_MEM(MovementSystem, Scene &scene, GameInput &input, f32 deltaTime)
+// TODO(marvin): Duplicate looking code between FlyingMovement and the XLook family of components.
+COMPONENTS_ON_UPDATE_MEM(FlyingMovementSystem, const PlayerInput &input, FlyingMovement &flyingMovement, Transform3D &transform, f32 deltaTime)
 {
-    // TODO(marvin): Duplicate looking code between FlyingMovement and the XLook family of components.
-    for (auto [entityId, flyingMovement, transform] : SceneView<FlyingMovement, Transform3D>(scene))
-    {
-        transform.AddLocalRotation({0, 0, input.mouseDeltaX * flyingMovement.turnSpeed});
-        transform.AddLocalRotation({0, input.mouseDeltaY * flyingMovement.turnSpeed, 0});
-        this->CapVerticalRotationForward(&transform);
+    glm::vec2 look = input.Get2dInput(InputLook);
+    transform.AddLocalRotation({0, 0, look.x * flyingMovement.turnSpeed});
+    transform.AddLocalRotation({0, look.y * flyingMovement.turnSpeed, 0});
+    CapVerticalRotationForward(&transform);
 
-        glm::vec3 movementDirection = GetMovementDirection(&input, &transform);
-        transform.AddLocalPosition(movementDirection * flyingMovement.moveSpeed * deltaTime);
-    }
-
-    for (auto [entityId, horizontalLook, transform] : SceneView<HorizontalLook, Transform3D>(scene))
-    {
-        transform.AddLocalRotation({0, 0, input.mouseDeltaX * horizontalLook.turnSpeed});
-    }
-
-    for (auto [entityId, verticalLook, transform] : SceneView<VerticalLook, Transform3D>(scene))
-    {
-        transform.AddLocalRotation({0, input.mouseDeltaY * verticalLook.turnSpeed, 0});
-        this->CapVerticalRotationForward(&transform);
-    }
+    glm::vec3 movementDirection = GetMovementDirection(input, &transform);
+    transform.AddLocalPosition(movementDirection * flyingMovement.moveSpeed * deltaTime);
 }
 
+COMPONENTS_ON_UPDATE_MEM(HorizontalLookSystem, const PlayerInput &input, HorizontalLook &horizontalLook, Transform3D &transform)
+{
+    transform.AddLocalRotation({0, 0, input.Get2dInput(InputLook).x * horizontalLook.turnSpeed});
+}
+
+COMPONENTS_ON_UPDATE_MEM(VerticalLookSystem, const PlayerInput &input, VerticalLook &verticalLook, Transform3D &transform)
+{
+    transform.AddLocalRotation({0, input.Get2dInput(InputLook).y * verticalLook.turnSpeed, 0});
+    CapVerticalRotationForward(&transform);
+}

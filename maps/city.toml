@@ -4,6 +4,8 @@ position = [-2560.0, 30.0, 1536.0]
 fov = 90.0
 farPlane = 5000.0
 nearPlane = 0.2
+[camera.PlayerComponent]
+playerId = 1
 [camera.FlyingMovement]
 moveSpeed = 200.0
 

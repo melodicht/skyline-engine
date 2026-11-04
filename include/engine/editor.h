@@ -1,10 +1,15 @@
 #pragma once
 
 #include <scene.h>
+#include <input.h>
 #include <overlay.h>
 #include <system_registry.h>
 
 struct DataEntry;
+
+inline constexpr InputId InputEditorLook = GetInputId("EdLook");
+inline constexpr InputId InputEditorSelect = GetInputId("EdSelect");
+inline constexpr InputId InputEditorCtrl = GetInputId("EdCtrl");
 
 class EditorSystem : public System
 {
@@ -40,5 +45,5 @@ private:
 public:
     EditorSystem(EntityID editorCam, OverlayMode *overlayMode);
 
-    SYSTEM_ON_UPDATE(Scene &scene, GameInput &input, f32 deltaTime);
+    SYSTEM_ON_UPDATE(Scene &scene, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime);
 };

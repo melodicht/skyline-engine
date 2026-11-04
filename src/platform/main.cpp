@@ -5,6 +5,7 @@
 
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL.h>
+#include <sdl_input.h>
 
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
@@ -60,9 +61,6 @@ struct AppInformation
 #define WINDOW_HEIGHT 1200
 
 file_global std::set<std::string> keysDown;
-file_global f32 mouseDeltaX = 0;
-file_global f32 mouseDeltaY = 0;
-
 file_global f32 mouseX = 0;
 file_global f32 mouseY = 0;
 
@@ -99,11 +97,17 @@ void updateLoop(void* appInfo) {
     GameInput gameInput;
     gameInput.keysDownPrevFrame = keysDown;
 
+    for (PlayerData& data : info->gameMemory.playerData)
+    {
+        data.m_inputButtonPrevDown = data.m_inputButtonDown;
+    }
+
     b8 forceReloadGameCode = false;
 
     while (SDL_PollEvent(&info->e))
     {
         ImGui_ImplSDL3_ProcessEvent(&info->e);
+        GatherInputsFromEvent(*info->gameMemory.inputSpecification, info->e, info->gameMemory.playerData);
 
         switch (info->e.type)
         {
@@ -120,7 +124,7 @@ void updateLoop(void* appInfo) {
                 {
                     if (!info->e.key.repeat)
                     {
-                        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &info->gameMemory.accumulatedInput);
+                        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &info->gameMemory.accumulatedPlayerData);
                     }
                 }
                 else if (info->e.key.key == SDLK_1)
@@ -149,7 +153,7 @@ void updateLoop(void* appInfo) {
         }
     }
 
-    SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
+    GatherInputs(*info->gameMemory.inputSpecification, info->gameMemory.playerData);
     SDL_GetMouseState(&mouseX, &mouseY);
 
     s32 windowWidth = WINDOW_WIDTH;
@@ -165,22 +169,17 @@ void updateLoop(void* appInfo) {
         keysDown.erase("Mouse 1");
     }
 
-    gameInput.mouseDeltaX = mouseDeltaX;
-    gameInput.mouseDeltaY = mouseDeltaY;
     gameInput.mouseX = mouseX;
     gameInput.mouseY = mouseY;
     gameInput.keysDownThisFrame = keysDown;
 
-    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, &info->gameMemory.accumulatedInput, forceReloadGameCode);
+    b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, info->gameMemory.playerData, &info->gameMemory.accumulatedPlayerData, forceReloadGameCode);
     if (shouldReloadGameCode)
     {
         info->gameCode.Load(info->gameMemory, info->editor, true);
     }
     
     info->gameCode.UpdateAndRender(info->gameMemory, gameInput, frameTime);
-
-    mouseDeltaX = 0;
-    mouseDeltaY = 0;
 
     f32 msPerFrame =  1000.0f * frameTime;
     f32 fps = 1 / frameTime;
@@ -265,6 +264,8 @@ int main(int argc, char** argv)
     gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
+    InputSpecification inputSpecification(0, 0, {}, {});
+    gameMemory.inputSpecification = &inputSpecification;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameMemory.platformAPI.allocator = constructPlatformAllocator();
@@ -276,7 +277,7 @@ int main(int argc, char** argv)
 
     if (recordOnStart)
     {
-        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &gameMemory.accumulatedInput);
+        LoopUtils::ToggleLoopedLiveEditingState(&globalSDLState, &gameMemory.accumulatedPlayerData);
     }
 
     u64 now = SDL_GetPerformanceCounter();

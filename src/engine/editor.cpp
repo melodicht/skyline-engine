@@ -201,18 +201,22 @@ EditorSystem::EditorSystem(EntityID editorCam, OverlayMode *overlayMode) : SYSTE
 
 MAKE_SYSTEM_MANUAL_VTABLE(EditorSystem);
 
-SYSTEM_ON_UPDATE_MEM(EditorSystem, Scene &scene, GameInput &input, f32 deltaTime)
+SYSTEM_ON_UPDATE_MEM(EditorSystem, Scene &scene, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime)
 {
-    if (OnHold(&input, "Mouse 3"))
+    // NOTE: The editor registers exactly one player, in GameInitialize.
+    PlayerInput input(inputSpecification, playerData[0]);
+    glm::vec2 look = input.Get2dInput(InputLook);
+
+    if (input.GetButtonDown(InputEditorLook))
     {
         EditorController *f = scene.Get<EditorController>(this->editorCam);
         Transform3D *t = scene.Get<Transform3D>(this->editorCam);
 
-        t->AddLocalRotation({0, 0, input.mouseDeltaX * f->turnSpeed});
-        t->AddLocalRotation({0, input.mouseDeltaY * f->turnSpeed, 0});
+        t->AddLocalRotation({0, 0, look.x * f->turnSpeed});
+        t->AddLocalRotation({0, look.y * f->turnSpeed, 0});
         t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
 
-        glm::vec3 movementDirection = GetMovementDirection(&input, t);
+        glm::vec3 movementDirection = GetMovementDirection(input, t);
         t->AddLocalPosition(movementDirection * f->moveSpeed * deltaTime);
 
         // NOTE(marvin): This is so that when the user intends to move
@@ -240,7 +244,9 @@ SYSTEM_ON_UPDATE_MEM(EditorSystem, Scene &scene, GameInput &input, f32 deltaTime
 
         ImGui::Begin("Overlay", nullptr, window_flags);
 
-        if (OnHold(&input, "Mouse 1"))
+        // TODO: Don't really like IMGUI dependency in input, may want to find alternate way of capturing 
+        // imgui input?
+        if (input.GetButtonDown(InputEditorSelect) && !ImGui::GetIO().WantCaptureMouse)
         {
             u32 cursorEntityIndex = renderer.GetIndexAtCursor();
             selectedEntityID = CreateEntityId(cursorEntityIndex, 0);
@@ -399,7 +405,7 @@ SYSTEM_ON_UPDATE_MEM(EditorSystem, Scene &scene, GameInput &input, f32 deltaTime
         }
 
         // NOTE(marvin): Save scene button
-        if (ImGui::Button("Save Scene") || (OnHold(&input, "S") && (OnHold(&input, "Left Ctrl") || OnHold(&input, "Right Ctrl"))))
+        if (ImGui::Button("Save Scene") || (input.GetButtonDown(InputMoveBack) && input.GetButtonDown(InputEditorCtrl)))
         {
             SaveCurrentMap(scene);
         }

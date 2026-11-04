@@ -198,6 +198,8 @@ This cannot be used with SKL_STATIC_MONOLITHIC.
 
 Any other dependencies of our project are installed when cmake is run.
 
+Native builds with `-DSKL_ENABLE_WEBRTC=1` also need OpenSSL installed on your system (on macOS: `brew install openssl@3`). Web builds use the browser's WebRTC and don't need it.
+
 ## Command Line Build Steps
 
 1. To setup the build system, in the `build` directory:

@@ -7,6 +7,8 @@
 // that they request for the ticket. Not using SDL Mutexs because I
 // think it's more trouble than it's worth.
 
+typedef u32 PlayerId;
+
 struct TicketMutex
 {
     u64 volatile next;

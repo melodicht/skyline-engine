@@ -10,16 +10,16 @@
 #include <span>
 #include <vector>
 
+#include "skl_types.h"
 #include "skl_math_types.h"
 
-#include <SDL_keycode.h>
+#include <SDL3/SDL_keycode.h>
 
 constexpr u8 MaxButtonTypeCount = 64;
 constexpr u8 MaxInput2dTypeCount = 2;
 
 // Used to specify specific input types.
 typedef u64 InputId;
-typedef u32 PlayerId;
 
 constexpr u64 MaxBufferSize = ((MaxButtonTypeCount + 7) / 8) + (MaxInput2dTypeCount * sizeof(glm::vec2));
 // This stores only the data absolutely needed for another client to recreate behavior.
@@ -43,6 +43,18 @@ struct ButtonGatherTypeInfo {
     };
     ButtonGatherType m_type{ ButtonGatherType::Empty };
 };
+inline ButtonGatherTypeInfo KeyboardGather(SDL_Keycode keycode) {
+    ButtonGatherTypeInfo info{ };
+    info.m_keycode = keycode;
+    info.m_type = ButtonGatherType::KeyBoardStroke;
+    return info;
+}
+inline ButtonGatherTypeInfo MouseClickGather(u8 mouseClickIdx) {
+    ButtonGatherTypeInfo info{ };
+    info.m_mouseClickIdx = mouseClickIdx;
+    info.m_type = ButtonGatherType::MouseClick;
+    return info;
+}
 struct ButtonGatherSpecification  {
     u8 m_playerIdx{ 0 };
     u8 m_buttonIdx{ 0 };
@@ -187,6 +199,8 @@ public:
 
     bool GetButtonDown(InputId buttonId) const;
     bool GetButtonDownPrevFrame(InputId buttonId) const;
+    // Down this frame, but not the last.
+    bool GetButtonPressed(InputId buttonId) const;
     glm::vec2 Get2dInput(InputId inputId) const;
 
     void SetButtonDown(InputId buttonId, bool set);
@@ -194,4 +208,8 @@ public:
     void Set2dInput(InputId inputId, glm::vec2 set);
 
     void MergeInputs(const PlayerInput& newInput);
+    // Prepares accumulated input for the next fixed step: current buttons
+    // become the previous ones, and additive 2d inputs are consumed.
+    void AdvanceFixedStep();
+    void ClearButtonsDown();
 };

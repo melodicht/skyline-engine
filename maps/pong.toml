@@ -21,12 +21,12 @@ scale = [0.5, 3.0, 0.5]
 [leftPaddle.MeshComponent]
 mesh = "cube"
 color = [0.2, 0.6, 1.0]
+[leftPaddle.PlayerComponent]
+playerId = 1
 [leftPaddle.PongMovement2D]
 moveSpeed = 7.2
 topBoundY = 5.0
 bottomBoundY = -5.0
-upButton = "W"
-downButton = "S"
 [leftPaddle.CollisionBox2D]
 relativeWidth = 1.0
 relativeHeight = 1.0
@@ -39,12 +39,12 @@ scale = [0.5, 3.0, 0.5]
 [rightPaddle.MeshComponent]
 mesh = "cube"
 color = [1.0, 0.3, 0.3]
+[rightPaddle.PlayerComponent]
+playerId = 2
 [rightPaddle.PongMovement2D]
 moveSpeed = 7.2
 topBoundY = 5.0
 bottomBoundY = -5.0
-upButton = "I"
-downButton = "K"
 [rightPaddle.CollisionBox2D]
 relativeWidth = 1.0
 relativeHeight = 1.0

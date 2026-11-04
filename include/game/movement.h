@@ -2,19 +2,29 @@
 
 #include <scene.h>
 #include <system_registry.h>
+#include <engine_components.h>
+#include <game_components.h>
 
-struct Transform3D;
-
-class MovementSystem : public System
+class FlyingMovementSystem : public System
 {
 public:
-    MovementSystem();
+    FlyingMovementSystem();
 
-    SYSTEM_ON_UPDATE(Scene &scene, GameInput &input, f32 deltaTime);
+    COMPONENTS_ON_UPDATE(const PlayerInput &input, FlyingMovement &flyingMovement, Transform3D &transform, f32 deltaTime);
+};
 
+class HorizontalLookSystem : public System
+{
+public:
+    HorizontalLookSystem();
 
-private:
-    // Cannot look up/down to the extent where it becomes looking behind.
-    void CapVerticalRotationForward(Transform3D *t);
+    COMPONENTS_ON_UPDATE(const PlayerInput &input, HorizontalLook &horizontalLook, Transform3D &transform);
+};
 
+class VerticalLookSystem : public System
+{
+public:
+    VerticalLookSystem();
+
+    COMPONENTS_ON_UPDATE(const PlayerInput &input, VerticalLook &verticalLook, Transform3D &transform);
 };

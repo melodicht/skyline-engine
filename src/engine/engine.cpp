@@ -13,6 +13,8 @@
 #include <game.h>
 #include <meta_definitions.h>
 #include <scene.h>
+#include <utils.h>
+#include <SDL3/SDL_mouse.h>
 #include <map_loader.h>
 #include <system_registry.h>
 #include <engine_components.h>
@@ -81,6 +83,18 @@ GAME_INITIALIZE(GameInitialize)
         CameraComponent* camera = scene.Assign<CameraComponent>(gameState->currentCamera);
         EditorController* movement = scene.Assign<EditorController>(gameState->currentCamera);
         scene.Assign<Transform3D>(gameState->currentCamera);
+
+        InputSpecification& inputSpecification = *memory.inputSpecification;
+        AddMovementInputSpecs(inputSpecification);
+        inputSpecification.AddButtonSpec(InputEditorLook);
+        inputSpecification.AddButtonSpec(InputEditorSelect);
+        inputSpecification.AddButtonSpec(InputEditorCtrl);
+        PlayerId editorPlayer = AddInputPlayer(memory);
+        AddMovementGathering(inputSpecification, editorPlayer);
+        inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorLook, MouseClickGather(SDL_BUTTON_RIGHT));
+        inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorSelect, MouseClickGather(SDL_BUTTON_LEFT));
+        inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorCtrl, KeyboardGather(SDLK_LCTRL));
+        inputSpecification.AddButtonGatheringSpec(editorPlayer, InputEditorCtrl, KeyboardGather(SDLK_RCTRL));
 
         EditorSystem *editorSystem = scene.CreateVariableTimestepSystem<EditorSystem>(gameState->currentCamera, &gameState->overlayMode);
 
@@ -164,7 +178,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
     GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
     Scene &scene = gameState->scene;
-    GameInput& fixedInput = memory.accumulatedInput;
+    const InputSpecification& inputSpecification = *memory.inputSpecification;
+    std::vector<PlayerData>& fixedPlayerData = memory.accumulatedPlayerData;
     f32& fixedTime = gameState->accumulatedDelta;
     fixedTime += frameTime;
 
@@ -185,24 +200,31 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     RenderOverlay(*gameState);
     PROFILE_ZONE_END(drawOverlayZone);
 
-    fixedInput.merge(input);
+    for (u32 i = 0; i < fixedPlayerData.size(); ++i)
+    {
+        PlayerInput(inputSpecification, fixedPlayerData[i]).MergeInputs(PlayerInput(inputSpecification, memory.playerData[i]));
+    }
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
         PROFILE_INPUT_POLLED();
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             PROFILE_ZONE_BEGIN(fixedUpdateZone, "Fixed Timestep Update");
-            scene.UpdateFixedTimestepSystems(fixedInput, FIXED_TIMESTEP_DELTA_TIME);
-            fixedInput.keysDownPrevFrame = fixedInput.keysDownThisFrame;
-            fixedInput.mouseDeltaX = 0;
-            fixedInput.mouseDeltaY = 0;
+            scene.UpdateFixedTimestepSystems(fixedPlayerData, inputSpecification, FIXED_TIMESTEP_DELTA_TIME);
+            for (PlayerData& data : fixedPlayerData)
+            {
+                PlayerInput(inputSpecification, data).AdvanceFixedStep();
+            }
             fixedTime -= FIXED_TIMESTEP_DELTA_TIME;
             PROFILE_ZONE_END(fixedUpdateZone);
         }
-        fixedInput.keysDownThisFrame.clear();
+        for (PlayerData& data : fixedPlayerData)
+        {
+            PlayerInput(inputSpecification, data).ClearButtonsDown();
+        }
     }
 
     PROFILE_ZONE_BEGIN(variableUpdateZone, "Variable Timestep Update");
-    scene.UpdateVariableTimestepSystems(input, frameTime);
+    scene.UpdateVariableTimestepSystems(memory.playerData, inputSpecification, frameTime);
     PROFILE_ZONE_END(variableUpdateZone);
     
     PROFILE_GPU_FRAME(renderer);

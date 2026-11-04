@@ -243,7 +243,7 @@ SKLPhysicsSystem::~SKLPhysicsSystem()
 
 MAKE_SYSTEM_MANUAL_VTABLE(SKLPhysicsSystem);
 
-SYSTEM_ON_UPDATE_MEM(SKLPhysicsSystem, Scene &scene, GameInput &input, f32 deltaTime)
+SYSTEM_ON_UPDATE_MEM(SKLPhysicsSystem, Scene &scene, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime)
 {
     // NOTE(marvin): Initialising static boxes
     JPH::BodyInterface &bodyInterface = this->physicsSystem->GetBodyInterface();

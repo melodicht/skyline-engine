@@ -88,13 +88,14 @@ void StartAllSystems(SystemsBuffer *systemsBuffer, SYSTEM_VTABLE_ON_START_PARAMS
     }
 }
 
-void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene &scene, GameInput &input, f32 deltaTime)
+void UpdateAllSystems(SystemsBuffer *systemsBuffer, Scene &scene, std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime)
 {
     for (u32 i = 0; i < systemsBuffer->count; ++i)
     {
         System *system = systemsBuffer->base[i];
         SystemVTable* vtable = GetSystemVTable(system);
-        vtable->onUpdate(system, scene, input, deltaTime);
+        vtable->onUpdate(system, scene, playerData, inputSpecification, deltaTime);
     }
 }
 
@@ -131,14 +132,16 @@ void Scene::InitSystems()
     StartAllSystems(&fixedTimestepSystemsBuffer, *this);
 }
 
-void Scene::UpdateVariableTimestepSystems(GameInput &input, f32 deltaTime)
+void Scene::UpdateVariableTimestepSystems(std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime)
 {
-    UpdateAllSystems(&variableTimestepSystemsBuffer, *this, input, deltaTime);
+    UpdateAllSystems(&variableTimestepSystemsBuffer, *this, playerData, inputSpecification, deltaTime);
 }
 
-void Scene::UpdateFixedTimestepSystems(GameInput &input, f32 deltaTime)
+void Scene::UpdateFixedTimestepSystems(std::span<PlayerData> playerData,
+        const InputSpecification &inputSpecification, f32 deltaTime)
 {
-    UpdateAllSystems(&fixedTimestepSystemsBuffer, *this, input, deltaTime);
+    UpdateAllSystems(&fixedTimestepSystemsBuffer, *this, playerData, inputSpecification, deltaTime);
 }
 
 void Scene::AddComponentPool(size_t componentSize)

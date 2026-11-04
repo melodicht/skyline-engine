@@ -3,9 +3,9 @@
 
 #include <meta_definitions.h>
 #include <skl_math_types.h>
+#include <skl_types.h>
 #include <asset_types.h>
 #include <component_registry.h>
-#include <input.h>
 // Define the game's components here
 
 struct PlayerComponent {

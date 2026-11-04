@@ -77,35 +77,21 @@ SYSTEM_ON_UPDATE_MEM(RectCollision2DSystem, Scene &scene)
     }
 }
 
-inline bool IsButtonDown(GameInput *input, const std::string &key)
+COMPONENTS_ON_UPDATE_MEM(PongMovement2DSystem, const PlayerInput &input, PongMovement2D &pongMovement, Transform3D &transform, f32 deltaTime)
 {
-    if (OnPress(input, key) || OnHold(input, key)) return true;
-    std::string upper = key;
-    for (char &c : upper) c = toupper(c);
-    if (OnPress(input, upper) || OnHold(input, upper)) return true;
-    std::string lower = key;
-    for (char &c : lower) c = tolower(c);
-    if (OnPress(input, lower) || OnHold(input, lower)) return true;
-    return false;
-}
-SYSTEM_ON_UPDATE_MEM(PongMovement2DSystem, Scene &scene, GameInput &input, f32 deltaTime)
-{
-    for (auto [entityId, pongMovement, transform] : SceneView<PongMovement2D, Transform3D>(scene))
-    {
-        bool pressUp = IsButtonDown(&input, pongMovement.upButton);
-        bool pressDown = IsButtonDown(&input, pongMovement.downButton);
-        if (!pressUp && pressDown) {
-            transform.AddLocalPosition({0, pongMovement.moveSpeed * deltaTime, 0});
-            glm::vec3 pos = transform.GetLocalPosition();
-            pos.y = std::min(pos.y, pongMovement.topBoundY);
-            transform.SetLocalPosition(pos);
-        }
-        else if (!pressDown && pressUp) {
-            transform.AddLocalPosition({0, -pongMovement.moveSpeed * deltaTime, 0});
-            glm::vec3 pos = transform.GetLocalPosition();
-            pos.y = std::max(pos.y, pongMovement.bottomBoundY);
-            transform.SetLocalPosition(pos);
-        }
+    bool pressUp = input.GetButtonDown(InputPaddleUp);
+    bool pressDown = input.GetButtonDown(InputPaddleDown);
+    if (!pressUp && pressDown) {
+        transform.AddLocalPosition({0, pongMovement.moveSpeed * deltaTime, 0});
+        glm::vec3 pos = transform.GetLocalPosition();
+        pos.y = std::min(pos.y, pongMovement.topBoundY);
+        transform.SetLocalPosition(pos);
+    }
+    else if (!pressDown && pressUp) {
+        transform.AddLocalPosition({0, -pongMovement.moveSpeed * deltaTime, 0});
+        glm::vec3 pos = transform.GetLocalPosition();
+        pos.y = std::max(pos.y, pongMovement.bottomBoundY);
+        transform.SetLocalPosition(pos);
     }
 }
 SYSTEM_ON_UPDATE_MEM(PongBall2DSystem, Scene &scene, f32 deltaTime)
@@ -156,12 +142,18 @@ SYSTEM_ON_UPDATE_MEM(PongBall2DSystem, Scene &scene, f32 deltaTime)
     }
 }
 
-SYSTEM_ON_UPDATE_MEM(FightBall2DSystem, Scene &scene, GameInput &input, f32 deltaTime)
+SYSTEM_ON_UPDATE_MEM(FightBall2DSystem, Scene &scene, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime)
 {
+    bool reset = false;
+    for (PlayerData &data : playerData)
+    {
+        reset = reset || PlayerInput(inputSpecification, data).GetButtonPressed(InputReset);
+    }
+
     for (auto [entityId, ball, box, transform] : SceneView<FightBall2D, CollisionBox2D, Transform3D>(scene))
     {
 
-        if (OnPress(&input, "R")) {
+        if (reset) {
             ball.bouncing = true;
             ball.vel = ball.vertVel;
             transform.SetLocalPosition(ball.orgPos);
@@ -233,91 +225,88 @@ SYSTEM_ON_UPDATE_MEM(FightBall2DSystem, Scene &scene, GameInput &input, f32 delt
         transform.SetLocalPosition(pos);
     }
 }
-SYSTEM_ON_UPDATE_MEM(Fighter2DSystem, Scene &scene, GameInput &input, f32 deltaTime)
+COMPONENTS_ON_UPDATE_MEM(Fighter2DSystem, const PlayerInput &input, Scene &scene, EntityID entityId, Fighter2D &fighter, CollisionBox2D &fighterBox, MeshComponent &fighterMesh, Transform3D &fighterTransform, f32 deltaTime)
 {
-    for (auto [entityId, fighter, fighterBox, fighterMesh, fighterTransform] : SceneView<Fighter2D, CollisionBox2D, MeshComponent, Transform3D>(scene))
-    {
-        if (OnPress(&input, "R")) {
-            fighterTransform.SetLocalPosition(fighter.orgPos);
-            continue;
-        }
-
-        if (OnPress(&input, fighter.attackButton)) {
-            if (!fighter.attacking && fighter.attackCooldownLeft <= 0) {
-                fighter.attacking = true;
-                fighter.attackCooldownLeft = fighter.attackCooldown;
-                fighter.attackDurationLeft = fighter.attackDuration;
-            }
-        }
-
-        if (OnPress(&input, fighter.dashButton)) {
-            if (!fighter.dashing && fighter.dashCooldownLeft <= 0) {
-                fighter.dashing = true;
-                fighter.dashCooldownLeft = fighter.dashCooldown;
-                fighter.dashDurationLeft = fighter.dashDuration;
-            }
-        }
-
-        glm::vec3 pos = fighterTransform.GetLocalPosition();
-        glm::vec4 bounds = getBounds(&fighterBox, &fighterTransform);
-        if (fighter.dashing)
-        {
-            fighter.dashDurationLeft -= deltaTime;
-            if (fighter.leftFacing)
-            {
-                pos.x -= fighter.dashSpeed * deltaTime;
-            }
-            else 
-            {
-                pos.x += fighter.dashSpeed * deltaTime;
-            }
-        }
-        else
-        {
-            if (OnHold(&input, fighter.leftButton)) {
-                pos.x -= fighter.moveSpeed * deltaTime;
-                pos.x = std::max(pos.x, fighter.leftBound);
-            }
-            if (OnHold(&input, fighter.rightButton)) {
-                pos.x += fighter.moveSpeed * deltaTime;
-                pos.x = std::min(pos.x, fighter.rightBound);
-            }
-        }
-
-
-        fighterTransform.SetLocalPosition(pos);
-        bounds = getBounds(&fighterBox, &fighterTransform);
-        fighter.attackCooldownLeft -= deltaTime;
-        if (fighter.attacking) {
-            fighter.attackDurationLeft -= deltaTime;
-            for (auto [otherEntityId, otherFighter, otherBox, otherTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(scene))
-            {
-                if (otherEntityId == entityId)
-                {
-                    continue;
-                }
-
-                glm::vec4 otherBounds = getBounds(&otherBox, &otherTransform);
-                if (collide(otherBounds, bounds) && fighter.attacking) {
-                    otherTransform.SetLocalPosition({-1000, -1000, -1000});
-                    break;
-                }
-            }
-
-            
-            if (fighter.attackDurationLeft <= 0) {
-                fighter.attacking = false;
-                fighter.attackCooldownLeft = fighter.attackCooldown;
-            }
-        }
-        fighterMesh.color = fighter.attacking ? fighter.attackColor : fighter.baseColor;
-
-        fighter.dashCooldownLeft -= deltaTime;
-        if (fighter.dashing && fighter.dashDurationLeft <= 0) {
-            fighter.dashing = false;
-            fighter.dashCooldownLeft = fighter.dashCooldown;
-        }
-
-        fighterTransform.SetLocalPosition(pos);
+    if (input.GetButtonPressed(InputReset)) {
+        fighterTransform.SetLocalPosition(fighter.orgPos);
+        return;
     }
+
+    if (input.GetButtonPressed(InputFighterAttack)) {
+        if (!fighter.attacking && fighter.attackCooldownLeft <= 0) {
+            fighter.attacking = true;
+            fighter.attackCooldownLeft = fighter.attackCooldown;
+            fighter.attackDurationLeft = fighter.attackDuration;
+        }
+    }
+
+    if (input.GetButtonPressed(InputFighterDash)) {
+        if (!fighter.dashing && fighter.dashCooldownLeft <= 0) {
+            fighter.dashing = true;
+            fighter.dashCooldownLeft = fighter.dashCooldown;
+            fighter.dashDurationLeft = fighter.dashDuration;
+        }
+    }
+
+    glm::vec3 pos = fighterTransform.GetLocalPosition();
+    glm::vec4 bounds = getBounds(&fighterBox, &fighterTransform);
+    if (fighter.dashing)
+    {
+        fighter.dashDurationLeft -= deltaTime;
+        if (fighter.leftFacing)
+        {
+            pos.x -= fighter.dashSpeed * deltaTime;
+        }
+        else 
+        {
+            pos.x += fighter.dashSpeed * deltaTime;
+        }
+    }
+    else
+    {
+        if (input.GetButtonDown(InputFighterLeft)) {
+            pos.x -= fighter.moveSpeed * deltaTime;
+            pos.x = std::max(pos.x, fighter.leftBound);
+        }
+        if (input.GetButtonDown(InputFighterRight)) {
+            pos.x += fighter.moveSpeed * deltaTime;
+            pos.x = std::min(pos.x, fighter.rightBound);
+        }
+    }
+
+
+    fighterTransform.SetLocalPosition(pos);
+    bounds = getBounds(&fighterBox, &fighterTransform);
+    fighter.attackCooldownLeft -= deltaTime;
+    if (fighter.attacking) {
+        fighter.attackDurationLeft -= deltaTime;
+        for (auto [otherEntityId, otherFighter, otherBox, otherTransform] : SceneView<Fighter2D, CollisionBox2D, Transform3D>(scene))
+        {
+            if (otherEntityId == entityId)
+            {
+                continue;
+            }
+
+            glm::vec4 otherBounds = getBounds(&otherBox, &otherTransform);
+            if (collide(otherBounds, bounds) && fighter.attacking) {
+                otherTransform.SetLocalPosition({-1000, -1000, -1000});
+                break;
+            }
+        }
+
+        
+        if (fighter.attackDurationLeft <= 0) {
+            fighter.attacking = false;
+            fighter.attackCooldownLeft = fighter.attackCooldown;
+        }
+    }
+    fighterMesh.color = fighter.attacking ? fighter.attackColor : fighter.baseColor;
+
+    fighter.dashCooldownLeft -= deltaTime;
+    if (fighter.dashing && fighter.dashDurationLeft <= 0) {
+        fighter.dashing = false;
+        fighter.dashCooldownLeft = fighter.dashCooldown;
+    }
+
+    fighterTransform.SetLocalPosition(pos);
 }

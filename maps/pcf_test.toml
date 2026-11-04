@@ -8,6 +8,8 @@ position = [-35.0, 0.0, 8.0]
 [cam.CameraComponent]
 fov = 70.0
 farPlane = 150.0
+[cam.PlayerComponent]
+playerId = 1
 [cam.FlyingMovement]
 
 ## Shared receiver. Spans y -22..22, z -6..24.

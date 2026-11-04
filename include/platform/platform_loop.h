@@ -4,6 +4,10 @@
 // Allows the storing of editor 
 
 #include <SDL3/SDL.h>
+#include <span>
+#include <vector>
+
+#include <input.h>
 
 #include <set>
 #include <string>
@@ -43,13 +47,13 @@ private:
     LoopedLiveEditingState loopedLiveEditingState{ LoopedLiveEditingState::none };
     // This checkpoint lives outside tracked game memory, just like the live
     // accumulated input. Never restore either object's owning pointers as bytes.
-    GameInput recordedAccumulatedInput;
+    std::vector<PlayerData> recordedAccumulatedPlayerData;
     union
     {
         // NOTE(marvin): A flat sequence of [GameInput, u32 (for
         // number of elements in keysDown set), a sequence of [u32
         // (for number of elements in string), characters that make
-        // the string]]
+        // the string], the PlayerData of each player]
         SDL_IOStream* recordingHandle{ nullptr };
         SDL_IOStream* playbackHandle;
     };
@@ -66,30 +70,30 @@ private:
     static const char* SDLGetInputFilePath();
     static b8 SDLIsInLoop(const SDLState* state);
     static void SDLClearBlocksByMask(SDLState* state, LoopMemoryFlags::SDLMemoryFlags mask);
-    static void SDLBeginInputPlayback(SDLState* state, GameInput* accumulatedInput);
+    static void SDLBeginInputPlayback(SDLState* state, std::vector<PlayerData>* accumulatedPlayerData);
     static void SDLEndInputPlayback(SDLState* state);
-    static void SDLBeginRecordingInput(SDLState* state, const GameInput* accumulatedInput);
+    static void SDLBeginRecordingInput(SDLState* state, const std::vector<PlayerData>* accumulatedPlayerData);
     static void SDLEndRecordingInput(SDLState* state);
     static void SDLRecordStdString(SDLState* state, const std::string* str);
     static void SDLRecordStdSetOfString(SDLState* state, const std::set<std::string>* strings);
-    static void SDLRecordInput(SDLState* state, const GameInput* gameInput);
+    static void SDLRecordInput(SDLState* state, const GameInput* gameInput, std::span<const PlayerData> playerData);
     static void SDLPlaybackStdString(SDLState* state, std::set<std::string>* strings);
     static void SDLPlaybackStdSetOfString(SDLState* state, std::set<std::string>* strings);
 
     // Returns if a reset happen?
-    static b8 SDLPlaybackInput(SDLState* state, GameInput* gameInput, GameInput* accumulatedInput, b8 forceReloadGameCode);
+    static b8 SDLPlaybackInput(SDLState* state, GameInput* gameInput, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode);
 
 public:
     static b8 GetIsStateInLoop(const SDLState* state);
 
     static b8 GetIsStateInPlayback(const SDLState* state);
 
-    static void ToggleLoopedLiveEditingState(SDLState* state, GameInput* accumulatedInput);
+    static void ToggleLoopedLiveEditingState(SDLState* state, std::vector<PlayerData>* accumulatedPlayerData);
 
     // Based on live editing state, stores or plays game input
     // Produces a boolean on whether to reload game code.
     // TODO(marvin): Producing a b8ean for ProcessInputWithLooping feels very contrived. Keep eyes opened for a better way.
-    static b8 ProcessInputWithLooping(SDLState* state, GameInput* gameInput, GameInput* accumulatedInput, b8 forceReloadGameCode);
+    static b8 ProcessInputWithLooping(SDLState* state, GameInput* gameInput, std::span<PlayerData> playerData, std::vector<PlayerData>* accumulatedPlayerData, b8 forceReloadGameCode);
 
     // Gets and sets allocation flags
     static void SetBlockFlagLoopAllocated(SDLMemoryBlock* flag);

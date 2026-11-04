@@ -2,9 +2,11 @@
 
 #include <set>
 #include <string>
+#include <vector>
 
 #include <meta_definitions.h>
 #include <asset_types.h>
+#include <input.h>
 #include <render_game.h>
 
 /**
@@ -13,44 +15,12 @@
 
 struct GameInput
 {
-    s32 mouseDeltaX{ 0 };
-    s32 mouseDeltaY{ 0 };
     u32 mouseX{ 0 };
     u32 mouseY{ 0 };
 
     std::set<std::string> keysDownPrevFrame;
     std::set<std::string> keysDownThisFrame;
-
-    // Overlays another input onto this input.
-    void merge(const GameInput& alt) {
-        mouseDeltaX += alt.mouseDeltaX;
-        mouseDeltaY += alt.mouseDeltaY;
-        mouseX = alt.mouseX;
-        mouseY = alt.mouseY;
-        keysDownThisFrame.insert(alt.keysDownThisFrame.begin(), alt.keysDownThisFrame.end());
-    }
 };
-
-// NOTE(marvin): When OnPress produces true for some key, OnHold will
-// also produce true for that same key.
-
-inline b32 OnPress(GameInput* input, std::string key)
-{
-    b32 result = input->keysDownThisFrame.contains(key) && !input->keysDownPrevFrame.contains(key);
-    return result;
-}
-
-inline b32 OnRelease(GameInput* input, std::string key)
-{
-    b32 result = !input->keysDownThisFrame.contains(key) && input->keysDownPrevFrame.contains(key);
-    return result;
-}
-
-inline b32 OnHold(GameInput* input, std::string key)
-{
-    b32 result = input->keysDownThisFrame.contains(key);
-    return result;
-}
 
 #define ASSET_UTIL_FUNCS(method)\
     method(MeshAsset *,LoadMeshAsset,(std::string name))\
@@ -84,9 +54,13 @@ struct GameMemory
 {
     void* fixedSizeStorage;
 
-    // Platform-owned, outside the bytewise game-memory snapshot. Its sets
-    // own heap nodes and must be checkpointed using normal deep copies.
-    GameInput accumulatedInput;
+    // Platform-owned, outside the bytewise game-memory snapshot. The vectors
+    // own heap memory and must be checkpointed using normal deep copies.
+    // Players are added through AddInputPlayer, which keeps these the same size.
+    InputSpecification* inputSpecification;
+    std::vector<PlayerData> playerData;
+    // Input merged across frames until consumed by fixed timestep updates.
+    std::vector<PlayerData> accumulatedPlayerData;
 
     // TODO(marvin): Does the imgui context really belong to game memory? Should it be part of the debug storage?
     ImGuiContext *imGuiContext;
