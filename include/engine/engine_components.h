@@ -5,8 +5,14 @@
 #include <skl_math_types.h>
 #include <asset_types.h>
 #include <component_registry.h>
-
+#include <input.h>
 // Define the game's components here
+
+struct PlayerComponent {
+    PlayerId playerId;
+};
+SERIALIZE(PlayerComponent, playerId)
+COMPONENT(PlayerComponent)
 
 SERIALIZE(Transform3D, position, rotation, scale)
 COMPONENT(Transform3D)

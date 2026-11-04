@@ -234,6 +234,14 @@ typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
     void OnUpdateBody(__VA_ARGS__)
 
 #define SYSTEM_ON_UPDATE_MEM(Class, ...) \
+    void Class::OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
+    { \
+        using Arguments = ExtractSystemUpdateArguments<void(__VA_ARGS__)>; \
+        Arguments::run(SYSTEM_VTABLE_ON_UPDATE_PASS, [&](auto &&...values) \
+        { \
+            OnUpdateBody(std::forward<decltype(values)>(values)...); \
+        }); \
+    } \
     void Class::OnUpdateBody(__VA_ARGS__)
 
 // Updates by entity with required components instead of by all entities.
