@@ -181,7 +181,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     PROFILE_LOG_FRAME();
     DebugUpdate(memory);
-    
+
     ASSERT(sizeof(GameState) <= FIXED_SIZE_STORAGE_SIZE);
     GameState *gameState = static_cast<GameState *>(memory.fixedSizeStorage);
     Scene &scene = gameState->scene;
@@ -189,6 +189,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     std::vector<PlayerData>& fixedPlayerData = memory.accumulatedPlayerData;
     f32& fixedTime = gameState->accumulatedDelta;
     fixedTime += frameTime;
+
+    const b32 isNetworked = network.IsConnected();
 
     // Fixed time cap is arbitrary for now, enforces that fixed time steps don't lag
     // irreparably behind. Effectively skips when forced to.
@@ -211,24 +213,24 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     {
         PlayerInput(inputSpecification, fixedPlayerData[i]).MergeInputs(PlayerInput(inputSpecification, memory.playerData[i]));
     }
+
+    b8 ranFixedStep = false;
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
-        PROFILE_INPUT_POLLED();
-        // If not connected, simply runs off of the gathered input.
-        const b32 isNetworked = network.IsConnected();
         b32 consumedInput = false;
+        std::span<PlayerData> stepInputs = fixedPlayerData;
+
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             PROFILE_ZONE_BEGIN(fixedUpdateZone, "Fixed Timestep Update");
-            std::vector<PlayerData> networkInputs;
-            std::span<PlayerData> stepInputs = fixedPlayerData;
-            b32 runSystems = true;
             if (isNetworked)
             {   
                 // Prevents network from sending things too far ahead. What gets sent
                 // is consumed right away, so a retry can't send it again.
+                // TODO: Currently delay cap is rather arbitrary.
                 constexpr s32 delayCap = 5;
                 if (gameState->networkFramesSent - network.GetCurrentFrame() < delayCap)
                 {
+                    PROFILE_INPUT_POLLED_FINISH();
                     network.SendInput(stepInputs);
                     gameState->networkFramesSent++;
                     consumedInput = true;
@@ -238,21 +240,25 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     }
                 }
 
-                networkInputs = network.GetInputs();
+                std::vector<PlayerData> networkInputs = network.GetInputs();
                 if (networkInputs.empty())
                 {
-                    // Others haven't caught up. This step is retried next frame, so we defered
+                    // Others haven't caught up. This step is retried next frame, so we deferred
                     // getting network inputs
                     PROFILE_ZONE_END(fixedUpdateZone);
                     break;
                 }
                 stepInputs = networkInputs;
             }
-
-            if (runSystems)
-            {
-                scene.UpdateFixedTimestepSystems(stepInputs, inputSpecification, FIXED_TIMESTEP_DELTA_TIME);
+            else {
+                PROFILE_INPUT_POLLED_FINISH();
             }
+            
+            gameState->framesEnded++;
+            ranFixedStep = true;
+            PROFILE_FIXED_STEP();
+            scene.UpdateFixedTimestepSystems(stepInputs, inputSpecification, FIXED_TIMESTEP_DELTA_TIME);
+            
             if (!isNetworked)
             {
                 consumedInput = true;
@@ -261,6 +267,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     PlayerInput(inputSpecification, data).AdvanceFixedStep();
                 }
             }
+            
             fixedTime -= FIXED_TIMESTEP_DELTA_TIME;
             PROFILE_ZONE_END(fixedUpdateZone);
         }
@@ -279,7 +286,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     PROFILE_GPU_FRAME(renderer);
     PROFILE_ZONE_BEGIN(drawSceneZone, "Draw Scene");
-    DrawScene(*gameState, memory.playerData, inputSpecification, frameTime);
+    DrawScene(*gameState, memory.playerData, inputSpecification, frameTime, ranFixedStep);
     PROFILE_ZONE_END(drawSceneZone);
     LogDebugRecords();
     PROFILE_OUTPUT_LOG();

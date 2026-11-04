@@ -101,6 +101,8 @@ struct RenderFrameInfo {
 
     // WGPU Specific
     SceneLightingRenderInfo sceneLighting;
+    // Whether a fixed step ran this frame. Only these frames are GPU profiled.
+    b8 profileFrame;
 };
 
 // FlushProfilingZones drains completed GPU batches; returns empty when unavailable.

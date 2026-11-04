@@ -303,6 +303,9 @@ endif()
 # Accordingly resolves dependencies required for each rendering backend
 message(STATUS "Initializing [${SKL_RENDER_SYS}] rendering backend...")
 if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
+        if(SKL_ENABLE_PROFILING)
+                message(WARNING "SKL_ENABLE_PROFILING is on, but the Vulkan backend has no GPU time or latency profiling: those stats stay empty and the profiler's poll time queues grow without limit.")
+        endif()
         add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
         if (APPLE)
                 CPMAddPackage(

@@ -8,4 +8,4 @@
 struct GameState;
 
 void FindCamera(GameState &gameState);
-void DrawScene(GameState &gameState, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime);
+void DrawScene(GameState &gameState, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime, b8 profileFrame);

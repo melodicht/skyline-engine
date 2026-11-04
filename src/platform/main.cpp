@@ -100,7 +100,7 @@ void updateLoop(void* appInfo) {
     {
         ImGui_ImplSDL3_ProcessEvent(&info->e);
         GatherInputsFromEvent(*info->gameMemory.inputSpecification, info->e, info->gameMemory.playerData);
-
+        
         switch (info->e.type)
         {
             case SDL_EVENT_QUIT:
@@ -136,7 +136,8 @@ void updateLoop(void* appInfo) {
     }
 
     GatherInputs(*info->gameMemory.inputSpecification, info->gameMemory.playerData);
-
+    PROFILE_INPUT_POLLED();
+    
     s32 windowWidth = WINDOW_WIDTH;
     s32 windowHeight = WINDOW_HEIGHT;
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);

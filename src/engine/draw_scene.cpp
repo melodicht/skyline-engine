@@ -19,7 +19,7 @@ void FindCamera(GameState &gameState)
     }
 }
 
-void DrawScene(GameState &gameState, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime)
+void DrawScene(GameState &gameState, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime, b8 profileFrame)
 {
     if (gameState.currentCamera == -1)
     {
@@ -123,7 +123,8 @@ void DrawScene(GameState &gameState, std::span<PlayerData> playerData, const Inp
         .cameraFar = camera->farPlane,
         .cursorPos = cursorPos,
         .icons = icons,
-        .sceneLighting = sceneLighting
+        .sceneLighting = sceneLighting,
+        .profileFrame = profileFrame
     };
 
     renderer.RenderUpdate(sendState);

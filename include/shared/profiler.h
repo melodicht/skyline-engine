@@ -2,6 +2,7 @@
 
 #if SKL_ENABLED_PROFILING
 
+#include <deque>
 #include <array>
 #include <chrono>
 #include <meta_definitions.h>
@@ -19,14 +20,24 @@ inline f64 ProfileGetCurrentTime()
 // reset them. Update them only from the main thread.
 struct ProfilerState
 {
+    inline static f64 pollStartStamp{ 0 };
+    inline static f64 pollEndStamp{ 0 };
+    inline static std::deque<f64> pollStartTimestamp{ };
+    inline static std::deque<f64> pollEndTimestamp{ };
+    inline static std::deque<f64> sendToGpuTimestamp{ };
+    // How many fixed steps each entry of sendToGpuTimestamp shows.
+    inline static std::deque<u32> sendStepCount{ };
+    // Fixed steps that have run since the last send to the GPU.
+    inline static u32 stepsSinceSend{ 0 };
     inline static std::array<b8, 128> staggerWindow{ 0 };
     inline static u32 staggerCount{ 0 };
     inline static u32 staggerIter { 0 };
 
     inline static u32 movingWindow{ 60 };
-    // Timestamp and average latency are both in milliseconds.
-    inline static f64 startTime{ 0 };
-    inline static f64 movingAverageLatency{ 0 };
+    // Timestamps and average latencies are all in milliseconds.
+    inline static f64 movingAverageStartLatency{ 0 };
+    inline static f64 movingAverageEndLatency{ 0 };
+    inline static f64 movingAverageMiddleLatency{ 0 };
     inline static f64 movingAverageGpuTime{ 0 };
     inline static b8 hasGpuTime{ false };
 };
@@ -51,20 +62,39 @@ static void profilerLogFrame() {
 #define PROFILE_LOG_STAGGER() profilerLogStagger()
 #define PROFILE_LOG_FRAME() profilerLogFrame()
 
-#define PROFILE_INPUT_POLLED() ProfilerState::startTime = ProfileGetCurrentTime()
-static void profilerUpdateLatency(f64 extraTimeMs = 0.0) {
-    f64 latency = (ProfileGetCurrentTime() - ProfilerState::startTime) + extraTimeMs;
-
-    if (ProfilerState::movingAverageLatency == 0) {
-        ProfilerState::movingAverageLatency = latency;
+#define PROFILE_INPUT_POLLED() ProfilerState::pollEndStamp = ProfileGetCurrentTime()
+static void finalizePollFrame() {
+    // Later steps in the same frame have no new poll, so they push an invalid (0, 0) window.
+    if (ProfilerState::pollEndStamp == 0) {
+        ProfilerState::pollStartTimestamp.push_back(0);
+        ProfilerState::pollEndTimestamp.push_back(0);
         return;
     }
 
-    f64 mainRatio = (f64)1 / (f64)ProfilerState::movingWindow;
-    f64 beforeRatio = (f64)(ProfilerState::movingWindow - 1) / (f64)ProfilerState::movingWindow;
-    ProfilerState::movingAverageLatency = ProfilerState::movingAverageLatency * beforeRatio + latency * mainRatio;
+    ProfilerState::pollStartTimestamp.push_back(ProfilerState::pollStartStamp);
+    ProfilerState::pollEndTimestamp.push_back(ProfilerState::pollEndStamp);
+
+    ProfilerState::pollStartStamp = ProfilerState::pollEndStamp;
+    ProfilerState::pollEndStamp = 0;
 }
-#define PROFILE_SENT_FRAME(...) profilerUpdateLatency(__VA_ARGS__)
+#define PROFILE_INPUT_POLLED_FINISH() finalizePollFrame()
+#define PROFILE_FIXED_STEP() ++ProfilerState::stepsSinceSend
+static void profilerSentFrame() {
+    ProfilerState::sendToGpuTimestamp.push_back(ProfileGetCurrentTime());
+    ProfilerState::sendStepCount.push_back(ProfilerState::stepsSinceSend);
+    ProfilerState::stepsSinceSend = 0;
+}
+#define PROFILE_SENT_FRAME() profilerSentFrame()
+
+// Seeds the average with the first sample, then applies it over movingWindow.
+static void profilerUpdateMovingAverage(f64& average, f64 sample) {
+    if (average == 0) {
+        average = sample;
+        return;
+    }
+
+    average += (sample - average) / ProfilerState::movingWindow;
+}
 
 // Read completed frames before submitting new work; GPU results arrive in batches.
 static void profilerUpdateGpuTime(const PlatformRenderer& renderer) {
@@ -75,6 +105,41 @@ static void profilerUpdateGpuTime(const PlatformRenderer& renderer) {
                 continue;
             }
             f64 timeMs = static_cast<f64>(frame.zoneTimes[zone]) / 1000000.0;
+
+            if (!ProfilerState::sendToGpuTimestamp.empty()) {
+                f64 sendTime = ProfilerState::sendToGpuTimestamp.front() + timeMs;
+                u32 stepCount = ProfilerState::sendStepCount.front();
+                ProfilerState::sendToGpuTimestamp.pop_front();
+                ProfilerState::sendStepCount.pop_front();
+
+                // This trace shows all of its steps, so it uses up one window per step. Together
+                // they span from the oldest window's start to the newest window's end.
+                f64 pollStart = 0;
+                f64 pollEnd = 0;
+                for (u32 step = 0; step < stepCount && !ProfilerState::pollStartTimestamp.empty(); ++step) {
+                    f64 windowStart = ProfilerState::pollStartTimestamp.front();
+                    f64 windowEnd = ProfilerState::pollEndTimestamp.front();
+                    ProfilerState::pollStartTimestamp.pop_front();
+                    ProfilerState::pollEndTimestamp.pop_front();
+
+                    // Skips (0, 0) windows, and the first sample, which has no previous poll
+                    // to start its window from.
+                    if (windowStart == 0) {
+                        continue;
+                    }
+                    if (pollStart == 0) {
+                        pollStart = windowStart;
+                    }
+                    pollEnd = windowEnd;
+                }
+
+                if (pollStart != 0) {
+                    profilerUpdateMovingAverage(ProfilerState::movingAverageStartLatency, sendTime - pollStart);
+                    profilerUpdateMovingAverage(ProfilerState::movingAverageMiddleLatency, sendTime - (pollEnd + pollStart) / 2);
+                    profilerUpdateMovingAverage(ProfilerState::movingAverageEndLatency, sendTime - pollEnd);
+                }
+            }
+
             if (!ProfilerState::hasGpuTime) {
                 ProfilerState::movingAverageGpuTime = timeMs;
                 ProfilerState::hasGpuTime = true;
@@ -91,7 +156,9 @@ static void profilerUpdateGpuTime(const PlatformRenderer& renderer) {
 
 static void profilerLogState() {
     LOG("Staggered frames in the last " << ProfilerState::staggerWindow.size() << " frames: " << ProfilerState::staggerCount);
-    LOG("Moving average of latency " << ProfilerState::movingAverageLatency << " ms");
+    LOG("Moving average of start latency " << ProfilerState::movingAverageStartLatency << " ms");
+    LOG("Moving average of middle latency " << ProfilerState::movingAverageMiddleLatency << " ms");
+    LOG("Moving average of end latency " << ProfilerState::movingAverageEndLatency << " ms");
     if (ProfilerState::hasGpuTime) {
         LOG("Moving average of GPU processing time " << ProfilerState::movingAverageGpuTime << " ms");
     }
@@ -187,7 +254,9 @@ private:
 #define PROFILE_LOG_FRAME() ((void)0)
 
 #define PROFILE_INPUT_POLLED() ((void)0)
-#define PROFILE_SENT_FRAME(...) ((void)0)
+#define PROFILE_INPUT_POLLED_FINISH() ((void)0)
+#define PROFILE_FIXED_STEP() ((void)0)
+#define PROFILE_SENT_FRAME() ((void)0)
 #define PROFILE_GPU_FRAME(renderer) ((void)0)
 
 #define PROFILE_OUTPUT_LOG() ((void)0)

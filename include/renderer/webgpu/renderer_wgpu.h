@@ -43,6 +43,9 @@ private:
     std::unique_ptr<WebGpuProfiler> m_profiler;
     b8 m_frameProfilingStarted{ false };
 
+    // Set if the frame is of interest for profiler
+    b8 m_profileFrame{ false };
+
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUSurfaceTexture m_surfaceTexture{ };
     WGPUTextureView m_surfaceTextureView{ }; 

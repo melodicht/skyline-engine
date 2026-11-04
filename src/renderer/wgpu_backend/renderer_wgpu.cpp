@@ -225,7 +225,7 @@ bool WGPURenderBackend::InitFrame() {
 }
 
 void WGPURenderBackend::EndFrame() {
-  if (m_profiler) {
+  if (m_profileFrame) {
     // DrawImGui submitted the final pass containing the frame's end timestamp.
     m_profiler->MarkFrameEnd(m_wgpuCore.m_device, m_wgpuQueue);
     m_frameProfilingStarted = false;
@@ -235,7 +235,9 @@ void WGPURenderBackend::EndFrame() {
   }
 
 
-  PROFILE_SENT_FRAME();
+  if (m_profileFrame) {
+    PROFILE_SENT_FRAME();
+  }
   #ifndef __EMSCRIPTEN__
   wgpuSurfacePresent(m_wgpuSurface);
   wgpuInstanceProcessEvents(m_wgpuCore.m_instance);  
@@ -382,7 +384,7 @@ void WGPURenderBackend::BeginPass(
   // The first scene pass includes shadow rendering when present, otherwise
   // the depth prepass. Keep the start timestamp on that real render pass.
   WGPUPassTimestampWrites timestampWrites{};
-  const bool startFrameProfiling = m_profiler && !m_frameProfilingStarted;
+  const bool startFrameProfiling = m_profileFrame && !m_frameProfilingStarted;
   if (startFrameProfiling) {
     timestampWrites = m_profiler->StartZone("Frame");
     m_frameProfilingStarted = true;
@@ -468,7 +470,7 @@ void WGPURenderBackend::DrawImGui() {
   };
 
   WGPUPassTimestampWrites timestampWrites{};
-  if (m_profiler) {
+  if (m_profileFrame) {
     timestampWrites = m_profiler->EndZone("Frame");
   }
 
@@ -478,7 +480,7 @@ void WGPURenderBackend::DrawImGui() {
     .colorAttachmentCount = 1,
     .colorAttachments = &meshColorPass,
     .depthStencilAttachment = &depthStencilAttachment,
-    .timestampWrites = m_profiler ? &timestampWrites : nullptr,
+    .timestampWrites = m_profileFrame ? &timestampWrites : nullptr,
   };
 
   WGPURenderPassEncoder imguiPassEncoder = wgpuCommandEncoderBeginRenderPass(imguiCommandEncoder, &meshPassDesc);
@@ -1544,10 +1546,13 @@ void WGPURenderBackend::SetSkybox(u32 width, u32 height, const std::array<u32*,6
 }
 
 void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
+  m_profileFrame = m_profiler && state.profileFrame;
+
   // Inits frame and checks if frame is able to be rendered
   if (!InitFrame())
   {
-      return;
+    LOG_ERROR("Rendering Failed");
+    return;
   }
   // >>> Begins processing frame information to be ran by renderer <<<
   // Inserts mesh instance information into a single objData vector
