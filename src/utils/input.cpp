@@ -279,6 +279,22 @@ void PlayerInput::MergeInputs(const PlayerInput& newInput) {
     }
 }
 
+std::string InputSpecification::GetSignature() const {
+    std::string signature = "buttons";
+    for (u8 i = 0; i < m_buttonTypeCount; i++) {
+        signature += " " + std::to_string(m_buttonIds[i]);
+    }
+    signature += " inputs2d";
+    for (u8 i = 0; i < m_input2dTypeCount; i++) {
+        signature += " " + std::to_string(m_input2dIds[i]) + ":" + std::to_string((u32)m_input2Specs[i].m_mergeBehavior);
+    }
+    signature += " players";
+    for (PlayerId playerId : m_playerIds) {
+        signature += " " + std::to_string(playerId);
+    }
+    return signature;
+}
+
 u32 InputSpecification::WriteBuffer(std::byte* buffer, const PlayerData& input) const {
     BitsetToBuffer(input.m_inputButtonDown, buffer, m_buttonTypeByteCount);
     std::memcpy(buffer + m_buttonTypeByteCount, &input.m_input2ds, m_input2dTypeByteCount);

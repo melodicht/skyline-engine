@@ -213,10 +213,48 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
         PROFILE_INPUT_POLLED();
+        // 0 if not connected, which runs off of local input.
+        const PlayerId localPlayerId = network.GetLocalPlayerId();
+        const b32 isNetworked = localPlayerId != 0;
+        b32 consumedInput = false;
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
             PROFILE_ZONE_BEGIN(fixedUpdateZone, "Fixed Timestep Update");
-            scene.UpdateFixedTimestepSystems(fixedPlayerData, inputSpecification, FIXED_TIMESTEP_DELTA_TIME);
+            std::vector<PlayerData> networkInputs;
+            std::span<PlayerData> stepInputs = fixedPlayerData;
+            b32 runSystems = true;
+            if (isNetworked)
+            {
+                if (gameState->networkCount < NETWORK_INPUT_READY_COUNT)
+                {
+                    gameState->networkCount++;
+                    runSystems = false;
+                }
+                else
+                {
+                    networkInputs = network.GetInputs();
+                    if (networkInputs.empty())
+                    {
+                        // Others haven't caught up. This step is retried next frame, so
+                        // nothing is sent and the time and input stay accumulated.
+                        PROFILE_ZONE_END(fixedUpdateZone);
+                        break;
+                    }
+                    stepInputs = networkInputs;
+                }
+
+                u64 localPlayerIdx = inputSpecification.GetPlayerIdx(localPlayerId);
+                if (!network.SendInput(fixedPlayerData[localPlayerIdx]))
+                {
+                    LOG_ERROR("Failed to send input");
+                }
+            }
+
+            if (runSystems)
+            {
+                scene.UpdateFixedTimestepSystems(stepInputs, inputSpecification, FIXED_TIMESTEP_DELTA_TIME);
+            }
+            consumedInput = true;
             for (PlayerData& data : fixedPlayerData)
             {
                 PlayerInput(inputSpecification, data).AdvanceFixedStep();
@@ -224,9 +262,12 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             fixedTime -= FIXED_TIMESTEP_DELTA_TIME;
             PROFILE_ZONE_END(fixedUpdateZone);
         }
-        for (PlayerData& data : fixedPlayerData)
+        if (consumedInput)
         {
-            PlayerInput(inputSpecification, data).ClearButtonsDown();
+            for (PlayerData& data : fixedPlayerData)
+            {
+                PlayerInput(inputSpecification, data).ClearButtonsDown();
+            }
         }
     }
 

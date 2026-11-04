@@ -239,6 +239,7 @@ int main(int argc, char** argv)
     gameMemory.inputSpecification = &inputSpecification;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
+    gameMemory.platformAPI.network = constructPlatformNetwork();
     gameMemory.platformAPI.allocator = constructPlatformAllocator();
     gameCode.Load(gameMemory, editor, false);
     gameCode.Initialize(gameMemory, mapName, editor);

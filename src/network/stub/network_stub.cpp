@@ -1,21 +1,29 @@
 // Used when SKL_ENABLE_WEBRTC is off. Nothing is ever connected, so no input
-// can be sent or received.
+// can be sent or received, and each scheme simply applies to a player in order.
 #include <network_game.h>
-#include <network_mode.h>
 
-void SetNetworkMode(NetworkMode mode) {}
+#include <algorithm>
 
-u64 GetLocalPlayerIdx() {
-    return 0;
+#include <skl_debug.h>
+
+void SyncConnection(InputSpecification* specification, std::vector<GatheringScheme> schemes, std::vector<PlayerId> playerIds) {
+    TRY_LOG_RETURN(specification, "SyncConnection needs an input specification");
+    u64 count = std::min(schemes.size(), playerIds.size());
+    for (u64 i = 0; i < count; i++) {
+        for (const auto& [inputId, info] : schemes[i].buttons) {
+            specification->AddButtonGatheringSpec(playerIds[i], inputId, info);
+        }
+        for (const auto& [inputId, info] : schemes[i].inputs2d) {
+            specification->AddInput2dGatheringSpec(playerIds[i], inputId, info);
+        }
+    }
 }
 
-PlayerId SyncConnection(std::vector<PlayerId> playerIds) {
-    return 0;
+bool IsConnected() {
+    return false;
 }
 
-void SetInputSpecification(InputSpecification specification) {}
-
-bool SendInput(PlayerData input) {
+bool SendInput(std::span<const PlayerData> inputs) {
     return false;
 }
 

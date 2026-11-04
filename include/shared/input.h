@@ -5,6 +5,7 @@
 #include <bitset>
 #include <cstring>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <string>
 #include <span>
@@ -55,6 +56,8 @@ inline ButtonGatherTypeInfo MouseClickGather(u8 mouseClickIdx) {
     info.m_type = ButtonGatherType::MouseClick;
     return info;
 }
+// How a device gathers an input, with the player left to be decided.
+using ButtonGatherPair = std::pair<InputId, ButtonGatherTypeInfo>;
 struct ButtonGatherSpecification  {
     u8 m_playerIdx{ 0 };
     u8 m_buttonIdx{ 0 };
@@ -73,6 +76,7 @@ enum class Input2dGatherType : u8 {
     MouseDelta,
     Count
 };
+using Input2dGatherPair = std::pair<InputId, Input2dGatherType>;
 struct Input2dGatherSpecification {
     u8 m_playerIdx{ 0 };
     u8 m_buttonIdx{ 0 };
@@ -135,7 +139,7 @@ private:
     std::array<Input2dSpecification, MaxInput2dTypeCount> m_input2Specs{ };
 
     // Specifies how to move input to players
-    // and how inputs are locally gathered
+    // and how inputs are gathered
     std::array<GatherRange, (size_t)ButtonGatherType::Count> m_buttonGatherRanges;
     std::array<GatherRange, (size_t)Input2dGatherType::Count> m_input2dGatherRanges;
 
@@ -181,6 +185,10 @@ public:
     const u64 GetPlayerCount(PlayerId playerId) const;
     const std::span<const ButtonGatherSpecification> GetButtonGatherSpecification(ButtonGatherType type) const;
     const std::span<const Input2dGatherSpecification> GetInput2dGatherSpecification(Input2dGatherType type) const;
+
+    // Text that's equal only if two specifications interpret input the same.
+    // Gathering isn't part of it, as how input is gathered can differ per device.
+    std::string GetSignature() const;
 
     // Returns amount read/wrote bytes
     u32 WriteBuffer(std::byte* buffer, const PlayerData& input) const;

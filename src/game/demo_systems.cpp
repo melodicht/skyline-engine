@@ -94,7 +94,7 @@ COMPONENTS_ON_UPDATE_MEM(PongMovement2DSystem, const PlayerInput &input, PongMov
         transform.SetLocalPosition(pos);
     }
 }
-COMPONENTS_ON_UPDATE_MEM(PongBall2DSystem, EntityID entityId, PongBall2D ball, CollisionBox2D box, Transform3D transform, float deltaTime)
+COMPONENTS_ON_UPDATE_MEM(PongBall2DSystem, Scene &scene, PongBall2D &ball, CollisionBox2D &box, Transform3D &transform, f32 deltaTime)
 {
     glm::vec3 pos = transform.GetLocalPosition();
     
@@ -121,6 +121,7 @@ COMPONENTS_ON_UPDATE_MEM(PongBall2DSystem, EntityID entityId, PongBall2D ball, C
     // position avoids stale collision tags and catches fast crossings.
     const float halfWidth = std::abs(transform.GetLocalScale().x * box.relativeWidth) * 0.5f;
     const float halfHeight = std::abs(transform.GetLocalScale().y * box.relativeHeight) * 0.5f;
+    
     for (auto [paddle, pongMovement2D, collisionBox2D, transform3D] : SceneView<PongMovement2D, CollisionBox2D, Transform3D>(scene)) {
         const glm::vec4 bounds = getBounds(&collisionBox2D, &transform3D);
         const bool movingLeft = ball.xVel < 0.0f;

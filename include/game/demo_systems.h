@@ -31,7 +31,7 @@ class PongBall2DSystem : public System
 {
 public:
     PongBall2DSystem();
-    SYSTEM_ON_UPDATE(Scene &scene, f32 deltaTime);
+    COMPONENTS_ON_UPDATE(Scene &scene, PongBall2D &ball, CollisionBox2D &box, Transform3D &transform, f32 deltaTime);
 };
 
 class FightBall2DSystem : public System

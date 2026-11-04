@@ -289,18 +289,11 @@ typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
 // Asking for const PlayerInput& limits the update to entities with a PlayerComponent,
 // and supplies the input of that entity's player.
 #define COMPONENTS_ON_UPDATE(...) \
-    void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
-    { \
-        using Arguments = ExtractComponentSceneView<void(__VA_ARGS__)>; \
-        Arguments::run(SYSTEM_VTABLE_ON_UPDATE_PASS, [&](auto &&...values) \
-        { \
-            OnUpdateIterate(std::forward<decltype(values)>(values)...); \
-        }); \
-    } \
+    void OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS); \
     void OnUpdateIterate(__VA_ARGS__)
 
+// Defines everything declared by COMPONENTS_ON_UPDATE. Followed by the body.
 #define COMPONENTS_ON_UPDATE_MEM(Class, ...) \
-    void OnUpdateIterate(__VA_ARGS__); \
     void Class::OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
     { \
         using Arguments = ExtractComponentSceneView<void(__VA_ARGS__)>; \
@@ -309,7 +302,7 @@ typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
             OnUpdateIterate(std::forward<decltype(values)>(values)...); \
         }); \
     } \
-    void OnUpdateIterate(__VA_ARGS__)
+    void Class::OnUpdateIterate(__VA_ARGS__)
 
 #define SYSTEM_SUPER(T) System(SystemTypeToIndex()[std::type_index(typeid(T))])
 

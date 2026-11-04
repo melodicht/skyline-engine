@@ -7,6 +7,7 @@
 // Library callbacks run on other threads, so they only append to an inbox.
 // The input queues are only touched on the calling thread.
 #include <chrono>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -33,7 +34,9 @@ constexpr const char* InputChannelLabel = "input";
 
 // Signaling messages are text, with fields separated by newlines. The last
 // field takes up the remainder of the message, as SDP spans multiple lines.
+constexpr const char* SignalClaim = "claim";
 constexpr const char* SignalPlayer = "player";
+constexpr const char* SignalRejected = "rejected";
 constexpr const char* SignalDescription = "sdp";
 constexpr const char* SignalCandidate = "candidate";
 constexpr const char* SignalStart = "start";
@@ -42,6 +45,8 @@ struct Peer {
     std::shared_ptr<rtc::WebSocket> signaling;
     std::shared_ptr<rtc::PeerConnection> connection;
     std::shared_ptr<rtc::DataChannel> channel;
+    // Server only. The players that this client sends input for.
+    std::vector<u64> playerIdxs;
 };
 
 struct InboxMessage {
@@ -51,10 +56,13 @@ struct InboxMessage {
 
 struct NetworkState {
     NetworkMode mode{ NetworkMode::Server };
-    std::optional<InputSpecification> specification;
-    // Layers are ordered the same as this, so it must match across devices.
+    // Owned by the platform.
+    InputSpecification* specification{ nullptr };
+    // Every player a frame needs input from. Layers are ordered the same as
+    // this, so it must match across devices.
     std::vector<PlayerId> playerIds;
-    u64 localPlayerIdx{ 0 };
+    // Indices within playerIds of the players on this device.
+    std::vector<u64> localPlayerIdxs;
     u64 playerCount{ 0 };
     u32 wireSize{ 0 };
     bool synced{ false };
@@ -69,13 +77,24 @@ struct NetworkState {
 
     // Guards everything below, which is accessed by library callbacks.
     std::mutex mutex;
-    // Server: indexed by player. Index 0 is the server, which goes unused.
+    // Server: one per client. Index 0 is the server, which goes unused.
     // Client: only index 0 is used, which is the connection to the server.
     std::vector<Peer> peers;
     std::vector<InboxMessage> inbox;
-    u64 nextClientIdx{ 1 };
+    // Server only. Keeps sockets alive until the client says what it wants.
+    std::vector<std::shared_ptr<rtc::WebSocket>> pendingSignaling;
+    u64 nextPeerIdx{ 1 };
+    u64 nextPlayerIdx{ 0 };
+    // Client only. How many players to claim from the server.
+    u64 claimCount{ 0 };
+    // Client only. Sockets of earlier attempts can still report events, which must be ignored.
+    u64 connectAttempt{ 0 };
+    // What devices must agree on. A client that doesn't match the server is rejected.
+    std::string signature;
+    bool rejected{ false };
     bool started{ false };
     bool signalingLost{ false };
+    // Client only. Claimed players are consecutive, starting from this one.
     std::optional<u64> assignedPlayerIdx;
 };
 
@@ -83,12 +102,6 @@ struct NetworkState {
 NetworkState& State() {
     static NetworkState* state = new NetworkState();
     return *state;
-}
-
-// Input can only flow once connected and knowing how to read it.
-bool IsReady() {
-    NetworkState& state = State();
-    return state.synced && state.specification.has_value();
 }
 
 void SleepMilliseconds(u32 milliseconds) {
@@ -177,9 +190,9 @@ void SendCompleteLayers() {
         }
 
         std::lock_guard lock(state.mutex);
-        for (u64 peerIdx = 1; peerIdx < state.peers.size(); peerIdx++) {
+        for (u64 peerIdx = 1; peerIdx < state.nextPeerIdx; peerIdx++) {
             if (!state.peers[peerIdx].channel->send(layer.data(), layer.size())) {
-                LOG_ERROR("Failed to send input layer to player " << peerIdx);
+                LOG_ERROR("Failed to send input layer to client " << peerIdx);
             }
         }
     }
@@ -195,24 +208,18 @@ void DrainInbox() {
     }
 
     for (const InboxMessage& message : messages) {
-        // Clients send a single player's input, whereas the server sends a whole layer.
-        u64 expectedSize = state.mode == NetworkMode::Server ? state.wireSize : state.wireSize * state.playerCount;
-        if (message.data.size() != expectedSize) {
+        // Clients send the input of their own players, whereas the server sends a whole layer.
+        const std::vector<u64>* serverPlayerIdxs = state.mode == NetworkMode::Server ? &state.peers[message.senderIdx].playerIdxs : nullptr;
+        u64 expectedPlayers = serverPlayerIdxs ? serverPlayerIdxs->size() : state.playerCount;
+        if (message.data.size() != state.wireSize * expectedPlayers) {
             LOG_ERROR("Dropped input message of unexpected size " << message.data.size());
             continue;
         }
 
-        if (state.mode == NetworkMode::Server) {
+        for (u64 i = 0; i < expectedPlayers; i++) {
             PlayerData input{ };
-            state.specification->ReadBuffer(message.data.data(), input);
-            ReceiveFromPlayer(message.senderIdx, input);
-        }
-        else {
-            for (u64 playerIdx = 0; playerIdx < state.playerCount; playerIdx++) {
-                PlayerData input{ };
-                state.specification->ReadBuffer(message.data.data() + playerIdx * state.wireSize, input);
-                ReceiveFromPlayer(playerIdx, input);
-            }
+            state.specification->ReadBuffer(message.data.data() + i * state.wireSize, input);
+            ReceiveFromPlayer(serverPlayerIdxs ? (*serverPlayerIdxs)[i] : i, input);
         }
     }
 
@@ -222,56 +229,87 @@ void DrainInbox() {
 }
 
 #if !EMSCRIPTEN
-// Server only. Called once the signaling socket of a client is usable.
-void BeginClientHandshake(u64 playerIdx, std::shared_ptr<rtc::WebSocket> signaling) {
+// Kept for the lifetime of the program, like the rest of the state.
+rtc::WebSocketServer* signalingServer = nullptr;
+
+// Only one device can bind the port, so this is what decides who the server is.
+bool TryHostSignaling() {
+    rtc::WebSocketServerConfiguration config;
+    config.port = SignalingPort;
+    config.bindAddress = SignalingAddress;
+    try {
+        signalingServer = new rtc::WebSocketServer(config);
+        return true;
+    }
+    catch (const std::exception&) {
+        return false;
+    }
+}
+
+// Server only. Gives a client the players it asked for. Returns its peer, if there's room.
+std::optional<u64> AcceptClaim(u64 count, const std::string& signature, std::shared_ptr<rtc::WebSocket> signaling) {
     NetworkState& state = State();
     std::lock_guard lock(state.mutex);
-    Peer& peer = state.peers[playerIdx];
+    if (signature != state.signature) {
+        LOG_ERROR("Rejected a client, as its input specification or players differ. Expected ["
+            << state.signature << "] but got [" << signature << "]");
+        signaling->send(std::string(SignalRejected));
+        return std::nullopt;
+    }
+    if (count == 0 || state.nextPlayerIdx + count > state.playerCount) {
+        LOG_ERROR("Rejected a client claiming " << count << " players, as there isn't enough left");
+        signaling->close();
+        return std::nullopt;
+    }
+
+    u64 peerIdx = state.nextPeerIdx++;
+    u64 firstPlayerIdx = state.nextPlayerIdx;
+    state.nextPlayerIdx += count;
+
+    Peer& peer = state.peers[peerIdx];
+    for (u64 i = 0; i < count; i++) {
+        peer.playerIdxs.push_back(firstPlayerIdx + i);
+    }
+    peer.signaling = signaling;
     peer.connection = CreateConnection(signaling);
     // Creating the channel is what produces the offer, so handlers have to be set by now.
     peer.channel = peer.connection->createDataChannel(InputChannelLabel);
-    peer.channel->onMessage([playerIdx](rtc::message_variant message) {
-        AddToInbox(playerIdx, std::move(message));
+    peer.channel->onMessage([peerIdx](rtc::message_variant message) {
+        AddToInbox(peerIdx, std::move(message));
     });
-    signaling->send(std::string(SignalPlayer) + "\n" + std::to_string(playerIdx));
+    signaling->send(std::string(SignalPlayer) + "\n" + std::to_string(firstPlayerIdx));
+    return peerIdx;
 }
 
 void SyncAsServer() {
     NetworkState& state = State();
-    u64 clientCount = state.playerCount - 1;
-    if (clientCount == 0) return;
+    if (state.nextPlayerIdx == state.playerCount) return;
 
-    rtc::WebSocketServerConfiguration config;
-    config.port = SignalingPort;
-    config.bindAddress = SignalingAddress;
-    // Kept for the lifetime of the program, like the rest of the state.
-    static rtc::WebSocketServer* server = new rtc::WebSocketServer(config);
-    server->onClient([](std::shared_ptr<rtc::WebSocket> signaling) {
+    signalingServer->onClient([](std::shared_ptr<rtc::WebSocket> signaling) {
         NetworkState& state = State();
-        u64 playerIdx;
         {
             std::lock_guard lock(state.mutex);
-            if (state.nextClientIdx >= state.playerCount) {
-                LOG_ERROR("Rejected a connection, as all players are already connected");
-                signaling->close();
-                return;
-            }
-            playerIdx = state.nextClientIdx++;
-            state.peers[playerIdx].signaling = signaling;
+            state.pendingSignaling.push_back(signaling);
         }
 
         std::weak_ptr<rtc::WebSocket> weakSignaling = signaling;
-        signaling->onOpen([playerIdx, weakSignaling]() {
-            if (auto socket = weakSignaling.lock()) BeginClientHandshake(playerIdx, socket);
-        });
-        signaling->onMessage([playerIdx](rtc::message_variant data) {
+        auto peerIdx = std::make_shared<std::optional<u64>>();
+        signaling->onMessage([peerIdx, weakSignaling](rtc::message_variant data) {
             if (!std::holds_alternative<std::string>(data)) return;
             std::string message = std::move(std::get<std::string>(data));
             std::string type = TakeField(message);
+            if (type == SignalClaim) {
+                u64 count = std::stoull(TakeField(message));
+                if (auto socket = weakSignaling.lock()) *peerIdx = AcceptClaim(count, message, socket);
+                return;
+            }
+            if (!peerIdx->has_value()) return;
+
             NetworkState& state = State();
             std::lock_guard lock(state.mutex);
-            if (state.peers[playerIdx].connection) {
-                ApplyRemoteSignal(*state.peers[playerIdx].connection, type, message);
+            Peer& peer = state.peers[**peerIdx];
+            if (peer.connection) {
+                ApplyRemoteSignal(*peer.connection, type, message);
             }
         });
     });
@@ -279,13 +317,13 @@ void SyncAsServer() {
     while (true) {
         {
             std::lock_guard lock(state.mutex);
-            bool allOpen = true;
-            for (u64 peerIdx = 1; peerIdx < state.peers.size(); peerIdx++) {
+            bool allOpen = state.nextPlayerIdx == state.playerCount;
+            for (u64 peerIdx = 1; peerIdx < state.nextPeerIdx; peerIdx++) {
                 const Peer& peer = state.peers[peerIdx];
                 allOpen = allOpen && peer.channel && peer.channel->isOpen();
             }
             if (allOpen) {
-                for (u64 peerIdx = 1; peerIdx < state.peers.size(); peerIdx++) {
+                for (u64 peerIdx = 1; peerIdx < state.nextPeerIdx; peerIdx++) {
                     state.peers[peerIdx].signaling->send(std::string(SignalStart));
                 }
                 return;
@@ -305,24 +343,34 @@ void BeginConnectingToServer() {
     server.connection.reset();
     server.signaling = std::make_shared<rtc::WebSocket>();
     state.signalingLost = false;
+    u64 attempt = ++state.connectAttempt;
 
-    auto markLost = []() {
+    auto markLost = [attempt]() {
         NetworkState& state = State();
         std::lock_guard lock(state.mutex);
-        state.signalingLost = true;
+        if (attempt == state.connectAttempt) state.signalingLost = true;
     };
+    std::weak_ptr<rtc::WebSocket> weakSignaling = server.signaling;
+    std::string claim = std::string(SignalClaim) + "\n" + std::to_string(state.claimCount) + "\n" + state.signature;
+    server.signaling->onOpen([weakSignaling, claim]() {
+        if (auto socket = weakSignaling.lock()) socket->send(claim);
+    });
     server.signaling->onClosed(markLost);
     server.signaling->onError([markLost](std::string error) { markLost(); });
-    server.signaling->onMessage([](rtc::message_variant data) {
+    server.signaling->onMessage([attempt](rtc::message_variant data) {
         if (!std::holds_alternative<std::string>(data)) return;
         std::string message = std::move(std::get<std::string>(data));
         std::string type = TakeField(message);
 
         NetworkState& state = State();
         std::lock_guard lock(state.mutex);
+        if (attempt != state.connectAttempt) return;
         Peer& server = state.peers[0];
         if (type == SignalPlayer) {
             state.assignedPlayerIdx = std::stoull(message);
+        }
+        else if (type == SignalRejected) {
+            state.rejected = true;
         }
         else if (type == SignalStart) {
             state.started = true;
@@ -345,7 +393,8 @@ void BeginConnectingToServer() {
     server.signaling->open(SignalingUrl);
 }
 
-void SyncAsClient() {
+// Returns whether the server accepted this device.
+bool SyncAsClient() {
     NetworkState& state = State();
     BeginConnectingToServer();
 
@@ -353,10 +402,13 @@ void SyncAsClient() {
         bool retry = false;
         {
             std::lock_guard lock(state.mutex);
+            if (state.rejected) return false;
             const Peer& server = state.peers[0];
             if (state.started && state.assignedPlayerIdx && server.channel && server.channel->isOpen()) {
-                state.localPlayerIdx = *state.assignedPlayerIdx;
-                return;
+                for (u64 i = 0; i < state.claimCount; i++) {
+                    state.localPlayerIdxs.push_back(*state.assignedPlayerIdx + i);
+                }
+                return true;
             }
             // The server may simply not be up yet.
             retry = state.signalingLost && !state.started;
@@ -371,26 +423,22 @@ void SyncAsClient() {
 
 } // namespace
 
-void SetNetworkMode(NetworkMode mode) {
-    State().mode = mode;
-}
-
-u64 GetLocalPlayerIdx() {
-    return State().localPlayerIdx;
-}
-
-void SetInputSpecification(InputSpecification specification) {
+void SyncConnection(InputSpecification* specification, std::vector<GatheringScheme> schemes, std::vector<PlayerId> playerIds) {
     NetworkState& state = State();
+    if (state.synced) return;
+    TRY_LOG_RETURN(specification, "SyncConnection needs an input specification");
+    TRY_LOG_RETURN(!schemes.empty(), "SyncConnection needs at least one scheme");
+    TRY_LOG_RETURN(schemes.size() <= playerIds.size(), "SyncConnection given more schemes than players");
+
     PlayerData empty{ };
     std::array<std::byte, MaxBufferSize> buffer;
-    state.wireSize = specification.WriteBuffer(buffer.data(), empty);
-    state.specification.emplace(std::move(specification));
-}
+    state.wireSize = specification->WriteBuffer(buffer.data(), empty);
+    state.specification = specification;
 
-PlayerId SyncConnection(std::vector<PlayerId> playerIds) {
-    NetworkState& state = State();
-    if (state.synced) return state.playerIds[state.localPlayerIdx];
-    TRY_LOG_RETURN(!playerIds.empty(), "SyncConnection needs at least one player", 0);
+    state.signature = specification->GetSignature() + " synced";
+    for (PlayerId playerId : playerIds) {
+        state.signature += " " + std::to_string(playerId);
+    }
 
     state.playerIds = std::move(playerIds);
     state.playerCount = state.playerIds.size();
@@ -398,47 +446,84 @@ PlayerId SyncConnection(std::vector<PlayerId> playerIds) {
     state.lastButtonsDown.assign(state.playerCount, { });
     state.unsent.assign(state.playerCount, { });
 
-    if (state.mode == NetworkMode::Server) {
-#if EMSCRIPTEN
-        // Browsers cannot listen for incoming connections.
-        FAULT_LOG("Web builds can only connect as a client");
-        return 0;
-#else
-        state.peers.resize(state.playerCount);
+    // If this device has every player, there is nobody to connect to and no port is needed.
+    bool isServer = schemes.size() == state.playerCount;
+#if !EMSCRIPTEN
+    // Browsers cannot listen for incoming connections, so are always clients.
+    isServer = isServer || TryHostSignaling();
+#endif
+    state.mode = isServer ? NetworkMode::Server : NetworkMode::Client;
+
+    if (isServer) {
+        // Each client has at least one player, so this is the most there can be.
+        state.peers.resize(state.playerCount + 1);
+        for (u64 i = 0; i < schemes.size(); i++) {
+            state.localPlayerIdxs.push_back(i);
+        }
+        state.nextPlayerIdx = schemes.size();
+#if !EMSCRIPTEN
         SyncAsServer();
 #endif
     }
     else {
         state.peers.resize(1);
-        SyncAsClient();
-        TRY_LOG_RETURN(state.localPlayerIdx < state.playerCount, "Server assigned a player this device doesn't know of", 0);
+        state.claimCount = schemes.size();
+        if (!SyncAsClient()) {
+            // An expected outcome rather than a bug here, so this shouldn't break into the debugger.
+            LOG_ERROR("Server rejected this device, as its input specification or players differ");
+            return;
+        }
+        TRY_LOG_RETURN(state.localPlayerIdxs.back() < state.playerCount, "Server assigned a player this device doesn't know of");
     }
     state.synced = true;
-    return state.playerIds[state.localPlayerIdx];
+
+    for (u64 i = 0; i < schemes.size(); i++) {
+        PlayerId playerId = state.playerIds[state.localPlayerIdxs[i]];
+        for (const auto& [inputId, info] : schemes[i].buttons) {
+            state.specification->AddButtonGatheringSpec(playerId, inputId, info);
+        }
+        for (const auto& [inputId, info] : schemes[i].inputs2d) {
+            state.specification->AddInput2dGatheringSpec(playerId, inputId, info);
+        }
+    }
 }
 
-bool SendInput(PlayerData input) {
+bool IsConnected() {
+    return State().synced;
+}
+
+bool SendInput(std::span<const PlayerData> inputs) {
     NetworkState& state = State();
-    if (!IsReady()) return false;
+    if (!state.synced) return false;
 
     DrainInbox();
+    rtc::binary message(state.wireSize * state.localPlayerIdxs.size());
+    for (u64 i = 0; i < state.localPlayerIdxs.size(); i++) {
+        u64 playerIdx = state.localPlayerIdxs[i];
+        u64 inputIdx = state.specification->GetPlayerIdx(state.playerIds[playerIdx]);
+        TRY_LOG_RETURN(inputIdx < inputs.size(), "Not given the input of every player", false);
+        if (state.mode == NetworkMode::Server) {
+            ReceiveFromPlayer(playerIdx, inputs[inputIdx]);
+        }
+        else {
+            state.specification->WriteBuffer(message.data() + i * state.wireSize, inputs[inputIdx]);
+        }
+    }
+
     if (state.mode == NetworkMode::Server) {
-        ReceiveFromPlayer(state.localPlayerIdx, input);
         SendCompleteLayers();
         return true;
     }
 
-    // Not added to the local queue, as it comes back as part of a whole layer.
-    std::array<std::byte, MaxBufferSize> buffer;
-    u32 size = state.specification->WriteBuffer(buffer.data(), input);
+    // Not added to the local queues, as it comes back as part of a whole layer.
     std::lock_guard lock(state.mutex);
     const auto& channel = state.peers[0].channel;
-    return channel && channel->isOpen() && channel->send(buffer.data(), size);
+    return channel && channel->isOpen() && channel->send(message.data(), message.size());
 }
 
 std::vector<PlayerData> GetInputs() {
     NetworkState& state = State();
-    if (!IsReady()) return { };
+    if (!state.synced) return { };
 
     DrainInbox();
     for (const auto& input : state.inputs) {

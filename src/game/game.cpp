@@ -18,8 +18,16 @@
 #include <physics.h>
 #include <utils.h>
 
+// Whether the loaded map is a game mode played against others over the network.
+local b32 NeedsConnection(Scene &scene)
+{
+    SceneView<PongMovement2D> pong(scene);
+    SceneView<Fighter2D> fighters(scene);
+    return pong.begin() != pong.end() || fighters.begin() != fighters.end();
+}
+
 // Player IDs are handed out in order, so these are playerId 1 and 2 in the maps.
-local void AddPlayers(GameMemory* gameMemory)
+local void AddPlayers(GameState* gameState, GameMemory* gameMemory)
 {
     InputSpecification &specification = *gameMemory->inputSpecification;
     AddMovementInputSpecs(specification);
@@ -32,23 +40,42 @@ local void AddPlayers(GameMemory* gameMemory)
     specification.AddButtonSpec(InputReset);
 
     PlayerId player1 = AddInputPlayer(*gameMemory);
-    AddMovementGathering(specification, player1);
-    specification.AddButtonGatheringSpec(player1, InputPaddleUp, KeyboardGather(SDLK_W));
-    specification.AddButtonGatheringSpec(player1, InputPaddleDown, KeyboardGather(SDLK_S));
-    specification.AddButtonGatheringSpec(player1, InputFighterLeft, KeyboardGather(SDLK_A));
-    specification.AddButtonGatheringSpec(player1, InputFighterRight, KeyboardGather(SDLK_D));
-    specification.AddButtonGatheringSpec(player1, InputFighterAttack, KeyboardGather(SDLK_W));
-    specification.AddButtonGatheringSpec(player1, InputFighterDash, KeyboardGather(SDLK_S));
-    specification.AddButtonGatheringSpec(player1, InputReset, KeyboardGather(SDLK_R));
-
     PlayerId player2 = AddInputPlayer(*gameMemory);
-    specification.AddButtonGatheringSpec(player2, InputPaddleUp, KeyboardGather(SDLK_I));
-    specification.AddButtonGatheringSpec(player2, InputPaddleDown, KeyboardGather(SDLK_K));
-    specification.AddButtonGatheringSpec(player2, InputFighterLeft, KeyboardGather(SDLK_J));
-    specification.AddButtonGatheringSpec(player2, InputFighterRight, KeyboardGather(SDLK_L));
-    specification.AddButtonGatheringSpec(player2, InputFighterAttack, KeyboardGather(SDLK_I));
-    specification.AddButtonGatheringSpec(player2, InputFighterDash, KeyboardGather(SDLK_K));
-    specification.AddButtonGatheringSpec(player2, InputReset, KeyboardGather(SDLK_R));
+
+    // This device plays one player, with the same scheme as any other device.
+    GatheringScheme scheme{
+        .buttons = {
+            {InputMoveForward, KeyboardGather(SDLK_W)},
+            {InputMoveBack, KeyboardGather(SDLK_S)},
+            {InputMoveLeft, KeyboardGather(SDLK_A)},
+            {InputMoveRight, KeyboardGather(SDLK_D)},
+            {InputPaddleUp, KeyboardGather(SDLK_W)},
+            {InputPaddleDown, KeyboardGather(SDLK_S)},
+            {InputFighterLeft, KeyboardGather(SDLK_A)},
+            {InputFighterRight, KeyboardGather(SDLK_D)},
+            {InputFighterAttack, KeyboardGather(SDLK_W)},
+            {InputFighterDash, KeyboardGather(SDLK_S)},
+            {InputReset, KeyboardGather(SDLK_R)},
+        },
+        .inputs2d = {
+            {InputLook, Input2dGatherType::MouseDelta},
+        },
+    };
+    if (NeedsConnection(gameState->scene))
+    {
+        network.SyncConnection(&specification, { scheme }, { player1, player2 });
+    }
+    else
+    {
+        for (const auto& [inputId, info] : scheme.buttons)
+        {
+            specification.AddButtonGatheringSpec(player1, inputId, info);
+        }
+        for (const auto& [inputId, info] : scheme.inputs2d)
+        {
+            specification.AddInput2dGatheringSpec(player1, inputId, info);
+        }
+    }
 }
 
 void OnGameStart(GameState* gameState, GameMemory* gameMemory)
@@ -56,7 +83,7 @@ void OnGameStart(GameState* gameState, GameMemory* gameMemory)
     Scene &scene = gameState->scene;
     b32 slowStep = false;
 
-    AddPlayers(gameMemory);
+    AddPlayers(gameState, gameMemory);
 
     scene.CreateFixedTimestepSystem<FlyingMovementSystem>();
     scene.CreateFixedTimestepSystem<HorizontalLookSystem>();
