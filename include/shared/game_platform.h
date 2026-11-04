@@ -7,7 +7,7 @@
 #include <asset_types.h>
 #include <input.h>
 #include <render_game.h>
-
+#include <network_game.h>
 /**
  * This file represents platform logic that is exported to the game.
  */
@@ -34,6 +34,7 @@ struct PlatformAPI
 {
     PlatformAssetUtils assetUtils;
     PlatformRenderer renderer;
+    PlatformNetwork network;
     PlatformAllocator allocator;
 };
 

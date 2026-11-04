@@ -5,7 +5,7 @@
 // A layer is the input of every player for a single frame.
 //
 // Library callbacks run on other threads, so they only append to an inbox.
-// The queues handed to the game are only touched on the calling thread.
+// The input queues are only touched on the calling thread.
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -21,7 +21,7 @@
 #include <emscripten.h>
 #endif
 
-#include <input.h>
+#include <network_game.h>
 #include <network_mode.h>
 
 namespace {
@@ -52,13 +52,15 @@ struct InboxMessage {
 struct NetworkState {
     NetworkMode mode{ NetworkMode::Server };
     std::optional<InputSpecification> specification;
+    // Layers are ordered the same as this, so it must match across devices.
+    std::vector<PlayerId> playerIds;
     u64 localPlayerIdx{ 0 };
     u64 playerCount{ 0 };
     u32 wireSize{ 0 };
     bool synced{ false };
 
-    // Indexed by player. Exposed to the game.
-    std::vector<std::queue<std::optional<PlayerData>>> inputs;
+    // Indexed by player. The front of each is the next layer given to the game.
+    std::vector<std::queue<PlayerData>> inputs;
     // Indexed by player. The buttons of the last input received, as they
     // aren't sent over the network.
     std::vector<std::bitset<MaxButtonTypeCount>> lastButtonsDown;
@@ -81,6 +83,12 @@ struct NetworkState {
 NetworkState& State() {
     static NetworkState* state = new NetworkState();
     return *state;
+}
+
+// Input can only flow once connected and knowing how to read it.
+bool IsReady() {
+    NetworkState& state = State();
+    return state.synced && state.specification.has_value();
 }
 
 void SleepMilliseconds(u32 milliseconds) {
@@ -373,26 +381,28 @@ u64 GetLocalPlayerIdx() {
 
 void SetInputSpecification(InputSpecification specification) {
     NetworkState& state = State();
-    state.playerCount = specification.GetPlayerCount(0);
     PlayerData empty{ };
     std::array<std::byte, MaxBufferSize> buffer;
     state.wireSize = specification.WriteBuffer(buffer.data(), empty);
     state.specification.emplace(std::move(specification));
+}
 
+PlayerId SyncConnection(std::vector<PlayerId> playerIds) {
+    NetworkState& state = State();
+    if (state.synced) return state.playerIds[state.localPlayerIdx];
+    TRY_LOG_RETURN(!playerIds.empty(), "SyncConnection needs at least one player", 0);
+
+    state.playerIds = std::move(playerIds);
+    state.playerCount = state.playerIds.size();
     state.inputs.assign(state.playerCount, { });
     state.lastButtonsDown.assign(state.playerCount, { });
     state.unsent.assign(state.playerCount, { });
-}
-
-void SyncConnection() {
-    NetworkState& state = State();
-    TRY_LOG_RETURN(state.specification.has_value(), "SetInputSpecification must be called before SyncConnection");
-    if (state.synced) return;
 
     if (state.mode == NetworkMode::Server) {
 #if EMSCRIPTEN
         // Browsers cannot listen for incoming connections.
         FAULT_LOG("Web builds can only connect as a client");
+        return 0;
 #else
         state.peers.resize(state.playerCount);
         SyncAsServer();
@@ -401,13 +411,15 @@ void SyncConnection() {
     else {
         state.peers.resize(1);
         SyncAsClient();
+        TRY_LOG_RETURN(state.localPlayerIdx < state.playerCount, "Server assigned a player this device doesn't know of", 0);
     }
     state.synced = true;
+    return state.playerIds[state.localPlayerIdx];
 }
 
 bool SendInput(PlayerData input) {
     NetworkState& state = State();
-    if (!state.synced) return false;
+    if (!IsReady()) return false;
 
     DrainInbox();
     if (state.mode == NetworkMode::Server) {
@@ -424,29 +436,20 @@ bool SendInput(PlayerData input) {
     return channel && channel->isOpen() && channel->send(buffer.data(), size);
 }
 
-const std::queue<std::optional<PlayerData>>& GetInputs(PlayerId playerId) {
-    static const std::queue<std::optional<PlayerData>> empty;
+std::vector<PlayerData> GetInputs() {
     NetworkState& state = State();
-    if (!state.specification.has_value()) return empty;
+    if (!IsReady()) return { };
 
     DrainInbox();
-    u64 playerIdx = state.specification->GetPlayerIdx(playerId);
-    TRY_LOG_RETURN(playerIdx < state.playerCount, "Unknown player id", empty);
-    return state.inputs[playerIdx];
-}
-
-bool PopInputs(int count) {
-    NetworkState& state = State();
-    if (count < 0 || !state.specification.has_value()) return false;
-
-    DrainInbox();
-    // Input is received in order and never skipped, so having enough
-    // entries for every player means all of those layers are complete.
     for (const auto& input : state.inputs) {
-        if (input.size() < (size_t)count) return false;
+        if (input.empty()) return { };
     }
+
+    std::vector<PlayerData> layer;
+    layer.reserve(state.playerCount);
     for (auto& input : state.inputs) {
-        for (int i = 0; i < count; i++) input.pop();
+        layer.push_back(input.front());
+        input.pop();
     }
-    return true;
+    return layer;
 }

@@ -15,7 +15,7 @@ enum class NetworkMode : u8 {
 // Must be called before SyncConnection.
 void SetNetworkMode(NetworkMode mode);
 
-// The index of the player this device sends input for, as given by
-// InputSpecification::GetPlayerIdx. The server is always 0, and clients are
-// given theirs during SyncConnection.
+// The index of the player this device sends input for, within the players
+// given to SyncConnection. The server is always 0, and clients are given
+// theirs during SyncConnection.
 u64 GetLocalPlayerIdx();

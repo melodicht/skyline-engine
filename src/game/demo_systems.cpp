@@ -94,52 +94,49 @@ COMPONENTS_ON_UPDATE_MEM(PongMovement2DSystem, const PlayerInput &input, PongMov
         transform.SetLocalPosition(pos);
     }
 }
-SYSTEM_ON_UPDATE_MEM(PongBall2DSystem, Scene &scene, f32 deltaTime)
+COMPONENTS_ON_UPDATE_MEM(PongBall2DSystem, EntityID entityId, PongBall2D ball, CollisionBox2D box, Transform3D transform, float deltaTime)
 {
-    for (auto [entityId, ball, box, transform] : SceneView<PongBall2D, CollisionBox2D, Transform3D>(scene))
-    {
-        glm::vec3 pos = transform.GetLocalPosition();
-        
-        const glm::vec3 previous = pos;
-        pos.x += ball.xVel * deltaTime;
-        pos.y += ball.yVel * deltaTime;
+    glm::vec3 pos = transform.GetLocalPosition();
+    
+    const glm::vec3 previous = pos;
+    pos.x += ball.xVel * deltaTime;
+    pos.y += ball.yVel * deltaTime;
 
-        // Missing a paddle starts a new rally at the center.
-        if (pos.x > ball.rightBound || pos.x < ball.leftBound) {
-            transform.SetLocalPosition({0.0f, 0.0f, pos.z});
-            ball.xVel = -ball.xVel;
-            continue;
-        }
-        if (pos.y > ball.upBound) {
-            pos.y = ball.upBound;
-            ball.yVel = -ball.yVel;
-        }
-        if (pos.y < ball.downBound) {
-            pos.y = ball.downBound;
-            ball.yVel = -ball.yVel;
-        }
-        
-        // Sweep across each paddle's inward face. Using the current paddle
-        // position avoids stale collision tags and catches fast crossings.
-        const float halfWidth = std::abs(transform.GetLocalScale().x * box.relativeWidth) * 0.5f;
-        const float halfHeight = std::abs(transform.GetLocalScale().y * box.relativeHeight) * 0.5f;
-        for (auto [paddle, pongMovement2D, collisionBox2D, transform3D] : SceneView<PongMovement2D, CollisionBox2D, Transform3D>(scene)) {
-            const glm::vec4 bounds = getBounds(&collisionBox2D, &transform3D);
-            const bool movingLeft = ball.xVel < 0.0f;
-            const float face = movingLeft ? bounds.z + halfWidth : bounds.x - halfWidth;
-            const bool crossed = movingLeft ? previous.x >= face && pos.x <= face
-                                            : previous.x <= face && pos.x >= face;
-            if (!crossed || pos.x == previous.x) continue;
-            const float fraction = (face - previous.x) / (pos.x - previous.x);
-            const float hitY = previous.y + (pos.y - previous.y) * fraction;
-            if (hitY + halfHeight < bounds.y || hitY - halfHeight > bounds.w) continue;
-            pos.x = face + (face - pos.x);
-            ball.xVel = -ball.xVel;
-            break;
-        }
-
-        transform.SetLocalPosition(pos);
+    // Missing a paddle starts a new rally at the center.
+    if (pos.x > ball.rightBound || pos.x < ball.leftBound) {
+        transform.SetLocalPosition({0.0f, 0.0f, pos.z});
+        ball.xVel = -ball.xVel;
+        return;
     }
+    if (pos.y > ball.upBound) {
+        pos.y = ball.upBound;
+        ball.yVel = -ball.yVel;
+    }
+    if (pos.y < ball.downBound) {
+        pos.y = ball.downBound;
+        ball.yVel = -ball.yVel;
+    }
+    
+    // Sweep across each paddle's inward face. Using the current paddle
+    // position avoids stale collision tags and catches fast crossings.
+    const float halfWidth = std::abs(transform.GetLocalScale().x * box.relativeWidth) * 0.5f;
+    const float halfHeight = std::abs(transform.GetLocalScale().y * box.relativeHeight) * 0.5f;
+    for (auto [paddle, pongMovement2D, collisionBox2D, transform3D] : SceneView<PongMovement2D, CollisionBox2D, Transform3D>(scene)) {
+        const glm::vec4 bounds = getBounds(&collisionBox2D, &transform3D);
+        const bool movingLeft = ball.xVel < 0.0f;
+        const float face = movingLeft ? bounds.z + halfWidth : bounds.x - halfWidth;
+        const bool crossed = movingLeft ? previous.x >= face && pos.x <= face
+                                        : previous.x <= face && pos.x >= face;
+        if (!crossed || pos.x == previous.x) continue;
+        const float fraction = (face - previous.x) / (pos.x - previous.x);
+        const float hitY = previous.y + (pos.y - previous.y) * fraction;
+        if (hitY + halfHeight < bounds.y || hitY - halfHeight > bounds.w) continue;
+        pos.x = face + (face - pos.x);
+        ball.xVel = -ball.xVel;
+        break;
+    }
+
+    transform.SetLocalPosition(pos);
 }
 
 SYSTEM_ON_UPDATE_MEM(FightBall2DSystem, Scene &scene, std::span<PlayerData> playerData, const InputSpecification &inputSpecification, f32 deltaTime)

@@ -300,7 +300,16 @@ typedef SYSTEM_VTABLE_ON_UPDATE(system_vtable_on_update_t);
     void OnUpdateIterate(__VA_ARGS__)
 
 #define COMPONENTS_ON_UPDATE_MEM(Class, ...) \
-    void Class::OnUpdateIterate(__VA_ARGS__)
+    void OnUpdateIterate(__VA_ARGS__); \
+    void Class::OnUpdate(SYSTEM_VTABLE_ON_UPDATE_PARAMS) \
+    { \
+        using Arguments = ExtractComponentSceneView<void(__VA_ARGS__)>; \
+        Arguments::run(SYSTEM_VTABLE_ON_UPDATE_PASS, [&](auto &&...values) \
+        { \
+            OnUpdateIterate(std::forward<decltype(values)>(values)...); \
+        }); \
+    } \
+    void OnUpdateIterate(__VA_ARGS__)
 
 #define SYSTEM_SUPER(T) System(SystemTypeToIndex()[std::type_index(typeid(T))])
 

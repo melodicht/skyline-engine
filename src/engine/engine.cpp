@@ -29,6 +29,7 @@ constexpr f32 FIXED_TIMESTEP_DELTA_TIME = 1.0f / 60.0f;
 
 PlatformAssetUtils assetUtils;
 PlatformRenderer renderer;
+PlatformNetwork network;
 PlatformAllocator allocator;
 
 std::queue<PlayerData> dataQueue;
@@ -138,6 +139,7 @@ GAME_LOAD(GameLoad)
 
     assetUtils = memory.platformAPI.assetUtils;
     renderer = memory.platformAPI.renderer;
+    network = memory.platformAPI.network;
     allocator = memory.platformAPI.allocator;
 
     #if SKL_INTERNAL
