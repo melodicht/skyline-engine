@@ -30,3 +30,7 @@ bool SendInput(std::span<const PlayerData> inputs) {
 std::vector<PlayerData> GetInputs() {
     return { };
 }
+
+int32_t GetCurrentFrame() {
+    return 0;
+}

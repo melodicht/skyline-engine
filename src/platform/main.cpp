@@ -193,6 +193,7 @@ int main(int argc, char** argv)
     std::string mapName = "start";
     bool editor = false;
     bool recordOnStart = false;
+    bool useNetwork = false;
 
     for (int i = 0; i < argc; i++)
     {
@@ -203,6 +204,10 @@ int main(int argc, char** argv)
         else if ((!strcmp(argv[i], "-map")) && ((++i) < argc))
         {
             mapName = argv[i];
+        }
+        else if (!strcmp(argv[i], "-network"))
+        {
+            useNetwork = true;
         }
         else if (!strcmp(argv[i], "-record-on-start"))
         {
@@ -235,6 +240,7 @@ int main(int argc, char** argv)
     gameMemory.debugState = globalDebugState;
 #endif
     gameMemory.imGuiContext = imGuiContext;
+    gameMemory.useNetwork = useNetwork;
     InputSpecification inputSpecification(0, 0, {}, {});
     gameMemory.inputSpecification = &inputSpecification;
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();

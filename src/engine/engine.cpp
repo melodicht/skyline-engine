@@ -213,9 +213,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     if (fixedTime >= FIXED_TIMESTEP_DELTA_TIME) {
         PROFILE_INPUT_POLLED();
-        // 0 if not connected, which runs off of local input.
-        const PlayerId localPlayerId = network.GetLocalPlayerId();
-        const b32 isNetworked = localPlayerId != 0;
+        // If not connected, simply runs off of the gathered input.
+        const b32 isNetworked = network.IsConnected();
         b32 consumedInput = false;
         while (fixedTime >= FIXED_TIMESTEP_DELTA_TIME)
         {
@@ -224,40 +223,43 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             std::span<PlayerData> stepInputs = fixedPlayerData;
             b32 runSystems = true;
             if (isNetworked)
-            {
-                if (gameState->networkCount < NETWORK_INPUT_READY_COUNT)
+            {   
+                // Prevents network from sending things too far ahead. What gets sent
+                // is consumed right away, so a retry can't send it again.
+                constexpr s32 delayCap = 5;
+                if (gameState->networkFramesSent - network.GetCurrentFrame() < delayCap)
                 {
-                    gameState->networkCount++;
-                    runSystems = false;
-                }
-                else
-                {
-                    networkInputs = network.GetInputs();
-                    if (networkInputs.empty())
+                    network.SendInput(stepInputs);
+                    gameState->networkFramesSent++;
+                    consumedInput = true;
+                    for (PlayerData& data : fixedPlayerData)
                     {
-                        // Others haven't caught up. This step is retried next frame, so
-                        // nothing is sent and the time and input stay accumulated.
-                        PROFILE_ZONE_END(fixedUpdateZone);
-                        break;
+                        PlayerInput(inputSpecification, data).AdvanceFixedStep();
                     }
-                    stepInputs = networkInputs;
                 }
 
-                u64 localPlayerIdx = inputSpecification.GetPlayerIdx(localPlayerId);
-                if (!network.SendInput(fixedPlayerData[localPlayerIdx]))
+                networkInputs = network.GetInputs();
+                if (networkInputs.empty())
                 {
-                    LOG_ERROR("Failed to send input");
+                    // Others haven't caught up. This step is retried next frame, so we defered
+                    // getting network inputs
+                    PROFILE_ZONE_END(fixedUpdateZone);
+                    break;
                 }
+                stepInputs = networkInputs;
             }
 
             if (runSystems)
             {
                 scene.UpdateFixedTimestepSystems(stepInputs, inputSpecification, FIXED_TIMESTEP_DELTA_TIME);
             }
-            consumedInput = true;
-            for (PlayerData& data : fixedPlayerData)
+            if (!isNetworked)
             {
-                PlayerInput(inputSpecification, data).AdvanceFixedStep();
+                consumedInput = true;
+                for (PlayerData& data : fixedPlayerData)
+                {
+                    PlayerInput(inputSpecification, data).AdvanceFixedStep();
+                }
             }
             fixedTime -= FIXED_TIMESTEP_DELTA_TIME;
             PROFILE_ZONE_END(fixedUpdateZone);

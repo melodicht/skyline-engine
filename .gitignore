@@ -430,3 +430,7 @@ build-release/*
 .DS_Store
 /cmake-build-debug-clang
 /cmake-build-release-clang
+
+# Local build script and its output
+/build.sh
+/build-mac

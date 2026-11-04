@@ -11,20 +11,15 @@ enum OverlayMode
     overlayMode_ecsEditor = 1,
     overlayMode_memory    = 2,
 };
-
-// Fixed timesteps spent only sending input before any is read from the network.
-// Runs from this up to NETWORK_INPUT_READY_COUNT.
-constexpr s32 NETWORK_START_COUNT = -5;
-constexpr s32 NETWORK_INPUT_READY_COUNT = 1;
-
 struct GameState
 {
     Scene scene;
 
     f32 accumulatedDelta{ 0 };
-    s32 networkCount{ NETWORK_START_COUNT };
     EntityID currentCamera = -1;
     b32 isEditor;
+    // How many frames of input have been sent over the network.
+    s32 networkFramesSent{ 0 };
 
     // TODO(marvin): Overlay mode is a shared between ecs editor and debug mode. Ideally in a different struct or compiled away for the actual game release. However, because ecs editor is part of game release, cannot be compiled away.
     // NOTE(marvin): In actual release, overlay mode should only be none, and is never checked.

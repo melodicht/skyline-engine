@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <input.h>
 
 // How a single player on this device gathers input.
@@ -22,6 +24,8 @@ struct GatheringScheme {
     /* Attempts to get gather inputs on future frames. */ \
     /* For now only shows when all inputs are available in a single frame */ \
     /* Empty if information simply is not here yet */ \
-    method(std::vector<PlayerData>,GetInputs,())
+    method(std::vector<PlayerData>,GetInputs,())\
+    /* The id of the last frame given out by GetInputs, starting from 0. Is 0 until then too */ \
+    method(int32_t,GetCurrentFrame,())
 
 DEFINE_GAME_MODULE_API(PlatformNetwork, NETWORK_FUNCS)

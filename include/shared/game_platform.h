@@ -52,6 +52,8 @@ struct GameMemory
     std::vector<PlayerData> playerData;
     // Input merged across frames until consumed by fixed timestep updates.
     std::vector<PlayerData> accumulatedPlayerData;
+    // Set by launching with -network. Otherwise every player is played on this device.
+    b32 useNetwork;
 
     // TODO(marvin): Does the imgui context really belong to game memory? Should it be part of the debug storage?
     ImGuiContext *imGuiContext;

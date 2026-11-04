@@ -65,6 +65,8 @@ struct NetworkState {
     std::vector<u64> localPlayerIdxs;
     u64 playerCount{ 0 };
     u32 wireSize{ 0 };
+    // How many frames have been given out by GetInputs.
+    int32_t framesGiven{ 0 };
     bool synced{ false };
 
     // Indexed by player. The front of each is the next layer given to the game.
@@ -536,5 +538,11 @@ std::vector<PlayerData> GetInputs() {
         layer.push_back(input.front());
         input.pop();
     }
+    state.framesGiven++;
     return layer;
+}
+
+int32_t GetCurrentFrame() {
+    NetworkState& state = State();
+    return state.framesGiven > 0 ? state.framesGiven - 1 : 0;
 }

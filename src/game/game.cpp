@@ -18,16 +18,36 @@
 #include <physics.h>
 #include <utils.h>
 
-// Whether the loaded map is a game mode played against others over the network.
-local b32 NeedsConnection(Scene &scene)
+// The controls of the demo game modes, for a single player.
+local GatheringScheme MakeDemoScheme(SDL_Keycode up, SDL_Keycode down, SDL_Keycode left, SDL_Keycode right)
 {
-    SceneView<PongMovement2D> pong(scene);
-    SceneView<Fighter2D> fighters(scene);
-    return pong.begin() != pong.end() || fighters.begin() != fighters.end();
+    return GatheringScheme{
+        .buttons = {
+            {InputPaddleUp, KeyboardGather(up)},
+            {InputPaddleDown, KeyboardGather(down)},
+            {InputFighterLeft, KeyboardGather(left)},
+            {InputFighterRight, KeyboardGather(right)},
+            {InputFighterAttack, KeyboardGather(up)},
+            {InputFighterDash, KeyboardGather(down)},
+            {InputReset, KeyboardGather(SDLK_R)},
+        },
+    };
+}
+
+local void ApplyScheme(InputSpecification &specification, PlayerId playerId, const GatheringScheme &scheme)
+{
+    for (const auto& [inputId, info] : scheme.buttons)
+    {
+        specification.AddButtonGatheringSpec(playerId, inputId, info);
+    }
+    for (const auto& [inputId, info] : scheme.inputs2d)
+    {
+        specification.AddInput2dGatheringSpec(playerId, inputId, info);
+    }
 }
 
 // Player IDs are handed out in order, so these are playerId 1 and 2 in the maps.
-local void AddPlayers(GameState* gameState, GameMemory* gameMemory)
+local void AddPlayers(GameMemory* gameMemory)
 {
     InputSpecification &specification = *gameMemory->inputSpecification;
     AddMovementInputSpecs(specification);
@@ -42,39 +62,25 @@ local void AddPlayers(GameState* gameState, GameMemory* gameMemory)
     PlayerId player1 = AddInputPlayer(*gameMemory);
     PlayerId player2 = AddInputPlayer(*gameMemory);
 
-    // This device plays one player, with the same scheme as any other device.
-    GatheringScheme scheme{
-        .buttons = {
+    if (gameMemory->useNetwork)
+    {
+        // This device plays one player, with the same scheme as any other device.
+        GatheringScheme scheme = MakeDemoScheme(SDLK_W, SDLK_S, SDLK_A, SDLK_D);
+        scheme.buttons.insert(scheme.buttons.end(), {
             {InputMoveForward, KeyboardGather(SDLK_W)},
             {InputMoveBack, KeyboardGather(SDLK_S)},
             {InputMoveLeft, KeyboardGather(SDLK_A)},
             {InputMoveRight, KeyboardGather(SDLK_D)},
-            {InputPaddleUp, KeyboardGather(SDLK_W)},
-            {InputPaddleDown, KeyboardGather(SDLK_S)},
-            {InputFighterLeft, KeyboardGather(SDLK_A)},
-            {InputFighterRight, KeyboardGather(SDLK_D)},
-            {InputFighterAttack, KeyboardGather(SDLK_W)},
-            {InputFighterDash, KeyboardGather(SDLK_S)},
-            {InputReset, KeyboardGather(SDLK_R)},
-        },
-        .inputs2d = {
-            {InputLook, Input2dGatherType::MouseDelta},
-        },
-    };
-    if (NeedsConnection(gameState->scene))
-    {
+        });
+        scheme.inputs2d.push_back({InputLook, Input2dGatherType::MouseDelta});
         network.SyncConnection(&specification, { scheme }, { player1, player2 });
     }
     else
     {
-        for (const auto& [inputId, info] : scheme.buttons)
-        {
-            specification.AddButtonGatheringSpec(player1, inputId, info);
-        }
-        for (const auto& [inputId, info] : scheme.inputs2d)
-        {
-            specification.AddInput2dGatheringSpec(player1, inputId, info);
-        }
+        // Both players share this keyboard.
+        AddMovementGathering(specification, player1);
+        ApplyScheme(specification, player1, MakeDemoScheme(SDLK_W, SDLK_S, SDLK_A, SDLK_D));
+        ApplyScheme(specification, player2, MakeDemoScheme(SDLK_I, SDLK_K, SDLK_J, SDLK_L));
     }
 }
 
@@ -83,7 +89,7 @@ void OnGameStart(GameState* gameState, GameMemory* gameMemory)
     Scene &scene = gameState->scene;
     b32 slowStep = false;
 
-    AddPlayers(gameState, gameMemory);
+    AddPlayers(gameMemory);
 
     scene.CreateFixedTimestepSystem<FlyingMovementSystem>();
     scene.CreateFixedTimestepSystem<HorizontalLookSystem>();
